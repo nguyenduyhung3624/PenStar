@@ -18,6 +18,8 @@ export type BookingItem = {
   extra_children_count?: number;
   room_type_id?: number;
   room_type_name?: string;
+  // Số tiền hoàn lại cho từng phòng (nếu có)
+  refund_amount?: number;
 };
 
 export interface BookingRoom {
@@ -66,6 +68,8 @@ export type Booking = {
   user_id?: number;
   is_refunded?: boolean;
   change_count?: number;
+  // Tổng số tiền hoàn lại cho booking (nếu có)
+  refund_amount?: number;
   // ...existing code...
   items: BookingItem[];
   services?: BookingService[];
@@ -100,6 +104,8 @@ export type BookingDetails = Booking & {
   checked_in_by_email?: string;
   checked_out_by_email?: string;
   canceled_by_email?: string;
+  // Tổng số tiền hoàn lại cho booking (nếu có)
+  refund_amount?: number;
 };
 
 export type BookingUpdatePayload = {
@@ -108,4 +114,5 @@ export type BookingUpdatePayload = {
   stay_status_id?: number;
   is_refunded?: boolean;
   notes?: string;
+  total_price?: number;
 };

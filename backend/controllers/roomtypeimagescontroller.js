@@ -13,13 +13,15 @@ import pool from "../db.js";
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadDir = path.join(process.cwd(), "uploads", "roomtypes");
+    // Luôn lưu vào uploads/room_types/
+    const uploadDir = path.join(process.cwd(), "uploads", "room_types");
     fs.mkdirSync(uploadDir, { recursive: true });
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
+    // Đặt tên file: {timestamp}_{random}.{ext}
     const ext = path.extname(file.originalname) || ".jpg";
-    const name = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+    const name = `${Date.now()}_${Math.round(Math.random() * 1e9)}${ext}`;
     cb(null, name);
   },
 });
@@ -109,35 +111,69 @@ export const uploadImageForRoomType = async (req, res) => {
   }
 
   const filename = req.file.filename;
-  const imageUrl = `/uploads/roomtypes/${filename}`;
-
+  const filePath = path.join(process.cwd(), "uploads", "room_types", filename);
+  const crypto = await import("crypto");
+  const fileBuffer = fs.readFileSync(filePath);
+  const fileHash = crypto.createHash("sha1").update(fileBuffer).digest("hex");
   const client = await pool.connect();
   try {
-    await client.query("BEGIN");
+    // Kiểm tra hash trên toàn bảng room_type_images
+    const checkRes = await client.query(
+      "SELECT * FROM room_type_images WHERE file_hash = $1",
+      [fileHash]
+    );
+    if (checkRes.rows.length > 0) {
+      // Đã có file vật lý, không lưu file mới, chỉ insert bản ghi DB trỏ tới file cũ
+      fs.unlinkSync(filePath);
+      const oldImage = checkRes.rows[0];
+      await client.query("BEGIN");
+      if (isThumbnail) {
+        await client.query(
+          "UPDATE room_type_images SET is_thumbnail = FALSE WHERE room_type_id = $1 AND is_thumbnail = TRUE",
+          [Number(roomTypeId)]
+        );
+      }
+      const result = await client.query(
+        "INSERT INTO room_type_images (room_type_id, image_url, is_thumbnail, file_hash) VALUES ($1, $2, $3, $4) RETURNING *",
+        [Number(roomTypeId), oldImage.image_url, isThumbnail, fileHash]
+      );
+      const newImage = result.rows[0];
+      if (isThumbnail) {
+        await client.query(
+          "UPDATE room_types SET thumbnail = $1 WHERE id = $2",
+          [oldImage.image_url, Number(roomTypeId)]
+        );
+      }
+      await client.query("COMMIT");
+      return res
+        .status(201)
+        .json({
+          success: true,
+          message: "Đã dùng lại file ảnh cũ.",
+          data: newImage,
+        });
+    }
 
-    // If this is a thumbnail, unset other thumbnails for this room type
+    // Nếu chưa có file vật lý, lưu file như bình thường
+    const imageUrl = `/uploads/room_types/${filename}`;
+    await client.query("BEGIN");
     if (isThumbnail) {
       await client.query(
         "UPDATE room_type_images SET is_thumbnail = FALSE WHERE room_type_id = $1 AND is_thumbnail = TRUE",
         [Number(roomTypeId)]
       );
     }
-
-    // Insert new image
     const result = await client.query(
-      "INSERT INTO room_type_images (room_type_id, image_url, is_thumbnail) VALUES ($1, $2, $3) RETURNING *",
-      [Number(roomTypeId), imageUrl, isThumbnail]
+      "INSERT INTO room_type_images (room_type_id, image_url, is_thumbnail, file_hash) VALUES ($1, $2, $3, $4) RETURNING *",
+      [Number(roomTypeId), imageUrl, isThumbnail, fileHash]
     );
     const newImage = result.rows[0];
-
-    // Update room_types.thumbnail if this is a thumbnail
     if (isThumbnail) {
       await client.query("UPDATE room_types SET thumbnail = $1 WHERE id = $2", [
         imageUrl,
         Number(roomTypeId),
       ]);
     }
-
     await client.query("COMMIT");
     res.status(201).json({
       success: true,
@@ -148,12 +184,6 @@ export const uploadImageForRoomType = async (req, res) => {
     await client.query("ROLLBACK");
     // Remove uploaded file if transaction fails
     try {
-      const filePath = path.join(
-        process.cwd(),
-        "uploads",
-        "roomtypes",
-        filename
-      );
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     } catch (unlinkErr) {
       console.warn("Failed to unlink uploaded file:", unlinkErr.message);

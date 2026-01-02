@@ -11,6 +11,12 @@ export const getDevices = async ({ room_id = null } = {}) => {
   const result = await pool.query(query, params);
   return result.rows;
 };
+export const getDeviceById = async (id) => {
+  const result = await pool.query("SELECT * FROM room_devices WHERE id = $1", [
+    id,
+  ]);
+  return result.rows[0];
+};
 
 export const createDevice = async (data) => {
   try {
@@ -82,6 +88,53 @@ export const createDevice = async (data) => {
 };
 
 export const updateDevice = async (id, data) => {
+  console.log("[updateDevice] id:", id, "data:", data);
+  // Luôn kiểm tra số lượng tiêu chuẩn nếu có truyền quantity
+  if (data.quantity !== undefined) {
+    // Lấy dữ liệu cũ
+    const old = await pool.query(`SELECT * FROM room_devices WHERE id = $1`, [
+      id,
+    ]);
+    const device = old.rows[0];
+    // Lấy room_type_id
+    const roomRes = await pool.query(
+      `SELECT type_id FROM rooms WHERE id = $1`,
+      [device.room_id]
+    );
+    const room_type_id = roomRes.rows[0]?.type_id;
+    // Lấy số lượng tiêu chuẩn (min/max)
+    let standard = null;
+    if (room_type_id && device.master_equipment_id) {
+      const { getStandardQuantity } = await import(
+        "./room_type_equipmentsmodel.js"
+      );
+      standard = await getStandardQuantity(
+        room_type_id,
+        device.master_equipment_id
+      );
+    }
+    console.log(
+      "[updateDevice] room_type_id:",
+      room_type_id,
+      "master_equipment_id:",
+      device.master_equipment_id,
+      "standard:",
+      standard
+    );
+    if (!standard) {
+      throw new Error("Thiếu cấu hình tiêu chuẩn cho thiết bị này!");
+    }
+    if (data.quantity < standard.min_quantity) {
+      throw new Error(
+        `Số lượng không được nhỏ hơn tối thiểu (${standard.min_quantity})`
+      );
+    }
+    if (data.quantity > standard.max_quantity) {
+      throw new Error(
+        `Số lượng không được vượt quá tối đa (${standard.max_quantity})`
+      );
+    }
+  }
   // Nếu chỉ truyền quantity (sửa tồn kho), chỉ update quantity
   if (Object.keys(data).length === 1 && data.quantity !== undefined) {
     // Lấy dữ liệu cũ
@@ -108,6 +161,7 @@ export const updateDevice = async (id, data) => {
   const old = await pool.query(`SELECT * FROM room_devices WHERE id = $1`, [
     id,
   ]);
+  console.log("[updateDevice] old device:", old.rows[0]);
   const result = await pool.query(
     `UPDATE room_devices SET
       device_name = COALESCE($1, device_name),
@@ -121,14 +175,15 @@ export const updateDevice = async (id, data) => {
      WHERE id = $8 RETURNING *`,
     [device_name, device_type, status, room_id, note, images, quantity, id]
   );
+  console.log("[updateDevice] update result:", result.rows[0]);
   // Ghi log lịch sử sửa thiết bị
   const { createStockLog } = await import("./equipment_stock_logsmodel.js");
   await createStockLog({
-    equipment_id: id,
+    equipment_id: old.rows[0]?.master_equipment_id, // dùng id master
     type: "device",
     action: "update",
-    old_data: JSON.stringify(old.rows[0]),
-    new_data: JSON.stringify(result.rows[0]),
+    quantity: result.rows[0]?.quantity ?? old.rows[0]?.quantity ?? 1,
+    note: "Cập nhật trạng thái thiết bị phòng",
   });
   return result.rows[0];
 };

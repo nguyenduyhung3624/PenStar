@@ -22,8 +22,14 @@ export const getRoomTypes = async () => {
         rt.free_amenities,
         rt.paid_amenities,
         rt.room_size,
-        rt.policies
+        rt.policies,
+        rp.refundable,
+        rp.refund_percent,
+        rp.refund_deadline_hours,
+        rp.non_refundable,
+        rp.notes as refund_notes
       FROM room_types rt
+      LEFT JOIN refund_policies rp ON rt.id = rp.room_type_id
     `);
   } catch (err) {
     console.error("Lỗi truy vấn room_types:", err);
@@ -70,6 +76,16 @@ export const getRoomTypes = async () => {
         extra_child_fee: row.extra_child_fee,
         child_age_limit: row.child_age_limit,
         policies: row.policies,
+        refund_policy:
+          row.refundable !== null
+            ? {
+                refundable: row.refundable,
+                refund_percent: row.refund_percent,
+                refund_deadline_hours: row.refund_deadline_hours,
+                non_refundable: row.non_refundable,
+                notes: row.refund_notes,
+              }
+            : null,
         // devices: [],
       };
     }
@@ -116,7 +132,6 @@ export const createRoomType = async (data) => {
       price,
       bed_type,
       view_direction,
-      // amenities đã bị loại bỏ
       free_amenities || null,
       paid_amenities || null,
       room_size,
@@ -146,8 +161,14 @@ export const getRoomTypeById = async (id) => {
       rt.free_amenities,
       rt.paid_amenities,
       rt.room_size,
-      rt.policies
+      rt.policies,
+      rp.refundable,
+      rp.refund_percent,
+      rp.refund_deadline_hours,
+      rp.non_refundable,
+      rp.notes as refund_notes
     FROM room_types rt
+    LEFT JOIN refund_policies rp ON rt.id = rp.room_type_id
     WHERE rt.id = $1`,
     [id]
   );
@@ -155,7 +176,16 @@ export const getRoomTypeById = async (id) => {
   if (row) {
     if (row.policies && typeof row.policies === "string")
       row.policies = JSON.parse(row.policies);
-    // row.devices = await getDevicesByRoomType(row.id);
+    row.refund_policy =
+      row.refundable !== null
+        ? {
+            refundable: row.refundable,
+            refund_percent: row.refund_percent,
+            refund_deadline_hours: row.refund_deadline_hours,
+            non_refundable: row.non_refundable,
+            notes: row.refund_notes,
+          }
+        : null;
   }
   return row;
 };
@@ -204,11 +234,11 @@ export const updateRoomType = async (id, data) => {
       price = $10,
       bed_type = $11,
       view_direction = $12,
-      free_amenities = $14,
-      paid_amenities = $15,
-      room_size = $16,
-      policies = $18
-    WHERE id = $19 RETURNING *`,
+      free_amenities = $13,
+      paid_amenities = $14,
+      room_size = $15,
+      policies = $16
+    WHERE id = $17 RETURNING *`,
     [
       name,
       description,
@@ -229,11 +259,7 @@ export const updateRoomType = async (id, data) => {
       id,
     ]
   );
-  const row = result.rows[0];
-  if (row) {
-    row.devices = await getDevicesByRoomType(row.id);
-  }
-  return row;
+  return result.rows[0];
 };
 
 export const deleteRoomType = async (id) => {

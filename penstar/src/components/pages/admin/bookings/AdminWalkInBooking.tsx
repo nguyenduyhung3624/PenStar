@@ -27,7 +27,7 @@ import { getRoomTypes } from "@/services/roomTypeApi";
 import { createBooking } from "@/services/bookingsApi";
 import type { Services } from "@/types/services";
 import type { RoomType } from "@/types/roomtypes";
-import dayjs from "dayjs";
+import dayjs from "@/utils/dayjs";
 
 const { TextArea } = Input;
 const { Title, Text } = Typography;
@@ -38,8 +38,12 @@ const AdminWalkInBooking = () => {
   const [form] = Form.useForm();
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState<number | undefined>(undefined);
-  const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
+  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState<
+    number | undefined
+  >(undefined);
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(
+    null
+  );
 
   // Load dữ liệu
   const { data: services = [] } = useQuery<Services[]>({
@@ -68,10 +72,13 @@ const AdminWalkInBooking = () => {
       message.error("Vui lòng chọn loại phòng");
       return;
     }
-    
+
     // Kiểm tra dateRange từ state hoặc form
     const currentDateRange = dateRange || values.dateRange;
-    if (!currentDateRange || (Array.isArray(currentDateRange) && currentDateRange.length !== 2)) {
+    if (
+      !currentDateRange ||
+      (Array.isArray(currentDateRange) && currentDateRange.length !== 2)
+    ) {
       message.error("Vui lòng chọn ngày nhận và trả phòng ở bước 1");
       return;
     }
@@ -143,10 +150,18 @@ const AdminWalkInBooking = () => {
   const calculateTotal = () => {
     const values = form.getFieldsValue();
     const currentDateRange = dateRange || values.dateRange;
-    if (!currentDateRange || (Array.isArray(currentDateRange) && currentDateRange.length !== 2)) return 0;
+    if (
+      !currentDateRange ||
+      (Array.isArray(currentDateRange) && currentDateRange.length !== 2)
+    )
+      return 0;
 
-    const checkIn = dayjs(Array.isArray(currentDateRange) ? currentDateRange[0] : currentDateRange);
-    const checkOut = dayjs(Array.isArray(currentDateRange) ? currentDateRange[1] : currentDateRange);
+    const checkIn = dayjs(
+      Array.isArray(currentDateRange) ? currentDateRange[0] : currentDateRange
+    );
+    const checkOut = dayjs(
+      Array.isArray(currentDateRange) ? currentDateRange[1] : currentDateRange
+    );
     const nights = checkOut.diff(checkIn, "day");
 
     let total = 0;
@@ -170,7 +185,7 @@ const AdminWalkInBooking = () => {
     try {
       // Lấy tất cả giá trị từ form (kể cả các field không được render)
       const allFormValues = form.getFieldsValue(true);
-      
+
       // Kiểm tra các field bắt buộc thủ công
       if (!allFormValues.customer_name) {
         message.error("Vui lòng nhập tên khách hàng");
@@ -185,7 +200,7 @@ const AdminWalkInBooking = () => {
         form.scrollToField("customer_phone");
         return;
       }
-      
+
       if (selectedRooms.length === 0) {
         message.error("Vui lòng thêm ít nhất một phòng");
         setCurrentStep(1);
@@ -193,7 +208,10 @@ const AdminWalkInBooking = () => {
       }
 
       const currentDateRange = dateRange || allFormValues.dateRange;
-      if (!currentDateRange || (Array.isArray(currentDateRange) && currentDateRange.length !== 2)) {
+      if (
+        !currentDateRange ||
+        (Array.isArray(currentDateRange) && currentDateRange.length !== 2)
+      ) {
         message.error("Vui lòng chọn ngày nhận và trả phòng");
         setCurrentStep(0);
         form.scrollToField("dateRange");
@@ -202,13 +220,12 @@ const AdminWalkInBooking = () => {
 
       setLoading(true);
 
-      const dateArray = Array.isArray(currentDateRange) ? currentDateRange : [currentDateRange, currentDateRange];
+      const dateArray = Array.isArray(currentDateRange)
+        ? currentDateRange
+        : [currentDateRange, currentDateRange];
       const checkIn = dayjs(dateArray[0]).format("YYYY-MM-DD");
       const checkOut = dayjs(dateArray[1]).format("YYYY-MM-DD");
-      const nights = dayjs(dateArray[1]).diff(
-        dayjs(dateArray[0]),
-        "day"
-      );
+      const nights = dayjs(dateArray[1]).diff(dayjs(dateArray[0]), "day");
 
       const roomsConfig = selectedRooms.map((room) => {
         const roomType = roomTypes.find((rt) => rt.id === room.room_type_id);
@@ -228,7 +245,8 @@ const AdminWalkInBooking = () => {
           quantity: room.quantity,
           check_in: checkIn,
           check_out: checkOut,
-          room_type_price: roomType && roomType.price ? roomType.price * nights : 0,
+          room_type_price:
+            roomType && roomType.price ? roomType.price * nights : 0,
           num_adults: room.num_adults,
           num_children: room.num_children,
           services: servicesArray,
@@ -359,12 +377,12 @@ const AdminWalkInBooking = () => {
               <div>
                 <Title level={4}>Chọn phòng</Title>
                 <Card>
-                  <Form.Item 
-                    name="room_type_id" 
+                  <Form.Item
+                    name="room_type_id"
                     label="Loại phòng"
                     dependencies={["num_adults", "num_children"]}
                   >
-                    <Select 
+                    <Select
                       placeholder="Chọn loại phòng"
                       onChange={(value) => {
                         setSelectedRoomTypeId(value);
@@ -374,38 +392,64 @@ const AdminWalkInBooking = () => {
                     >
                       {roomTypes.map((rt) => (
                         <Select.Option key={rt.id} value={rt.id}>
-                          {rt.name} - {rt.price ? rt.price.toLocaleString("vi-VN") : 0} VND/đêm
+                          {rt.name} -{" "}
+                          {rt.price ? rt.price.toLocaleString("vi-VN") : 0}{" "}
+                          VND/đêm
                           {rt.capacity && ` (Tối đa ${rt.capacity} người)`}
                         </Select.Option>
                       ))}
                     </Select>
                   </Form.Item>
-                  
-                  {/* Hiển thị thông tin giới hạn của loại phòng đã chọn */}
-                  {selectedRoomTypeId && (() => {
-                    const selectedRoomType = roomTypes.find((rt) => rt.id === selectedRoomTypeId);
-                    if (selectedRoomType) {
-                      return (
-                        <div style={{ marginBottom: 16, padding: 12, backgroundColor: "#f0f2f5", borderRadius: 4 }}>
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            <strong>Thông tin loại phòng:</strong>
-                            {selectedRoomType.max_adults && (
-                              <> Tối đa {selectedRoomType.max_adults} người lớn</>
-                            )}
-                            {selectedRoomType.max_children && (
-                              <> • Tối đa {selectedRoomType.max_children} trẻ em</>
-                            )}
-                            {selectedRoomType.capacity && (
-                              <> • Sức chứa: {selectedRoomType.capacity} người</>
-                            )}
-                          </Text>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
 
-                  <Form.Item name="quantity" label="Số lượng phòng" initialValue={1}>
+                  {/* Hiển thị thông tin giới hạn của loại phòng đã chọn */}
+                  {selectedRoomTypeId &&
+                    (() => {
+                      const selectedRoomType = roomTypes.find(
+                        (rt) => rt.id === selectedRoomTypeId
+                      );
+                      if (selectedRoomType) {
+                        return (
+                          <div
+                            style={{
+                              marginBottom: 16,
+                              padding: 12,
+                              backgroundColor: "#f0f2f5",
+                              borderRadius: 4,
+                            }}
+                          >
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                              <strong>Thông tin loại phòng:</strong>
+                              {selectedRoomType.max_adults && (
+                                <>
+                                  {" "}
+                                  Tối đa {selectedRoomType.max_adults} người lớn
+                                </>
+                              )}
+                              {selectedRoomType.max_children && (
+                                <>
+                                  {" "}
+                                  • Tối đa {selectedRoomType.max_children} trẻ
+                                  em
+                                </>
+                              )}
+                              {selectedRoomType.capacity && (
+                                <>
+                                  {" "}
+                                  • Sức chứa: {selectedRoomType.capacity} người
+                                </>
+                              )}
+                            </Text>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+
+                  <Form.Item
+                    name="quantity"
+                    label="Số lượng phòng"
+                    initialValue={1}
+                  >
                     <InputNumber min={1} max={10} style={{ width: "100%" }} />
                   </Form.Item>
 
@@ -416,13 +460,23 @@ const AdminWalkInBooking = () => {
                     dependencies={["num_children", "room_type_id"]}
                     rules={[
                       { required: true, message: "Vui lòng nhập số người lớn" },
-                      { type: "number", min: 1, message: "Phải có ít nhất 1 người lớn" },
+                      {
+                        type: "number",
+                        min: 1,
+                        message: "Phải có ít nhất 1 người lớn",
+                      },
                       {
                         validator: (_, value) => {
                           const roomTypeId = form.getFieldValue("room_type_id");
                           if (!roomTypeId) return Promise.resolve();
-                          const roomType = roomTypes.find((rt) => rt.id === roomTypeId);
-                          if (roomType && roomType.max_adults && value > roomType.max_adults) {
+                          const roomType = roomTypes.find(
+                            (rt) => rt.id === roomTypeId
+                          );
+                          if (
+                            roomType &&
+                            roomType.max_adults &&
+                            value > roomType.max_adults
+                          ) {
                             return Promise.reject(
                               new Error(
                                 `Số người lớn không được vượt quá ${roomType.max_adults} người`
@@ -430,9 +484,14 @@ const AdminWalkInBooking = () => {
                             );
                           }
                           // Kiểm tra tổng số người
-                          const numChildren = form.getFieldValue("num_children") || 0;
+                          const numChildren =
+                            form.getFieldValue("num_children") || 0;
                           const totalGuests = value + numChildren;
-                          if (roomType && roomType.capacity && totalGuests > roomType.capacity) {
+                          if (
+                            roomType &&
+                            roomType.capacity &&
+                            totalGuests > roomType.capacity
+                          ) {
                             return Promise.reject(
                               new Error(
                                 `Tổng số người (${totalGuests}) vượt quá sức chứa phòng (${roomType.capacity} người)`
@@ -453,13 +512,23 @@ const AdminWalkInBooking = () => {
                     initialValue={0}
                     dependencies={["num_adults", "room_type_id"]}
                     rules={[
-                      { type: "number", min: 0, message: "Số trẻ em không được âm" },
+                      {
+                        type: "number",
+                        min: 0,
+                        message: "Số trẻ em không được âm",
+                      },
                       {
                         validator: (_, value) => {
                           const roomTypeId = form.getFieldValue("room_type_id");
                           if (!roomTypeId) return Promise.resolve();
-                          const roomType = roomTypes.find((rt) => rt.id === roomTypeId);
-                          if (roomType && roomType.max_children && value > roomType.max_children) {
+                          const roomType = roomTypes.find(
+                            (rt) => rt.id === roomTypeId
+                          );
+                          if (
+                            roomType &&
+                            roomType.max_children &&
+                            value > roomType.max_children
+                          ) {
                             return Promise.reject(
                               new Error(
                                 `Số trẻ em không được vượt quá ${roomType.max_children} trẻ`
@@ -467,9 +536,14 @@ const AdminWalkInBooking = () => {
                             );
                           }
                           // Kiểm tra tổng số người
-                          const numAdults = form.getFieldValue("num_adults") || 1;
+                          const numAdults =
+                            form.getFieldValue("num_adults") || 1;
                           const totalGuests = numAdults + (value || 0);
-                          if (roomType && roomType.capacity && totalGuests > roomType.capacity) {
+                          if (
+                            roomType &&
+                            roomType.capacity &&
+                            totalGuests > roomType.capacity
+                          ) {
                             return Promise.reject(
                               new Error(
                                 `Tổng số người (${totalGuests}) vượt quá sức chứa phòng (${roomType.capacity} người)`
@@ -541,9 +615,7 @@ const AdminWalkInBooking = () => {
                     </div>
                     <div>
                       <Text strong>Email: </Text>
-                      <Text>
-                        {form.getFieldValue("customer_email") || "—"}
-                      </Text>
+                      <Text>{form.getFieldValue("customer_email") || "—"}</Text>
                     </div>
                     <div>
                       <Text strong>Tổng tiền: </Text>
@@ -584,7 +656,7 @@ const AdminWalkInBooking = () => {
                       try {
                         // Validate form trước khi chuyển bước
                         await form.validateFields();
-                        
+
                         // Lưu dateRange vào state khi chuyển từ bước 1 sang bước 2
                         if (currentStep === 0) {
                           const values = form.getFieldsValue();
@@ -599,7 +671,7 @@ const AdminWalkInBooking = () => {
                             ]);
                           }
                         }
-                        
+
                         setCurrentStep((s) => s + 1);
                       } catch (error) {
                         // Form validation failed, error messages will be shown automatically
@@ -630,4 +702,3 @@ const AdminWalkInBooking = () => {
 };
 
 export default AdminWalkInBooking;
-

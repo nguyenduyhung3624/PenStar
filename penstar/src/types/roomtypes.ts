@@ -7,18 +7,6 @@ export interface RoomTypePolicy {
   other_policies?: string[];
 }
 
-export interface RoomDevice {
-  id: number;
-  device_name: string;
-  device_type: string;
-  status: string;
-  note?: string;
-  room_type_id?: number;
-  room_id?: number;
-  created_at?: string;
-  updated_at?: string;
-}
-
 export interface RoomType {
   id: number;
   name: string;
@@ -41,5 +29,12 @@ export interface RoomType {
   view_direction?: string;
   free_amenities?: string[];
   paid_amenities?: string[];
-  devices?: RoomDevice[];
+  // ...existing code...
+  refund_policy?: {
+    refundable?: boolean;
+    refund_percent?: number;
+    refund_deadline_hours?: number;
+    non_refundable?: boolean;
+    notes?: string;
+  };
 }

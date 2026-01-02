@@ -1,4 +1,61 @@
 import Joi from "joi";
+import moment from "moment-timezone";
+
+const TIMEZONE = "Asia/Ho_Chi_Minh";
+
+// Helper: Validate ngày check-in (không quá khứ + nếu hôm nay thì phải 14:00-21:00)
+const validateCheckInDate = (value, helpers) => {
+  const checkInDate = moment.tz(value, TIMEZONE).startOf("day");
+  const now = moment.tz(TIMEZONE);
+  const today = now.clone().startOf("day");
+
+  // Không cho phép check-in ngày quá khứ
+  if (checkInDate.isBefore(today)) {
+    return helpers.message("Ngày check-in không được là ngày trong quá khứ.");
+  }
+
+  // Nếu check-in ngày hôm nay
+  const isToday = checkInDate.isSame(today, "day");
+  if (isToday) {
+    const currentHour = now.hour();
+    // Phải sau 14:00
+    if (currentHour < 14) {
+      return helpers.message(
+        "Check-in từ 14:00. Vui lòng chọn ngày khác hoặc đợi đến 14:00."
+      );
+    }
+    // Không được sau 21:00
+    if (currentHour >= 21) {
+      return helpers.message(
+        "Quá 21:00, không thể đặt phòng check-in hôm nay. Vui lòng chọn ngày mai."
+      );
+    }
+  }
+
+  return value;
+};
+
+// Helper: Validate ngày check-out (không quá khứ + nếu hôm nay thì phải < 14:00)
+const validateCheckOutDate = (value, helpers) => {
+  const checkOutDate = moment.tz(value, TIMEZONE).startOf("day");
+  const now = moment.tz(TIMEZONE);
+  const today = now.clone().startOf("day");
+
+  // Không cho phép check-out ngày quá khứ
+  if (checkOutDate.isBefore(today)) {
+    return helpers.message("Ngày check-out không được là ngày trong quá khứ.");
+  }
+
+  // Nếu check-out ngày hôm nay, phải trước 14:00
+  const isToday = checkOutDate.isSame(today, "day");
+  if (isToday && now.hour() >= 14) {
+    return helpers.message(
+      "Check-out trước 14:00. Đã quá giờ check-out cho ngày hôm nay."
+    );
+  }
+
+  return value;
+};
 
 export const bookingItemSchema = Joi.object({
   booking_id: Joi.number().positive().required(),
@@ -47,6 +104,8 @@ export const bookingCreateSchema = Joi.object({
   // ...existing code...
   num_adults: Joi.number().integer().min(1).max(20).optional(), // Số người lớn (root level)
   num_children: Joi.number().integer().min(0).max(20).optional(), // Số trẻ em (root level)
+  discount_code: Joi.string().optional(),
+  discount_amount: Joi.number().min(0).optional(),
   total_price: Joi.number().min(0).required(),
   payment_status: Joi.string().required(),
   payment_method: Joi.string()
@@ -61,40 +120,11 @@ export const bookingCreateSchema = Joi.object({
     .items(
       Joi.object({
         room_id: Joi.number().positive().required(),
-        check_in: Joi.string()
-          .isoDate()
-          .required()
-          .custom((value, helpers) => {
-            const checkInDate = new Date(value);
-            const now = new Date();
-            const isToday = checkInDate.toDateString() === now.toDateString();
-            const currentHour = now.getHours();
-            const currentMinute = now.getMinutes();
-            if (
-              isToday &&
-              (currentHour < 14 || (currentHour === 14 && currentMinute < 0))
-            ) {
-              return helpers.message(
-                "Check-in từ 12:00. Vui lòng chọn ngày khác hoặc đợi đến 12:00."
-              );
-            }
-            return value;
-          }),
+        check_in: Joi.string().isoDate().required().custom(validateCheckInDate),
         check_out: Joi.string()
           .isoDate()
           .required()
-          .custom((value, helpers) => {
-            const checkOutDate = new Date(value);
-            const now = new Date();
-            const isToday = checkOutDate.toDateString() === now.toDateString();
-            const currentHour = now.getHours();
-            if (isToday && currentHour >= 12) {
-              return helpers.message(
-                "Check-out trước 12:00. Vui lòng chọn ngày khác hoặc check-out trước 12:00."
-              );
-            }
-            return value;
-          }),
+          .custom(validateCheckOutDate),
         num_adults: Joi.number().integer().min(1).max(20).optional(),
         num_children: Joi.number().integer().min(0).max(20).optional(),
         num_babies: Joi.number().integer().min(0).optional(),
@@ -135,40 +165,11 @@ export const bookingCreateSchema = Joi.object({
       Joi.object({
         room_type_id: Joi.number().positive().required(),
         quantity: Joi.number().integer().min(1).required(),
-        check_in: Joi.string()
-          .isoDate()
-          .required()
-          .custom((value, helpers) => {
-            const checkInDate = new Date(value);
-            const now = new Date();
-            const isToday = checkInDate.toDateString() === now.toDateString();
-            const currentHour = now.getHours();
-            const currentMinute = now.getMinutes();
-            if (
-              isToday &&
-              (currentHour < 14 || (currentHour === 14 && currentMinute < 0))
-            ) {
-              return helpers.message(
-                "Check-in từ 14:00. Vui lòng chọn ngày khác hoặc đợi đến 14:00."
-              );
-            }
-            return value;
-          }),
+        check_in: Joi.string().isoDate().required().custom(validateCheckInDate),
         check_out: Joi.string()
           .isoDate()
           .required()
-          .custom((value, helpers) => {
-            const checkOutDate = new Date(value);
-            const now = new Date();
-            const isToday = checkOutDate.toDateString() === now.toDateString();
-            const currentHour = now.getHours();
-            if (isToday && currentHour >= 12) {
-              return helpers.message(
-                "Check-out trước 12:00. Vui lòng chọn ngày khác hoặc check-out trước 12:00."
-              );
-            }
-            return value;
-          }),
+          .custom(validateCheckOutDate),
         room_type_price: Joi.number().min(0).required(),
         num_adults: Joi.number().integer().min(1).max(20).optional(),
         num_children: Joi.number().integer().min(0).max(20).optional(),

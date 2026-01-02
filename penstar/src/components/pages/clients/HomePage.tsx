@@ -95,7 +95,7 @@ const HomePage = () => {
     <div className="min-h-screen bg-white">
       {/* Hero Section with Banner Image */}
       <section className="relative flex flex-col items-stretch justify-end overflow-visible p-0">
-        <div className="w-full relative">
+        <div className="w-full relative h-[500px]">
           <img
             src={bannerImage}
             alt="PenStar Banner"

@@ -10,16 +10,19 @@ import {
 import fs from "fs";
 import path from "path";
 import multer from "multer";
+import crypto from "crypto";
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
+    // Luôn lưu vào uploads/rooms/
     const uploadDir = path.join(process.cwd(), "uploads", "rooms");
     fs.mkdirSync(uploadDir, { recursive: true });
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
+    // Đặt tên file: {timestamp}_{random}.{ext}
     const ext = path.extname(file.originalname) || ".jpg";
-    const name = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+    const name = `${Date.now()}_${Math.round(Math.random() * 1e9)}${ext}`;
     cb(null, name);
   },
 });
@@ -114,22 +117,55 @@ export const uploadImageForRoom = async (req, res) => {
     const { is_thumbnail } = req.body;
     const filename = req.file.filename;
     const filePath = path.join(process.cwd(), "uploads", "rooms", filename);
-    try {
-      const exists = fs.existsSync(filePath);
-      console.log(`[uploadImageForRoom] filePath=${filePath} exists=${exists}`);
-    } catch (statErr) {
-      console.warn(
-        "[uploadImageForRoom] fs.existsSync error:",
-        statErr.message
-      );
-    }
-    const imageUrl = `${req.protocol}://${req.get(
-      "host"
-    )}/uploads/rooms/${filename}`;
-
-    // start a transaction for thumbnail changes + insert
+    const fileBuffer = fs.readFileSync(filePath);
+    const fileHash = crypto.createHash("sha1").update(fileBuffer).digest("hex");
     const client = await pool.connect();
     try {
+      // Kiểm tra hash trên toàn bảng room_images
+      const checkRes = await client.query(
+        "SELECT * FROM room_images WHERE file_hash = $1",
+        [fileHash]
+      );
+      if (checkRes.rows.length > 0) {
+        // Đã có file vật lý, không lưu file mới, chỉ insert bản ghi DB trỏ tới file cũ
+        fs.unlinkSync(filePath);
+        // Lấy image_url và file_hash từ bản ghi cũ
+        const oldImage = checkRes.rows[0];
+        // Tạo bản ghi mới cho phòng này, trỏ tới file vật lý cũ
+        await client.query("BEGIN");
+        if (String(is_thumbnail) === "true" || is_thumbnail === true) {
+          await client.query(
+            "UPDATE room_images SET is_thumbnail = false WHERE room_id = $1 AND is_thumbnail = true",
+            [Number(roomId)]
+          );
+        }
+        const insertRes = await client.query(
+          `INSERT INTO room_images (room_id, image_url, is_thumbnail, file_hash) VALUES ($1,$2,$3,$4) RETURNING id, room_id, image_url, is_thumbnail, created_at, file_hash`,
+          [
+            Number(roomId),
+            oldImage.image_url,
+            String(is_thumbnail) === "true" || is_thumbnail === true,
+            fileHash,
+          ]
+        );
+        const newImage = insertRes.rows[0];
+        if (newImage.is_thumbnail) {
+          await client.query("UPDATE rooms SET thumbnail = $1 WHERE id = $2", [
+            oldImage.image_url,
+            Number(roomId),
+          ]);
+        }
+        await client.query("COMMIT");
+        return res.status(201).json({
+          success: true,
+          message: "Đã dùng lại file ảnh cũ.",
+          data: newImage,
+        });
+      }
+
+      const imageUrl = `${req.protocol}://${req.get(
+        "host"
+      )}/uploads/rooms/${filename}`;
       await client.query("BEGIN");
       if (String(is_thumbnail) === "true" || is_thumbnail === true) {
         await client.query(
@@ -138,11 +174,12 @@ export const uploadImageForRoom = async (req, res) => {
         );
       }
       const insertRes = await client.query(
-        `INSERT INTO room_images (room_id, image_url, is_thumbnail) VALUES ($1,$2,$3) RETURNING id, room_id, image_url, is_thumbnail, created_at`,
+        `INSERT INTO room_images (room_id, image_url, is_thumbnail, file_hash) VALUES ($1,$2,$3,$4) RETURNING id, room_id, image_url, is_thumbnail, created_at, file_hash`,
         [
           Number(roomId),
           imageUrl,
           String(is_thumbnail) === "true" || is_thumbnail === true,
+          fileHash,
         ]
       );
       const newImage = insertRes.rows[0];
@@ -160,7 +197,6 @@ export const uploadImageForRoom = async (req, res) => {
       await client.query("ROLLBACK");
       // attempt to remove uploaded file if transaction fails
       try {
-        const filePath = path.join(process.cwd(), "uploads", "rooms", filename);
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
       } catch (unlinkErr) {
         console.warn(

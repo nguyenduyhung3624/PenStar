@@ -1,5 +1,6 @@
 import pool from "../db.js";
 
+export const getNow = () => new Date().toISOString();
 // Check-in: cập nhật trạng thái và checked_in_by
 export const confirmCheckin = async (id, userId) => {
   const client = await pool.connect();
@@ -20,14 +21,26 @@ export const confirmCheckin = async (id, userId) => {
         "Chỉ có thể check-in booking ở trạng thái Đã đặt (reserved)"
       );
     }
-    // Kiểm tra ngày/giờ check-in hợp lệ (>= hôm nay, >= 12:00)
-    const now = new Date();
-    const checkInDate = new Date(check_in);
-    // Giờ giới hạn check-in là 12:00
-    const checkInLimit = new Date(checkInDate);
-    checkInLimit.setHours(12, 0, 0, 0);
-    if (now < checkInLimit) {
-      throw new Error("Chỉ được check-in sau 12:00 ngày nhận phòng");
+    // Kiểm tra ngày/giờ check-in hợp lệ (>= hôm nay, >= 14:00, chuẩn hóa Asia/Ho_Chi_Minh)
+    const moment = require("moment-timezone");
+    const timeZone = "Asia/Ho_Chi_Minh";
+    const now = moment.tz(Date.now(), timeZone);
+    const checkInDate = moment.tz(check_in, timeZone);
+    // Giờ giới hạn check-in là 14:00
+    const checkInLimit = checkInDate
+      .clone()
+      .set({ hour: 14, minute: 0, second: 0, millisecond: 0 });
+    // Log thời gian thực tế để debug
+    console.log(
+      "[Checkin Debug] now:",
+      now.format(),
+      "checkInLimit:",
+      checkInLimit.format(),
+      "server timezone:",
+      Intl.DateTimeFormat().resolvedOptions().timeZone
+    );
+    if (now.isBefore(checkInLimit)) {
+      throw new Error("Chỉ được check-in từ 14:00 ngày nhận phòng");
     }
     // Cập nhật trạng thái và checked_in_by
     await client.query(
@@ -143,6 +156,11 @@ export const autoAssignRooms = async (
 
     // Find available rooms of the specified type and capacity
     // Exclude rooms that have overlapping bookings AND rooms already assigned in this transaction
+    // Lưu ý: Booking với stay_status_id IN (1, 2, 6) được coi là giữ phòng:
+    // - 1: reserved (đã đặt, chưa check-in)
+    // - 2: checked-in (đang ở)
+    // - 6: pending (chờ thanh toán)
+    // Các booking đã hủy (4: cancelled) hoặc đã checkout (3: checked-out) sẽ không giữ phòng
     const query = `
       SELECT DISTINCT r.*
       FROM rooms r
@@ -161,7 +179,7 @@ export const autoAssignRooms = async (
           SELECT 1 FROM booking_items bi
           JOIN bookings b ON bi.booking_id = b.id
           WHERE bi.room_id = r.id
-            AND b.stay_status_id IN (1, 2, 3)
+            AND b.stay_status_id IN (1, 2, 6) -- reserved, checked-in, pending
             AND (
               bi.check_in::date < $4::date 
               AND bi.check_out::date > $3::date
@@ -302,34 +320,31 @@ export const createBooking = async (data) => {
         );
         if (totalGuests > maxCapacity) {
           throw new Error(
-            `Tổng số khách (${totalGuests}) vượt quá sức chứa (${maxCapacity}) cho loại phòng "${type.name}". Vui lòng chọn lại.`
+            `Tổng số khách (${totalGuests}) vượt quá sức chứa (${maxCapacity}) cho loại phòng \"${type.name}\". Vui lòng chọn lại.`
           );
         }
-
-        // ✅ KHÔNG kiểm tra strict base_adults/base_children - cho phép đặt với phụ phí
-        // Frontend sẽ tính extra_adult_fee và extra_child_fee tự động
-        // ✅ Em bé (0-5 tuổi) không tính vào giới hạn số người
-
-        // Check 3: Room availability in booking time range
-        // Logic: Conflict khi khoảng thời gian CHỒNG LẤN
-        // Sử dụng ::date để so sánh chính xác ngày, tránh vấn đề timezone/time
+        // Chỉ chặn nếu có booking khác đang ở (stay_status_id = 2)
+        // Chỉ chặn nếu có booking khác ở trạng thái reserved, checked_in, pending (1,2,6)
+        // Sử dụng FOR UPDATE để lock row và tránh race condition
         const availabilityCheck = await client.query(
           `SELECT bi.id, b.id as booking_id, b.customer_name, bi.check_in, bi.check_out
            FROM booking_items bi
            JOIN bookings b ON bi.booking_id = b.id
            WHERE bi.room_id = $1
-             AND b.stay_status_id IN (1, 2, 3)
+             AND b.stay_status_id IN (1, 2, 6)
              AND NOT (
                bi.check_out::date <= $2::date 
                OR bi.check_in::date >= $3::date
-             )`,
+             )
+           FOR UPDATE`,
           [room_id, check_in, check_out]
         );
 
+        // Nếu có booking trùng, throw error
         if (availabilityCheck.rows.length > 0) {
-          const conflict = availabilityCheck.rows[0];
+          const conflicting = availabilityCheck.rows[0];
           throw new Error(
-            `Phòng đã được đặt! Phòng này đã có booking từ ${conflict.check_in} đến ${conflict.check_out}. Vui lòng chọn phòng khác hoặc thời gian khác.`
+            `Phòng đã được đặt bởi "${conflicting.customer_name}" từ ${conflicting.check_in} đến ${conflicting.check_out}. Vui lòng chọn phòng khác.`
           );
         }
       }
@@ -343,12 +358,10 @@ export const createBooking = async (data) => {
     const total_service_price = Array.isArray(data.services)
       ? data.services.reduce((sum, s) => sum + (s.total_service_price || 0), 0)
       : 0;
-
-    // ...existing code...
-
+    567;
     const insertBookingText = `INSERT INTO bookings (
-      customer_name, total_price, payment_status, booking_method, stay_status_id, user_id, notes, payment_method, created_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW()) RETURNING *`;
+      customer_name, total_price, payment_status, booking_method, stay_status_id, user_id, notes, payment_method, discount_code, discount_amount, created_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW()) RETURNING *`;
 
     const bookingRes = await client.query(insertBookingText, [
       customer_name,
@@ -359,6 +372,8 @@ export const createBooking = async (data) => {
       user_id,
       notes || null,
       data.payment_method || null,
+      data.discount_code || null,
+      data.discount_amount || 0,
     ]);
     const booking = bookingRes.rows[0];
 
@@ -437,11 +452,13 @@ export const createBooking = async (data) => {
   }
 };
 
-export const updateBookingStatus = async (id, fields) => {
+export const setBookingStatus = async (id, fields) => {
   // fields: { payment_status?, stay_status_id?, is_refunded? }
   const client = await pool.connect();
+  console.log("[setBookingStatus] Called with:", { id, fields });
   try {
     await client.query("BEGIN");
+    console.log("[setBookingStatus] Transaction started");
 
     // Check if booking is cancelled before allowing payment_status update
     if (fields.payment_status && fields.payment_status !== "refunded") {
@@ -449,19 +466,25 @@ export const updateBookingStatus = async (id, fields) => {
         "SELECT stay_status_id FROM bookings WHERE id = $1",
         [id]
       );
+      console.log(
+        "[setBookingStatus] stay_status_id for payment_status:",
+        checkResult.rows[0]?.stay_status_id
+      );
       if (checkResult.rows[0]?.stay_status_id === 4) {
+        console.warn(
+          "[setBookingStatus] Attempt to update payment_status for cancelled booking:",
+          id
+        );
         throw new Error(
           "Không thể cập nhật trạng thái thanh toán khi booking đã hủy. Chỉ có thể chọn 'Refunded' để hoàn tiền."
         );
       }
     }
 
-    // Nếu chuyển sang canceled (4) hoặc no_show (5) thì luôn failed và không hoàn tiền
+    // Nếu chuyển sang canceled (4) hoặc no_show (5) thì chỉ cập nhật trạng thái booking và phòng, giữ nguyên payment_status
     let patchFields = { ...fields };
-    if (fields.stay_status_id === 4 || fields.stay_status_id === 5) {
-      patchFields.payment_status = "failed";
-      patchFields.is_refunded = false;
-    }
+    console.log("[setBookingStatus] patchFields:", patchFields);
+    // Không động chạm payment_status khi hủy hoặc no_show, chỉ cập nhật khi thao tác hoàn tiền riêng
     const keys = [];
     const vals = [];
     let idx = 1;
@@ -469,13 +492,18 @@ export const updateBookingStatus = async (id, fields) => {
       keys.push(`${k} = $${idx++}`);
       vals.push(patchFields[k]);
     }
-    if (!keys.length) return null;
+    if (!keys.length) {
+      console.warn("[setBookingStatus] No fields to update for booking:", id);
+      return null;
+    }
     const q = `UPDATE bookings SET ${keys.join(
       ", "
     )} WHERE id = $${idx} RETURNING *`;
     vals.push(id);
+    console.log("[setBookingStatus] Executing query:", q, vals);
     const res = await client.query(q, vals);
     const updated = res.rows[0];
+    console.log("[setBookingStatus] Updated booking:", updated);
 
     // Auto update room status based on booking status
     if (fields.stay_status_id) {
@@ -483,6 +511,7 @@ export const updateBookingStatus = async (id, fields) => {
         "SELECT room_id FROM booking_items WHERE booking_id = $1",
         [id]
       );
+      console.log("[setBookingStatus] booking_items:", items.rows);
 
       let roomStatus = null;
       const statusId = Number(fields.stay_status_id);
@@ -497,6 +526,12 @@ export const updateBookingStatus = async (id, fields) => {
 
       if (roomStatus) {
         for (const item of items.rows) {
+          console.log(
+            "[setBookingStatus] Updating room",
+            item.room_id,
+            "to status",
+            roomStatus
+          );
           await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
             roomStatus,
             item.room_id,
@@ -506,6 +541,7 @@ export const updateBookingStatus = async (id, fields) => {
     }
 
     await client.query("COMMIT");
+    console.log("[setBookingStatus] Transaction committed");
 
     // return joined row with stay_status_name
     const joined = await client.query(
@@ -514,16 +550,20 @@ export const updateBookingStatus = async (id, fields) => {
        WHERE b.id = $1`,
       [id]
     );
+    console.log("[setBookingStatus] Final joined row:", joined.rows[0]);
     return joined.rows[0];
   } catch (err) {
     await client.query("ROLLBACK");
+    console.error("[setBookingStatus] Error:", err);
     throw err;
   } finally {
     client.release();
+    console.log("[setBookingStatus] Connection released");
   }
 };
 
 // Check-out: cập nhật trạng thái và checked_out_by
+
 export const confirmCheckout = async (id, userId) => {
   // Admin confirms checkout -> room status changes to "cleaning", booking stays at checked_out (3)
   const client = await pool.connect();
@@ -546,19 +586,40 @@ export const confirmCheckout = async (id, userId) => {
       throw new Error("Booking không ở trạng thái đang thuê hoặc checked_out");
     }
 
-    // Validate checkout time: chỉ cho phép checkout nếu đã đến 12:00 ngày checkout hoặc sau đó
-    const now = new Date();
-    const checkOutDate = new Date(checkBooking.rows[0].check_out);
-    const checkInDate = new Date(checkBooking.rows[0].check_in);
-    // Giờ giới hạn checkout là 12:00
-    const checkOutLimit = new Date(checkOutDate);
-    checkOutLimit.setHours(12, 0, 0, 0);
-    if (now < checkInDate) {
-      throw new Error("Chưa đến thời gian check-in, không thể checkout!");
+    // Validate checkout time: chuẩn hóa về Asia/Ho_Chi_Minh
+    const moment = require("moment-timezone");
+    const timeZone = "Asia/Ho_Chi_Minh";
+    const now = moment.tz(Date.now(), timeZone);
+    const checkOutDate = moment.tz(checkBooking.rows[0].check_out, timeZone);
+    const checkInDate = moment.tz(checkBooking.rows[0].check_in, timeZone);
+    // Giờ giới hạn checkout là 14:00 ngày checkout
+    const checkOutLimit = checkOutDate
+      .clone()
+      .set({ hour: 14, minute: 0, second: 0, millisecond: 0 });
+    // Giờ check-in là 14:00 ngày check-in
+    const checkInLimit = checkInDate
+      .clone()
+      .set({ hour: 14, minute: 0, second: 0, millisecond: 0 });
+    // Log thời gian thực tế để debug
+    console.log(
+      "[Checkout Debug] now:",
+      now.format(),
+      "checkInLimit:",
+      checkInLimit.format(),
+      "checkOutLimit:",
+      checkOutLimit.format(),
+      "server timezone:",
+      Intl.DateTimeFormat().resolvedOptions().timeZone
+    );
+    // Phải sau giờ check-in (14:00 ngày check-in) mới được checkout
+    if (now.isBefore(checkInLimit)) {
+      throw new Error(
+        "Chưa đến thời gian check-in (14:00), không thể checkout!"
+      );
     }
-    if (now < checkOutLimit) {
-      throw new Error("Chỉ được checkout sau 12:00 ngày trả phòng");
-    }
+    // Cho phép checkout sau 14:00 ngày check-in đến trước 14:00 ngày checkout (early checkout ok)
+    // Sau 14:00 ngày checkout là late checkout (vẫn cho phép nhưng có thể tính phụ phí ở logic khác)
+    // Không chặn checkout trễ ở đây - chỉ cảnh báo nếu cần
 
     // Get rooms from this booking
     const items = await client.query(
@@ -676,24 +737,71 @@ export const cancelBooking = async (
       }
     }
 
-    // NEW LOGIC: When cancel, set payment_status to "failed"; lưu lý do, người hủy, thời điểm hủy
-    await client.query(
-      `UPDATE bookings 
-       SET stay_status_id = 4,
-           payment_status = 'failed',
-           cancel_reason = $2,
-           canceled_by = $3,
-           canceled_at = NOW()
-       WHERE id = $1`,
-      [id, cancelReason, userId]
-    );
-
-    // Update room status to available
+    // Lấy thông tin các booking_items để xác định room_type_id
     const items = await client.query(
-      "SELECT room_id FROM booking_items WHERE booking_id = $1",
+      "SELECT room_id, room_type_id, room_type_price FROM booking_items WHERE booking_id = $1",
       [id]
     );
 
+    // Lấy refund_policy cho từng room_type từ bảng refund_policies
+    let totalRefund = 0;
+    for (const item of items.rows) {
+      const refundRes = await client.query(
+        `SELECT refundable, refund_percent, refund_deadline_hours, non_refundable
+         FROM refund_policies WHERE room_type_id = $1`,
+        [item.room_type_id]
+      );
+      const refundPolicy = refundRes.rows[0] || {};
+      // Mặc định: hoàn 0 nếu không có policy
+      let refundPercent = 0;
+      let refundable = false;
+      let deadline = 24; // giờ trước check-in
+      let nonRefundable = false;
+      if (refundPolicy) {
+        refundable = refundPolicy.refundable ?? false;
+        refundPercent = refundPolicy.refund_percent ?? 0;
+        deadline = refundPolicy.refund_deadline_hours ?? 24;
+        nonRefundable = refundPolicy.non_refundable ?? false;
+      }
+
+      // Nếu là No Show (stay_status_id === 5) thì không hoàn tiền
+      if (currentStatus === 5) {
+        refundPercent = 0;
+      } else if (nonRefundable) {
+        refundPercent = 0;
+      } else if (refundable && hoursUntilCheckIn >= deadline) {
+        // Đủ điều kiện hoàn tiền
+        refundPercent = refundPercent;
+      } else {
+        refundPercent = 0;
+      }
+      // Tính số tiền hoàn lại cho từng phòng
+      const itemRefund = Math.round(
+        (item.room_type_price || 0) * (refundPercent / 100)
+      );
+      totalRefund += itemRefund;
+      // Lưu số tiền hoàn lại vào booking_items
+      await client.query(
+        `UPDATE booking_items SET refund_amount = $1 WHERE booking_id = $2 AND room_id = $3`,
+        [itemRefund, id, item.room_id]
+      );
+    }
+
+    // Lấy trạng thái thanh toán hiện tại
+    // Khi hủy chỉ cập nhật trạng thái booking, không cập nhật payment_status
+    await client.query(
+      `UPDATE bookings 
+         SET stay_status_id = 4,
+             cancel_reason = $2,
+             canceled_by = $3,
+             canceled_at = NOW(),
+             refund_amount = $4,
+             is_refunded = CASE WHEN $4 > 0 THEN false ELSE NULL END
+         WHERE id = $1`,
+      [id, cancelReason, userId, totalRefund]
+    );
+
+    // Cập nhật trạng thái phòng
     for (const item of items.rows) {
       await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
         "available",
@@ -703,7 +811,7 @@ export const cancelBooking = async (
 
     await client.query("COMMIT");
 
-    // Return updated booking
+    // Trả về booking đã cập nhật
     const result = await client.query(
       `SELECT b.*, ss.name as stay_status_name 
        FROM bookings b
@@ -714,8 +822,11 @@ export const cancelBooking = async (
 
     return {
       booking: result.rows[0],
+      refund_amount: totalRefund,
       message:
-        "Booking đã được hủy (payment_status = Failed). Admin có thể cập nhật thành Refunded nếu cần hoàn tiền.",
+        totalRefund > 0
+          ? `Đã hủy booking. Số tiền hoàn lại: ${totalRefund} VND.`
+          : `Đã hủy booking. Không đủ điều kiện hoàn tiền theo chính sách.`,
     };
   } catch (err) {
     await client.query("ROLLBACK");

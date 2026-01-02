@@ -1,8 +1,21 @@
+// Đánh dấu hoàn tiền cho booking (admin)
+export const markBookingRefunded = async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query("UPDATE bookings SET is_refunded = true WHERE id = $1", [
+      id,
+    ]);
+    res.json({ success: true, message: "Đã đánh dấu hoàn tiền booking." });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+import { sendBookingConfirmationEmail } from "../utils/mailer.js";
 import {
   getBookings as modelGetBookings,
   getBookingById as modelGetBookingById,
   createBooking as modelCreateBooking,
-  updateBookingStatus as modelUpdateBookingStatus,
+  setBookingStatus as modelSetBookingStatus,
   getBookingsByUser as modelGetBookingsByUser,
   confirmCheckout as modelConfirmCheckout,
   cancelBooking as modelCancelBooking,
@@ -10,7 +23,6 @@ import {
   autoAssignRooms as modelAutoAssignRooms,
   confirmCheckin as modelConfirmCheckin,
 } from "../models/bookingsmodel.js";
-// import { incrementUsageCount as modelIncrementUsageCount } from "../models/discountcodesmodel.js"; // [CLEANUP] Đã comment dòng liên quan đến discount
 import pool from "../db.js";
 import { markNoShow } from "../utils/markNoShow.js";
 
@@ -44,7 +56,12 @@ export const getBookingById = async (req, res) => {
 
     // fetch items and services only
     const itemsRes = await pool.query(
-      "SELECT * FROM booking_items WHERE booking_id = $1",
+      `SELECT bi.*, 
+              rp.refundable, rp.refund_percent, rp.refund_deadline_hours, rp.non_refundable, rp.notes as refund_notes
+       FROM booking_items bi
+       LEFT JOIN room_types rt ON bi.room_type_id = rt.id
+       LEFT JOIN refund_policies rp ON bi.room_type_id = rp.room_type_id
+       WHERE bi.booking_id = $1`,
       [id]
     );
     const servicesRes = await pool.query(
@@ -52,7 +69,32 @@ export const getBookingById = async (req, res) => {
       [id]
     );
 
-    booking.items = itemsRes.rows;
+    // Map refund_policy fields for each item
+    booking.items = itemsRes.rows.map((item) => {
+      const refund_policy =
+        item.refundable !== null
+          ? {
+              refundable: item.refundable,
+              refund_percent: item.refund_percent,
+              refund_deadline_hours: item.refund_deadline_hours,
+              non_refundable: item.non_refundable,
+              notes: item.refund_notes,
+            }
+          : null;
+      // Remove raw refund_policy fields from item
+      const {
+        refundable,
+        refund_percent,
+        refund_deadline_hours,
+        non_refundable,
+        refund_notes,
+        ...rest
+      } = item;
+      return {
+        ...rest,
+        refund_policy,
+      };
+    });
     booking.services = servicesRes.rows;
 
     // Add check_in and check_out from first booking_item for convenience
@@ -242,7 +284,7 @@ export const getMyBookings = async (req, res) => {
   }
 };
 
-export const updateBookingStatus = async (req, res) => {
+export const setBookingStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const fields = req.body;
@@ -270,7 +312,49 @@ export const updateBookingStatus = async (req, res) => {
       );
     }
 
-    const updated = await modelUpdateBookingStatus(id, fields);
+    // Lấy trạng thái payment_status cũ trước khi update
+    let oldPaymentStatus = null;
+    if (fields.payment_status && fields.payment_status === "paid") {
+      const oldBookingRes = await pool.query(
+        "SELECT payment_status, user_id FROM bookings WHERE id = $1",
+        [id]
+      );
+      const oldBooking = oldBookingRes.rows[0];
+      oldPaymentStatus = oldBooking?.payment_status;
+    }
+    const updated = await modelSetBookingStatus(id, fields);
+    // Chỉ gửi email nếu payment_status chuyển từ khác 'paid' sang 'paid'
+    if (
+      fields.payment_status &&
+      fields.payment_status === "paid" &&
+      oldPaymentStatus !== "paid"
+    ) {
+      const bookingRes = await pool.query(
+        "SELECT user_id FROM bookings WHERE id = $1",
+        [id]
+      );
+      const booking = bookingRes.rows[0];
+      if (booking && booking.user_id) {
+        const userRes = await pool.query(
+          "SELECT email FROM users WHERE id = $1",
+          [booking.user_id]
+        );
+        const user = userRes.rows[0];
+        if (user && user.email) {
+          try {
+            await sendBookingConfirmationEmail(user.email, id);
+            console.log(
+              `[EMAIL] Đã gửi email xác nhận booking #${id} cho ${user.email}`
+            );
+          } catch (err) {
+            console.error(
+              `[EMAIL] Lỗi gửi email xác nhận booking #${id}:`,
+              err
+            );
+          }
+        }
+      }
+    }
     res.json({ success: true, data: updated });
   } catch (err) {
     console.error(err);
@@ -288,6 +372,35 @@ export const updateMyBookingStatus = async (req, res) => {
     const userId = req.user?.id;
 
     if (!userId) {
+      // Nếu cập nhật payment_status thành 'paid' thì gửi email xác nhận
+      if (fields.payment_status && fields.payment_status === "paid") {
+        // Lấy email khách hàng
+        const bookingRes = await pool.query(
+          "SELECT user_id FROM bookings WHERE id = $1",
+          [id]
+        );
+        const booking = bookingRes.rows[0];
+        if (booking && booking.user_id) {
+          const userRes = await pool.query(
+            "SELECT email FROM users WHERE id = $1",
+            [booking.user_id]
+          );
+          const user = userRes.rows[0];
+          if (user && user.email) {
+            try {
+              await sendBookingConfirmationEmail(user.email, id);
+              console.log(
+                `[EMAIL] Đã gửi email xác nhận booking #${id} cho ${user.email}`
+              );
+            } catch (err) {
+              console.error(
+                `[EMAIL] Lỗi gửi email xác nhận booking #${id}:`,
+                err
+              );
+            }
+          }
+        }
+      }
       return res.status(401).json({
         success: false,
         message: "Unauthorized. Please login.",
@@ -313,25 +426,44 @@ export const updateMyBookingStatus = async (req, res) => {
 
     // Nếu client gửi payment_status thì update payment_status
     if (payment_status) {
-      const updated = await modelUpdateBookingStatus(id, { payment_status });
-      // [CLEANUP] Đã bỏ block tăng usage count cho mã giảm giá
-      // Gửi email xác nhận nếu đã thanh toán thành công
-      try {
-        const booking = await modelGetBookingById(id);
-        const customerEmail = booking.email;
-        if (customerEmail) {
-          const { sendBookingConfirmationEmail } = await import(
-            "../utils/mailer.js"
+      // Lấy trạng thái payment_status cũ trước khi update
+      let oldPaymentStatus = null;
+      if (payment_status === "paid") {
+        const oldBookingRes = await pool.query(
+          "SELECT payment_status, user_id FROM bookings WHERE id = $1",
+          [id]
+        );
+        const oldBooking = oldBookingRes.rows[0];
+        oldPaymentStatus = oldBooking?.payment_status;
+      }
+      const updated = await modelSetBookingStatus(id, { payment_status });
+      // Chỉ gửi email nếu payment_status chuyển từ khác 'paid' sang 'paid'
+      if (payment_status === "paid" && oldPaymentStatus !== "paid") {
+        const bookingRes = await pool.query(
+          "SELECT user_id FROM bookings WHERE id = $1",
+          [id]
+        );
+        const booking = bookingRes.rows[0];
+        if (booking && booking.user_id) {
+          const userRes = await pool.query(
+            "SELECT email FROM users WHERE id = $1",
+            [booking.user_id]
           );
-          await sendBookingConfirmationEmail(customerEmail, id);
-          console.log(
-            `Đã gửi email xác nhận booking #${id} tới ${customerEmail}`
-          );
-        } else {
-          console.warn("Không tìm thấy email khách để gửi xác nhận booking");
+          const user = userRes.rows[0];
+          if (user && user.email) {
+            try {
+              await sendBookingConfirmationEmail(user.email, id);
+              console.log(
+                `[EMAIL] Đã gửi email xác nhận booking #${id} cho ${user.email}`
+              );
+            } catch (err) {
+              console.error(
+                `[EMAIL] Lỗi gửi email xác nhận booking #${id}:`,
+                err
+              );
+            }
+          }
         }
-      } catch (mailErr) {
-        console.error("Lỗi gửi email xác nhận booking:", mailErr);
       }
       return res.json({
         success: true,
@@ -342,7 +474,7 @@ export const updateMyBookingStatus = async (req, res) => {
 
     // Nếu client gửi payment_method thì chỉ update payment_method
     if (payment_method) {
-      const updated = await modelUpdateBookingStatus(id, { payment_method });
+      const updated = await modelSetBookingStatus(id, { payment_method });
       return res.json({
         success: true,
         message: "Cập nhật phương thức thanh toán thành công!",
@@ -431,7 +563,10 @@ export const cancelBooking = async (req, res) => {
     res.json({
       success: true,
       message: result.message || "Đã hủy booking thành công.",
-      data: result.booking,
+      data: {
+        booking: result.booking,
+        refund_amount: result.refund_amount || 0,
+      },
     });
   } catch (err) {
     console.error("cancelBooking error:", err);
@@ -448,6 +583,19 @@ export const adminMarkNoShow = async (req, res) => {
   try {
     await markNoShow(Number(id));
     res.json({ success: true, message: "Booking đã chuyển sang no_show." });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// Admin đánh dấu đã hoàn tiền cho booking
+export const adminMarkRefunded = async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Import pool hoặc dùng model
+    const { setBookingStatus } = await import("../models/bookingsmodel.js");
+    await setBookingStatus(id, { is_refunded: true });
+    res.json({ success: true, message: "Đã đánh dấu hoàn tiền thành công." });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

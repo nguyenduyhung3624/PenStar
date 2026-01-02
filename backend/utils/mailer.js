@@ -29,15 +29,23 @@ export const sendBookingConfirmationEmail = async (
     // Chỉ gửi mail khi đã thanh toán thành công
     return;
   }
+  // Lấy đầy đủ thông tin items bao gồm giá, phụ thu, loại phòng
   const itemsRes = await pool.query(
-    `SELECT bi.id, r.name as room_name, bi.check_in, bi.check_out
+    `SELECT bi.id, bi.check_in, bi.check_out, bi.room_type_price, 
+            bi.num_adults, bi.num_children, bi.extra_adult_fees, bi.extra_child_fees,
+            r.name as room_name, rt.name as room_type_name
      FROM booking_items bi
      JOIN rooms r ON bi.room_id = r.id
+     LEFT JOIN room_types rt ON bi.room_type_id = rt.id
      WHERE bi.booking_id = $1`,
     [bookingId]
   );
+  // Lấy thông tin dịch vụ kèm tên
   const servicesRes = await pool.query(
-    "SELECT * FROM booking_services WHERE booking_id = $1",
+    `SELECT bs.*, s.name as service_name 
+     FROM booking_services bs 
+     LEFT JOIN services s ON bs.service_id = s.id
+     WHERE bs.booking_id = $1`,
     [bookingId]
   );
   booking.items = itemsRes.rows;

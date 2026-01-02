@@ -2,6 +2,7 @@ import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import useAuth from "@/hooks/useAuth";
 import { jwtDecode } from "jwt-decode";
+import { Spin } from "antd";
 
 /**
  * Component để chặn admin/staff vào các trang client dành riêng cho customer
@@ -12,6 +13,15 @@ const RequireCustomerOnly: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const auth = useAuth();
   const location = useLocation();
+
+  // Đợi auth khởi tạo xong trước khi quyết định redirect
+  if (!auth?.initialized) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Spin size="large" tip="Đang kiểm tra đăng nhập..." />
+      </div>
+    );
+  }
 
   // Nếu chưa đăng nhập, redirect về signin
   if (!auth?.user || !auth?.token) {
@@ -35,8 +45,7 @@ const RequireCustomerOnly: React.FC<{ children: React.ReactNode }> = ({
     // Kiểm tra nếu là customer (role_id = 1 hoặc role_name = "customer")
     // Frontend mapping: customer: 1, staff: 2, manager: 3, admin: 4
     const isCustomer =
-      roleName === "customer" ||
-      (typeof roleId === "number" && roleId === 1); // role_id = 1 là customer
+      roleName === "customer" || (typeof roleId === "number" && roleId === 1); // role_id = 1 là customer
 
     // Nếu không phải customer (là admin/staff/manager), redirect về admin
     if (!isCustomer) {
@@ -53,4 +62,3 @@ const RequireCustomerOnly: React.FC<{ children: React.ReactNode }> = ({
 };
 
 export default RequireCustomerOnly;
-

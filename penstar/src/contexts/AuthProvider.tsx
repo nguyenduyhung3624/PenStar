@@ -11,9 +11,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   );
   const [user, setUser] = useState<User>(null);
   const [rolesMap, setRolesMap] = useState<RolesMap>(null);
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    if (!token) return setUser(null);
+    if (!token) {
+      setUser(null);
+      setInitialized(true);
+      return;
+    }
     try {
       type Decoded = {
         id?: number | string;
@@ -43,10 +48,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         role_id: decoded.role_id ? Number(decoded.role_id) : undefined,
         role: decoded.role ? String(decoded.role) : undefined,
       });
+      setInitialized(true);
     } catch {
       localStorage.removeItem("penstar_token");
       setToken(null);
       setUser(null);
+      setInitialized(true);
     }
   }, [token]);
 
@@ -113,7 +120,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ token, user, rolesMap, loginWithToken, logout, getRoleName }}
+      value={{
+        token,
+        user,
+        rolesMap,
+        loginWithToken,
+        logout,
+        getRoleName,
+        initialized,
+      }}
     >
       {children}
     </AuthContext.Provider>

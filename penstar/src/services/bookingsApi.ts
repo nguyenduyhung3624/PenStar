@@ -1,3 +1,4 @@
+// Admin: Mark booking as Refunded
 // Admin: Mark booking as No Show
 
 import { instance } from "./api";
@@ -27,7 +28,7 @@ export const getBookingById = async (id: number): Promise<Booking> => {
   return data.data;
 };
 
-export const updateBookingStatus = async (
+export const setBookingStatus = async (
   id: number,
   payload: BookingUpdatePayload
 ): Promise<Booking> => {
@@ -66,4 +67,10 @@ export const markNoShow = async (id: number): Promise<Booking> => {
 export const confirmCheckin = async (id: number): Promise<Booking> => {
   const { data } = await instance.post(`/bookings/${id}/confirm-checkin`);
   return data.data;
+};
+export const markBookingRefunded = async (
+  id: number
+): Promise<{ success: boolean; message: string }> => {
+  const { data } = await instance.patch(`/bookings/${id}/mark-refunded`);
+  return data;
 };

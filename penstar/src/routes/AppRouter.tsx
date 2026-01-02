@@ -1,3 +1,5 @@
+import DiscountList from "@/components/pages/admin/discounts/DiscountList";
+import AddDiscount from "@/components/pages/admin/discounts/AddDiscount";
 import Dashboard from "@/components/pages/admin/Dashboard";
 import LayoutAdmin from "@/components/pages/admin/LayoutAdmin";
 import RequireRole from "@/components/common/RequireRole";
@@ -32,6 +34,7 @@ import Forbidden from "@/components/common/Forbidden";
 import BookingDetail from "@/components/pages/admin/bookings/BookingDetail";
 import AdminWalkInBooking from "@/components/pages/admin/bookings/AdminWalkInBooking";
 import PaymentResult from "@/components/pages/clients/bookings/PaymentResult";
+import PaymentMethod from "@/components/pages/clients/bookings/PaymentMethod";
 import MoMoMockPayment from "@/components/pages/clients/bookings/MoMoMockPayment";
 import EquipmentListUnified from "@/components/pages/admin/equipments/EquipmentListUnified";
 import EquipmentLogDetail from "@/components/pages/admin/equipments/EquipmentLogDetail";
@@ -41,6 +44,8 @@ import RoomDeviceEdit from "@/components/pages/admin/equipments/RoomDeviceEdit";
 import RoomDeviceCreate from "@/components/pages/admin/equipments/RoomDeviceCreate";
 import RoomDeviceTransfer from "@/components/pages/admin/equipments/RoomDeviceTransfer";
 import EquipmentLogHistory from "@/components/pages/admin/equipments/EquipmentLogHistory";
+import EditDiscount from "@/components/pages/admin/discounts/EditDiscount";
+import DeviceStandardAdmin from "@/components/pages/admin/equipments/DeviceStandardAdmin";
 
 const AppRouter = () => {
   return (
@@ -81,6 +86,8 @@ const AppRouter = () => {
 
           {/* PaymentResult không cần RequireCustomerOnly vì đây là callback từ VNPay, token có thể chưa kịp load */}
           <Route path="payment-result" element={<PaymentResult />} />
+          {/* PaymentMethod - trang chọn phương thức thanh toán lại */}
+          <Route path="bookings/payment-method" element={<PaymentMethod />} />
           {/* MoMo Mock Payment - chỉ dùng trong test mode */}
           <Route path="momo-mock-payment" element={<MoMoMockPayment />} />
           {/* admin booking routes moved to admin layout below */}
@@ -158,6 +165,17 @@ const AppRouter = () => {
             element={<RoomDeviceTransfer />}
           />
 
+          {/* Discount codes management - Staff+ */}
+          <Route path="discount-codes" element={<DiscountList />} />
+          <Route path="discount-codes/add" element={<AddDiscount />} />
+          <Route
+            path="discount-codes/:id/edit"
+            element={
+              <RequireRole role="staff">
+                <EditDiscount />
+              </RequireRole>
+            }
+          />
           {/* Users management - Manager+ */}
           <Route
             path="users"
@@ -175,6 +193,7 @@ const AppRouter = () => {
               </RequireRole>
             }
           />
+          <Route path="device-standards" element={<DeviceStandardAdmin />} />
         </Route>
         <Route path="/403" element={<Forbidden />} />
         <Route path="*" element={<NotFound />} />

@@ -1,7 +1,14 @@
 import express from "express";
 import * as controller from "../controllers/roomdevicescontroller.js";
+import { requireAuth, requireRole } from "../middlewares/auth.js";
 
 const router = express.Router();
+
+// Tất cả routes yêu cầu đăng nhập và role staff trở lên
+router.use(requireAuth, requireRole("staff"));
+
+// Khôi phục trạng thái thiết bị về 'Bình thường'
+router.put("/:id/restore-status", controller.restoreDeviceStatus);
 
 router.get("/", controller.getDevices); // Lấy danh sách thiết bị (lọc theo room_type_id, room_id nếu cần)
 router.get("/:id", controller.getDeviceById); // Lấy chi tiết thiết bị phòng

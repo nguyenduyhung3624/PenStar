@@ -1,3 +1,24 @@
+// Upload service image
+export const uploadServiceImage = async (
+  serviceId: number,
+  file: File,
+  isThumbnail: boolean = false
+) => {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("is_thumbnail", isThumbnail.toString());
+
+  const response = await instance.post(
+    `/services/${serviceId}/upload-image`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
+  return response.data.data;
+};
 import { instance } from "./api";
 
 export const getServices = async () => {
