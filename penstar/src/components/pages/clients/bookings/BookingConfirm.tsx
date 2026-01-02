@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -24,6 +25,12 @@ import { createPayment, createMoMoPayment } from "@/services/paymentApi";
 import { useMutation } from "@tanstack/react-query";
 import useAuth from "@/hooks/useAuth";
 
+import {
+  checkDiscountCode,
+  suggestDiscountCodes,
+} from "@/services/discountApi";
+import { AutoComplete } from "antd";
+
 const { TextArea } = Input;
 const { Option } = Select;
 
@@ -46,6 +53,17 @@ const BookingConfirm = () => {
     customer_phone: "",
     customer_email: "",
   });
+  const [promoCode, setPromoCode] = useState("");
+  const [discountInfo, setDiscountInfo] = useState<{
+    code: string;
+    discountAmount: number;
+  } | null>(null);
+  const [checkingDiscount, setCheckingDiscount] = useState(false);
+  const [suggestedCodes, setSuggestedCodes] = useState<
+    { label: string; value: string; description?: string }[]
+  >([]);
+
+  // (Đã chuyển useEffect này xuống sau khi khai báo totalRoomPrice)
   const [notes, setNotes] = useState("");
   const [agreePolicy, setAgreePolicy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("vnpay");
@@ -74,11 +92,9 @@ const BookingConfirm = () => {
 
   // Tính tổng tiền phòng - ưu tiên dùng totalPrice từ state
   const totalRoomPrice = useMemo(() => {
-    // Nếu có totalPrice từ state (đã tính đúng phụ phí), dùng luôn
     if (totalPriceFromState) {
       return totalPriceFromState;
     }
-    // Fallback: tính lại nếu không có
     return items.reduce((sum: number, item: any) => {
       const pricePerNight =
         Number(item.base_price || item.room_type_price) +
@@ -86,6 +102,59 @@ const BookingConfirm = () => {
       return sum + pricePerNight * nights;
     }, 0);
   }, [items, nights, totalPriceFromState]);
+
+  // Lấy danh sách mã giảm giá đề xuất đủ điều kiện
+  useEffect(() => {
+    const fetchSuggested = async () => {
+      try {
+        const data = await suggestDiscountCodes(totalRoomPrice);
+        if (data.ok && Array.isArray(data.codes)) {
+          setSuggestedCodes(
+            data.codes.map((c: any) => ({
+              label: c.code + (c.description ? ` - ${c.description}` : ""),
+              value: c.code,
+              description: c.description,
+            }))
+          );
+        }
+      } catch (e) {
+        setSuggestedCodes([]);
+      }
+    };
+    fetchSuggested();
+  }, [totalRoomPrice]);
+
+  // Lấy danh sách mã giảm giá đề xuất đủ điều kiện
+  useEffect(() => {
+    const fetchSuggested = async () => {
+      try {
+        const res = await fetch(
+          "/api/discount-codes/suggest?total=" + totalRoomPrice
+        );
+        const data = await res.json();
+        if (data.ok && Array.isArray(data.codes)) {
+          setSuggestedCodes(
+            data.codes.map((c: any) => ({
+              label: c.code + (c.description ? ` - ${c.description}` : ""),
+              value: c.code,
+              description: c.description,
+            }))
+          );
+        }
+      } catch (e) {
+        setSuggestedCodes([]);
+      }
+    };
+    fetchSuggested();
+  }, [totalRoomPrice]);
+
+  // Tổng sau giảm giá
+  const totalAfterDiscount = useMemo(() => {
+    if (discountInfo?.discountAmount) {
+      return Math.max(0, totalRoomPrice - discountInfo.discountAmount);
+    }
+    return totalRoomPrice;
+  }, [totalRoomPrice, discountInfo]);
 
   // Format giá
   const formatPrice = (price: number) =>
@@ -117,7 +186,7 @@ const BookingConfirm = () => {
         let paymentUrl: string = "";
         const paymentParams = {
           bookingId: bookingId,
-          amount: totalRoomPrice,
+          amount: totalAfterDiscount,
           orderInfo: `Thanh toán đặt phòng #${bookingId}`,
         };
 
@@ -152,8 +221,72 @@ const BookingConfirm = () => {
     },
   });
 
+  // Kiểm tra mã giảm giá
+  // Chỉ kiểm tra và báo lỗi khi ấn nút Áp dụng
+  const handleCheckDiscount = async (code?: string) => {
+    const codeToCheck = (code ?? promoCode).trim();
+    if (!codeToCheck) {
+      setDiscountInfo(null);
+      return message.warning("Vui lòng nhập mã giảm giá");
+    }
+    setCheckingDiscount(true);
+    try {
+      const res = await checkDiscountCode(codeToCheck, totalRoomPrice);
+      if (res.ok) {
+        setDiscountInfo({
+          code: codeToCheck,
+          discountAmount: res.discountAmount,
+        });
+        message.success(
+          `Áp dụng mã thành công! Giảm ${formatPrice(res.discountAmount)}`
+        );
+      } else {
+        setDiscountInfo(null);
+        // Chỉ báo lỗi khi người dùng thực sự ấn nút Áp dụng
+        message.error(res.error || "Mã không hợp lệ");
+      }
+    } catch (err: any) {
+      setDiscountInfo(null);
+      message.error(err?.response?.data?.error || "Mã không hợp lệ");
+    } finally {
+      setCheckingDiscount(false);
+    }
+  };
+
   // Submit form
-  const handleSubmit = () => {
+  // Helper: check refund eligibility for all items (dùng refund_policy từ item)
+  const checkRefundEligibility = () => {
+    const now = new Date();
+    const messages: string[] = [];
+    let allEligible = true;
+    items.forEach((item: any, idx: number) => {
+      const refund = item.refund_policy;
+      if (!refund) return;
+      if (refund.non_refundable) {
+        messages.push(`Phòng ${idx + 1}: Không hoàn tiền khi hủy.`);
+        allEligible = false;
+        return;
+      }
+      if (
+        refund.refundable &&
+        refund.refund_deadline_hours &&
+        searchParams?.check_in
+      ) {
+        const checkIn = new Date(searchParams.check_in);
+        const diffMs = checkIn.getTime() - now.getTime();
+        const diffHours = diffMs / (1000 * 60 * 60);
+        if (diffHours < refund.refund_deadline_hours) {
+          messages.push(
+            `Phòng ${idx + 1}: Không đủ điều kiện hoàn tiền (chỉ hoàn nếu hủy trước ${refund.refund_deadline_hours}h).`
+          );
+          allEligible = false;
+        }
+      }
+    });
+    return { eligible: allEligible, messages };
+  };
+
+  const handleSubmit = async () => {
     if (!customerInfo.customer_name?.trim()) {
       return message.error("Vui lòng nhập họ tên");
     }
@@ -165,6 +298,48 @@ const BookingConfirm = () => {
     }
     if (!agreePolicy) {
       return message.error("Vui lòng đồng ý với chính sách đặt phòng");
+    }
+    // Validate refund eligibility before booking
+    const refundCheck = checkRefundEligibility();
+    if (!refundCheck.eligible) {
+      message.warning(
+        <div>
+          <div>Không đủ điều kiện hoàn tiền cho một số phòng nếu hủy:</div>
+          <ul style={{ margin: 0, paddingLeft: 18 }}>
+            {refundCheck.messages.map((msg, i) => (
+              <li key={i}>{msg}</li>
+            ))}
+          </ul>
+          <div className="mt-1">Bạn vẫn muốn tiếp tục đặt phòng?</div>
+        </div>,
+        6
+      );
+      // Optionally: return here to block booking, or allow to continue
+      // return;
+    }
+
+    // Validate mã giảm giá nếu có nhập
+    if (promoCode.trim()) {
+      if (!discountInfo) {
+        return message.error(
+          "Vui lòng kiểm tra và áp dụng mã giảm giá trước khi đặt phòng."
+        );
+      }
+      // Có discountInfo nhưng cần xác thực lại với backend (tránh trường hợp mã hết hạn giữa lúc đặt)
+      try {
+        const res = await checkDiscountCode(promoCode.trim(), totalRoomPrice);
+        if (!res.ok) {
+          setDiscountInfo(null);
+          return message.error(
+            res.error || "Mã giảm giá không hợp lệ hoặc đã hết hạn."
+          );
+        }
+      } catch (err: any) {
+        setDiscountInfo(null);
+        return message.error(
+          "Không thể xác thực mã giảm giá. Vui lòng thử lại."
+        );
+      }
     }
 
     // Gom nhóm items theo room_type_id, num_adults, num_children để tạo rooms_config cho backend
@@ -224,8 +399,9 @@ const BookingConfirm = () => {
       customer_email: customerInfo.customer_email,
       customer_phone: customerInfo.customer_phone,
       notes: notes || undefined,
-      promo_code: searchParams?.promo_code || undefined,
-      total_price: totalRoomPrice,
+      discount_code: discountInfo?.code || undefined,
+      discount_amount: discountInfo?.discountAmount || 0,
+      total_price: totalAfterDiscount,
       payment_status: "unpaid",
       payment_method: paymentMethod,
       booking_method: "online",
@@ -374,7 +550,7 @@ const BookingConfirm = () => {
                     Nhận phòng: {searchParams.check_in}
                   </p>
                   <p className="text-sm text-gray-600">
-                    Trả phòng: {searchParams.check_out} cho đến 12:00
+                    Trả phòng: {searchParams.check_out} cho đến 14:00
                   </p>
                   <p className="text-sm text-gray-600">
                     ({nights} đêm | {items.length} phòng)
@@ -399,6 +575,8 @@ const BookingConfirm = () => {
                     const totalExtraFees = extraAdultFees + extraChildFees;
                     const totalPerRoom = basePrice + totalExtraFees;
 
+                    const refund = item.refund_policy;
+
                     return (
                       <div key={idx} className="bg-gray-50 p-3 rounded">
                         <p className="font-medium">
@@ -412,6 +590,48 @@ const BookingConfirm = () => {
                           {item.num_children} Trẻ em
                           {item.num_babies > 0 && ` - ${item.num_babies} Em bé`}
                         </p>
+
+                        {/* Refund Policy Display */}
+                        {refund && (
+                          <div className="mt-2 p-2 rounded bg-blue-50 border border-blue-200">
+                            <div className="font-semibold text-blue-700 mb-1">
+                              Chính sách hoàn tiền:
+                            </div>
+                            {refund.non_refundable ? (
+                              <div className="text-red-600 font-bold">
+                                Không hoàn tiền khi hủy phòng này.
+                              </div>
+                            ) : refund.refundable ? (
+                              <>
+                                <div>
+                                  Hoàn tiền{" "}
+                                  <span className="font-bold text-green-700">
+                                    {refund.refund_percent ?? 100}%
+                                  </span>
+                                  {refund.refund_deadline_hours && (
+                                    <>
+                                      {" "}
+                                      (nếu hủy trước{" "}
+                                      <span className="font-bold">
+                                        {refund.refund_deadline_hours}h
+                                      </span>{" "}
+                                      trước giờ nhận phòng)
+                                    </>
+                                  )}
+                                </div>
+                                {refund.notes && (
+                                  <div className="text-xs text-gray-600 mt-1">
+                                    {refund.notes}
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <div className="text-gray-600">
+                                Chính sách hoàn tiền không xác định.
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* Chi tiết phụ phí */}
                         {(extraAdultFees > 0 || extraChildFees > 0) && (
@@ -458,11 +678,62 @@ const BookingConfirm = () => {
                       {formatPrice(totalRoomPrice)}
                     </span>
                   </div>
-                  {searchParams.promo_code && (
+                  {/* Input mã giảm giá */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <AutoComplete
+                      options={suggestedCodes}
+                      value={promoCode}
+                      onSelect={(val) => {
+                        setPromoCode(val);
+                        handleCheckDiscount(val);
+                      }}
+                      onChange={(val) => setPromoCode(val)}
+                      placeholder="Nhập hoặc chọn mã giảm giá"
+                      style={{
+                        minWidth: 180,
+                        maxWidth: 320,
+                        width: 220,
+                        fontWeight: 600,
+                        fontStyle: "italic",
+                      }}
+                      disabled={!!discountInfo}
+                      allowClear
+                      filterOption={(inputValue, option) => {
+                        if (!option || typeof option.value !== "string")
+                          return false;
+                        return option.value
+                          .toLowerCase()
+                          .includes(inputValue.toLowerCase());
+                      }}
+                    />
+                    <Button
+                      type="primary"
+                      onClick={() => handleCheckDiscount()}
+                      loading={checkingDiscount}
+                      disabled={!!discountInfo}
+                    >
+                      Áp dụng
+                    </Button>
+                    {discountInfo && (
+                      <Button
+                        type="link"
+                        danger
+                        onClick={() => {
+                          setDiscountInfo(null);
+                          setPromoCode("");
+                        }}
+                      >
+                        Xóa mã
+                      </Button>
+                    )}
+                    {/* Always show entered code if not yet applied */}
+                  </div>
+                  {discountInfo && (
                     <div className="flex justify-between text-green-600">
                       <span>Mã khuyến mãi:</span>
                       <span className="font-semibold">
-                        {searchParams.promo_code}
+                        {discountInfo.code} (-
+                        {formatPrice(discountInfo.discountAmount)})
                       </span>
                     </div>
                   )}
@@ -474,7 +745,7 @@ const BookingConfirm = () => {
                 <div className="flex justify-between items-center">
                   <span className="text-xl font-bold">Tổng giá:</span>
                   <span className="text-2xl font-bold text-orange-500">
-                    {formatPrice(totalRoomPrice)}
+                    {formatPrice(totalAfterDiscount)}
                   </span>
                 </div>
 

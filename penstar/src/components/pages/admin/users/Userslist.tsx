@@ -48,6 +48,14 @@ const Userlist = () => {
     customer: "gold",
   };
 
+  // map role name -> Vietnamese
+  const roleNameVi: Record<string, string> = {
+    admin: "Quản trị viên",
+    manager: "Quản lý",
+    staff: "Nhân viên",
+    customer: "Khách hàng",
+  };
+
   const queryClient = useQueryClient();
 
   const banMut = useMutation({
@@ -100,7 +108,8 @@ const Userlist = () => {
       render: (_unused, rec) => {
         const name = roleMap[Number(rec.role_id)] ?? String(rec.role_id ?? "-");
         const color = roleColorMap[name?.toLowerCase?.()] ?? "default";
-        return <Tag color={color}>{name}</Tag>;
+        const vi = roleNameVi[name?.toLowerCase?.()] ?? name;
+        return <Tag color={color}>{vi}</Tag>;
       },
     },
     {
@@ -108,13 +117,22 @@ const Userlist = () => {
       key: "action",
       render: (_v, record) => {
         const isCurrentUser = record.id === currentUserId;
+        const currentUserRole =
+          auth?.getRoleName(auth.user)?.toLowerCase?.() || "";
+        const targetUserRole =
+          roleMap[Number(record.role_id)]?.toLowerCase?.() || "";
+        // Chặn admin thao tác với admin khác (trừ chính mình)
+        const isAdminBlock =
+          currentUserRole === "admin" &&
+          targetUserRole === "admin" &&
+          !isCurrentUser;
         return (
           <Space>
             <Button
               type="primary"
               icon={<EditOutlined />}
               onClick={() => navigate(`/admin/users/${record.id}/edit`)}
-              disabled={isCurrentUser}
+              disabled={isCurrentUser || isAdminBlock}
             >
               Sửa
             </Button>
@@ -127,7 +145,7 @@ const Userlist = () => {
                   status: record.status === "banned" ? "active" : "banned",
                 })
               }
-              disabled={isCurrentUser}
+              disabled={isCurrentUser || isAdminBlock}
             >
               {record.status === "banned" ? "Bỏ chặn" : "Chặn"}
             </Button>

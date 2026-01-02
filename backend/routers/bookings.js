@@ -4,12 +4,13 @@ import {
   getBookingById,
   createBooking,
   getMyBookings,
-  updateBookingStatus,
+  setBookingStatus,
   updateMyBookingStatus,
   confirmCheckout,
   cancelBooking,
   confirmCheckin,
   adminMarkNoShow,
+  adminMarkRefunded,
 } from "../controllers/bookingscontroller.js";
 import { requireAuth, requireRole, optionalAuth } from "../middlewares/auth.js";
 import { validateBookingCreate } from "../middlewares/bookingvalidate.js";
@@ -38,7 +39,7 @@ router.patch(
   "/:id/status",
   requireAuth,
   requireRole("staff"),
-  updateBookingStatus
+  setBookingStatus
 );
 router.post(
   "/:id/confirm-checkout",
@@ -48,5 +49,12 @@ router.post(
 );
 // Đánh dấu no_show thủ công (admin)
 router.post("/:id/no-show", requireAuth, requireRole("staff"), adminMarkNoShow);
+// Đánh dấu đã hoàn tiền (admin)
+router.patch(
+  "/:id/mark-refunded",
+  requireAuth,
+  requireRole("staff"),
+  adminMarkRefunded
+);
 
 export default router;

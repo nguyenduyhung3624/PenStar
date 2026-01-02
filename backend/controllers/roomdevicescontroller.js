@@ -1,3 +1,49 @@
+import * as model from "../models/room_devicesmodel.js";
+import { validateRoomEquipments } from "../models/validateRoomEquipments.js";
+// Khôi phục trạng thái thiết bị về 'working'
+export const restoreDeviceStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log("[RESTORE DEVICE] id:", id);
+    // Truy vấn thiết bị để lấy booking_id
+    const device = await model.getDeviceById(Number(id));
+    console.log("[RESTORE DEVICE] device:", device);
+    if (!device) {
+      console.log("[RESTORE DEVICE] Thiết bị không tồn tại");
+      return res
+        .status(404)
+        .json({ success: false, message: "Thiết bị không tồn tại" });
+    }
+    // Truy vấn booking liên quan đến phòng này
+    const pool = (await import("../db.js")).default;
+    const bookingRes = await pool.query(
+      `SELECT b.stay_status_id FROM bookings b
+        JOIN booking_items bi ON bi.booking_id = b.id
+        WHERE bi.room_id = $1 AND b.stay_status_id = 3 LIMIT 1`,
+      [device.room_id]
+    );
+    console.log("[RESTORE DEVICE] bookingRes:", bookingRes.rows);
+    if (!bookingRes.rows.length) {
+      console.log(
+        "[RESTORE DEVICE] Không tìm thấy booking đã checkout cho room_id:",
+        device.room_id
+      );
+      return res.status(400).json({
+        success: false,
+        message: "Chỉ được khôi phục thiết bị sau khi checkout.",
+      });
+    }
+    // Chỉ cho phép nếu booking đã checkout
+    const updatedDevice = await model.updateDevice(Number(id), {
+      status: "working",
+    });
+    console.log("[RESTORE DEVICE] updatedDevice:", updatedDevice);
+    res.json({ success: true, data: updatedDevice });
+  } catch (error) {
+    console.error("[RESTORE DEVICE ERROR]", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 import { getRooms } from "../models/roomsmodel.js";
 
 // Kiểm tra tiêu chuẩn thiết bị cho tất cả phòng thuộc một loại phòng
@@ -30,7 +76,6 @@ export const getDeviceById = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-import * as model from "../models/room_devicesmodel.js";
 
 export const getDevices = async (req, res) => {
   try {
@@ -108,7 +153,6 @@ export const transferDevice = async (req, res) => {
     res.status(400).json({ success: false, message: error.message });
   }
 };
-import { validateRoomEquipments } from "../utils/validateRoomEquipments.js";
 
 export const checkRoomDevicesStandard = async (req, res) => {
   const roomId = req.params.id;

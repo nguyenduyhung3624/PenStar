@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Table,
   Select,
@@ -14,6 +15,7 @@ import {
 } from "antd";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { getIncidentsByRoom } from "@/services/bookingIncidentsApi";
 import {
   getMasterEquipments,
   deleteMasterEquipment,
@@ -24,13 +26,16 @@ import { checkRoomDevicesStandardByType } from "@/services/roomDevicesStandardAp
 import {
   getRoomDevices,
   checkRoomDevicesStandard,
+  restoreRoomDeviceStatus,
 } from "@/services/roomDevicesApi";
 
 const EquipmentListUnified = () => {
   const [selectedRoom, setSelectedRoom] = useState<number | undefined>();
+  const queryClient = useQueryClient();
   const [checkResult, setCheckResult] = useState<any>(null);
   const [checking, setChecking] = useState(false);
   const [showCheckModal, setShowCheckModal] = useState(false);
+
   const { data: rooms = [] } = useQuery({
     queryKey: ["rooms"],
     queryFn: getRooms,
@@ -90,6 +95,14 @@ const EquipmentListUnified = () => {
     enabled: !!selectedRoom,
   });
 
+  // Lấy danh sách incidents theo phòng
+  const { data: incidents = [] } = useQuery({
+    queryKey: ["incidents-by-room", selectedRoom],
+    queryFn: () =>
+      selectedRoom ? getIncidentsByRoom(selectedRoom) : Promise.resolve([]),
+    enabled: !!selectedRoom,
+  });
+
   const navigate = useNavigate();
   // Đảm bảo dữ liệu masterEquipments có trường loss_price
   // Nếu backend trả về loss_price là string, ép kiểu về number
@@ -104,7 +117,16 @@ const EquipmentListUnified = () => {
         ? Number(item.loss_price)
         : undefined,
   }));
-  const dataSource = selectedRoom ? roomDevices : normalizedMasterEquipments;
+  // Map trạng thái hỏng vào roomDevices: chỉ dựa vào trường status
+  const roomDevicesWithStatus = selectedRoom
+    ? roomDevices.map((device: any) => ({
+        ...device,
+        is_broken: device.status === "broken",
+      }))
+    : [];
+  const dataSource = selectedRoom
+    ? roomDevicesWithStatus
+    : normalizedMasterEquipments;
 
   // Định nghĩa columns duy nhất ngoài return
   const columns = [
@@ -144,6 +166,63 @@ const EquipmentListUnified = () => {
           dataIndex: "total_stock",
           key: "total_stock",
         },
+    // Thêm cột trạng thái khi lọc theo phòng
+    selectedRoom && {
+      title: "Trạng thái",
+      dataIndex: "is_broken",
+      key: "is_broken",
+      render: (is_broken: boolean) =>
+        is_broken ? (
+          <Tag color="red">Báo hỏng</Tag>
+        ) : (
+          <Tag color="green">Bình thường</Tag>
+        ),
+    },
+    // Thêm cột Sự cố/Đền bù khi lọc theo phòng
+    selectedRoom && {
+      title: "Sự cố/Đền bù",
+      key: "incidents",
+      render: (_: any, record: any) => {
+        // Nếu thiết bị đã khôi phục (status = 'working'), không hiển thị sự cố/đền bù
+        if (record.status === "working") {
+          return <span style={{ color: "#aaa" }}>Không có</span>;
+        }
+        // Lọc các incident liên quan đến thiết bị này, chỉ hiện sự cố chưa bị xóa
+        const relatedIncidents = incidents.filter(
+          (inc: any) =>
+            inc.room_id === record.room_id &&
+            inc.equipment_id === record.master_equipment_id &&
+            !inc.deleted_at
+        );
+        if (!relatedIncidents.length)
+          return <span style={{ color: "#aaa" }}>Không có</span>;
+        return (
+          <ul style={{ margin: 0, paddingLeft: 16 }}>
+            {relatedIncidents.map((inc: any) => (
+              <li key={inc.id} style={{ marginBottom: 4 }}>
+                <b>x{inc.quantity}</b>
+                {inc.compensation_price ? (
+                  <span>
+                    {" "}
+                    - Đền bù:{" "}
+                    <b>
+                      {Number(inc.compensation_price).toLocaleString("vi-VN")}₫
+                    </b>
+                  </span>
+                ) : null}
+                {inc.note ? <span> - {inc.note}</span> : null}
+                {inc.amount ? (
+                  <span>
+                    {" "}
+                    (Tổng: {Number(inc.amount).toLocaleString("vi-VN")}₫)
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        );
+      },
+    },
     selectedRoom && { title: "Ghi chú", dataIndex: "note", key: "note" },
     selectedRoom && {
       title: "Thao tác",
@@ -176,26 +255,27 @@ const EquipmentListUnified = () => {
           >
             Điều chuyển
           </Button>
-          <Button
-            size="small"
-            style={{ minWidth: 90 }}
-            onClick={() =>
-              navigate(
-                `/admin/equipments/log-history?equipment_id=${record.id}`
-              )
-            }
-          >
-            Lịch sử thay đổi
-          </Button>
-          <Button
-            size="small"
-            style={{ minWidth: 90 }}
-            onClick={() =>
-              navigate(`/admin/equipments/log-detail/${record.id}`)
-            }
-          >
-            Xem chi tiết log
-          </Button>
+          {record.is_broken && (
+            <Button
+              size="small"
+              type="primary"
+              style={{ minWidth: 90 }}
+              onClick={async () => {
+                try {
+                  await restoreRoomDeviceStatus(record.id);
+                  message.success("Đã khôi phục trạng thái thiết bị!");
+                  // Refetch lại roomDevices bằng react-query
+                  queryClient.invalidateQueries({
+                    queryKey: ["room-devices", selectedRoom],
+                  });
+                } catch {
+                  message.error("Lỗi khi khôi phục trạng thái thiết bị");
+                }
+              }}
+            >
+              Khôi phục
+            </Button>
+          )}
         </div>
       ),
     },
@@ -204,18 +284,29 @@ const EquipmentListUnified = () => {
       title: "Thao tác",
       key: "action",
       align: "center" as const,
-      width: 120,
+      width: 200,
       render: (_: any, record: any) => (
-        <Popconfirm
-          title="Xóa thiết bị master?"
-          okText="Xóa"
-          cancelText="Hủy"
-          onConfirm={() => handleDeleteMaster(record.id)}
-        >
-          <Button size="small" danger>
-            Xóa
+        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+          <Button
+            size="small"
+            onClick={() =>
+              navigate(`/admin/device-standards?equipmentId=${record.id}`)
+            }
+            type="default"
+          >
+            Kiểm tra chuẩn thiết bị
           </Button>
-        </Popconfirm>
+          <Popconfirm
+            title="Xóa thiết bị master?"
+            okText="Xóa"
+            cancelText="Hủy"
+            onConfirm={() => handleDeleteMaster(record.id)}
+          >
+            <Button size="small" danger>
+              Xóa
+            </Button>
+          </Popconfirm>
+        </div>
       ),
     },
   ].filter(Boolean) as any[];
@@ -225,7 +316,15 @@ const EquipmentListUnified = () => {
     setChecking(true);
     try {
       const result = await checkRoomDevicesStandard(selectedRoom);
-      setCheckResult(result);
+      // Chuyển missing thành errors dạng string nếu có
+      let errors = [];
+      if (result && result.missing) {
+        errors = result.missing.map(
+          (m: any) =>
+            `${m.name}: thiếu ${m.required - m.actual} (có ${m.actual}, cần ${m.required})`
+        );
+      }
+      setCheckResult({ ...result, errors });
       setShowCheckModal(true);
     } catch (e) {
       message.error("Lỗi kiểm tra tiêu chuẩn thiết bị phòng");
@@ -396,88 +495,55 @@ const EquipmentListUnified = () => {
         footer={null}
         title="Kiểm tra tiêu chuẩn thiết bị phòng"
       >
-        {!selectedRoom ? (
-          <div>
-            <div style={{ marginBottom: 12 }}>Chọn phòng để kiểm tra:</div>
-            <Select
-              style={{ width: 220 }}
-              showSearch
-              placeholder="Chọn phòng"
-              value={null}
-              onChange={async (roomId) => {
-                setChecking(true);
-                try {
-                  if (roomId != null) {
-                    const result = await checkRoomDevicesStandard(roomId);
-                    setCheckResult(result);
-                  } else {
-                    setCheckResult({
-                      ok: false,
-                      errors: ["Vui lòng chọn phòng hợp lệ!"],
-                    });
-                  }
-                } catch {
-                  setCheckResult({ ok: false, errors: ["Lỗi kiểm tra!"] });
-                } finally {
-                  setChecking(false);
+        {checkResult && (
+          <div style={{ marginTop: 16 }}>
+            {checkResult.ok ? (
+              <Alert
+                type="success"
+                message="Thiết bị phòng đạt tiêu chuẩn!"
+                showIcon
+              />
+            ) : (
+              <Alert
+                type="error"
+                message={
+                  checkResult.message ||
+                  "Thiếu hoặc vượt thiết bị so với tiêu chuẩn:"
                 }
-              }}
-              optionFilterProp="children"
-            >
-              {rooms.map((r: any) => (
-                <Select.Option key={r.id} value={r.id}>
-                  {r.name}
-                </Select.Option>
-              ))}
-            </Select>
-            {checking && <div style={{ marginTop: 12 }}>Đang kiểm tra...</div>}
-            {checkResult && (
-              <div style={{ marginTop: 16 }}>
-                {checkResult.ok ? (
-                  <Alert
-                    type="success"
-                    message="Thiết bị phòng đạt tiêu chuẩn!"
-                    showIcon
-                  />
-                ) : checkResult.errors && checkResult.errors.length > 0 ? (
-                  <Alert
-                    type="error"
-                    message="Thiếu hoặc vượt thiết bị so với tiêu chuẩn:"
-                    description={
-                      <ul style={{ margin: 0, paddingLeft: 20 }}>
-                        {checkResult.errors.map((err: string, idx: number) => (
-                          <li key={idx}>{err}</li>
-                        ))}
-                      </ul>
-                    }
-                    showIcon
-                  />
-                ) : null}
-              </div>
+                description={
+                  <ul style={{ margin: 0, paddingLeft: 20 }}>
+                    {checkResult.details && checkResult.details.length > 0 ? (
+                      checkResult.details.map((item: any, idx: number) => (
+                        <li key={idx}>
+                          <b>{item.name}</b>: Số lượng thực tế{" "}
+                          <b>{item.actual}</b>, tiêu chuẩn{" "}
+                          <b>{item.required}</b>.
+                          {item.status === "missing" && (
+                            <span style={{ color: "red" }}>
+                              {" "}
+                              Thiếu {item.required - item.actual}
+                            </span>
+                          )}
+                          {item.status === "exceed" && (
+                            <span style={{ color: "orange" }}>
+                              {" "}
+                              Thừa {item.actual - item.required}
+                            </span>
+                          )}
+                          {item.status === "ok" && (
+                            <span style={{ color: "green" }}> Đạt</span>
+                          )}
+                        </li>
+                      ))
+                    ) : (
+                      <li>Không có dữ liệu chi tiết!</li>
+                    )}
+                  </ul>
+                }
+                showIcon
+              />
             )}
           </div>
-        ) : (
-          checkResult &&
-          (checkResult.ok ? (
-            <Alert
-              type="success"
-              message="Thiết bị phòng đạt tiêu chuẩn!"
-              showIcon
-            />
-          ) : checkResult.errors && checkResult.errors.length > 0 ? (
-            <Alert
-              type="error"
-              message="Thiếu hoặc vượt thiết bị so với tiêu chuẩn:"
-              description={
-                <ul style={{ margin: 0, paddingLeft: 20 }}>
-                  {checkResult.errors.map((err: string, idx: number) => (
-                    <li key={idx}>{err}</li>
-                  ))}
-                </ul>
-              }
-              showIcon
-            />
-          ) : null)
         )}
       </Modal>
     </div>

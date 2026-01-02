@@ -1,6 +1,6 @@
 import { Card, Button, Empty, Collapse } from "antd";
 import { CloseOutlined } from "@ant-design/icons";
-import dayjs from "dayjs";
+import dayjs from "@/utils/dayjs";
 import type { BookingRoom } from "@/types/bookings";
 
 // Removed unused promoCode prop from BookingSidebarProps

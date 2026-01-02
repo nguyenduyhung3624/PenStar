@@ -54,6 +54,13 @@ const BookingsList: React.FC = () => {
       dataIndex: "payment_status",
       key: "payment_status",
       render: (v: string, record: BookingShort) => {
+        if (record.is_refunded) {
+          return (
+            <Tag color="purple" style={{ fontSize: 13, fontWeight: 600 }}>
+              ĐÃ HOÀN TIỀN
+            </Tag>
+          );
+        }
         const vv = String(v || "").toLowerCase();
         const color =
           vv === "paid"
@@ -67,16 +74,8 @@ const BookingsList: React.FC = () => {
                   : vv === "cancelled"
                     ? "red"
                     : "default";
-        return (
-          <Space direction="vertical" size="small">
-            <Tag color={color}>{String(v || "").toUpperCase()}</Tag>
-            {record.is_refunded && (
-              <Tag color="purple" style={{ fontSize: 11 }}>
-                ✓ Hoàn tiền
-              </Tag>
-            )}
-          </Space>
-        );
+        // Luôn hiển thị đúng trạng thái thanh toán, kể cả khi đã hủy
+        return <Tag color={color}>{String(v || "").toUpperCase()}</Tag>;
       },
     },
     {
@@ -87,7 +86,7 @@ const BookingsList: React.FC = () => {
         const isOnline = method === "online";
         return (
           <Tag color={isOnline ? "blue" : "green"} style={{ fontSize: 11 }}>
-            {isOnline ? "📱 Online" : "🏨 Trực tiếp"}
+            {isOnline ? " Online" : " Trực tiếp"}
           </Tag>
         );
       },

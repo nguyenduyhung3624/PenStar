@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, Button, Typography, Space, Divider } from "antd";
 import { LoadingOutlined } from "@ant-design/icons";
@@ -9,11 +9,21 @@ const MoMoMockPayment: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [processing, setProcessing] = useState(false);
   const [countdown, setCountdown] = useState(3);
+  const intervalRef = useRef<number | null>(null);
 
   const orderId = searchParams.get("orderId");
   const amount = searchParams.get("amount");
   const returnUrl = searchParams.get("returnUrl") || "/payment-result";
   const orderInfo = searchParams.get("orderInfo") || "Thanh toán đơn hàng";
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
 
   const formatPrice = (price: number | string) => {
     const num = typeof price === "string" ? parseFloat(price) : price;
@@ -25,12 +35,15 @@ const MoMoMockPayment: React.FC = () => {
 
   const handlePayment = () => {
     setProcessing(true);
-    
+
     // Simulate payment processing với countdown
-    const interval = setInterval(() => {
+    intervalRef.current = window.setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          clearInterval(interval);
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
           // Redirect về returnUrl với status=success
           const url = new URL(returnUrl, window.location.origin);
           url.searchParams.set("status", "success");
@@ -64,9 +77,7 @@ const MoMoMockPayment: React.FC = () => {
           <Title level={3} className="mt-6 mb-2" style={{ color: "#A50064" }}>
             Đang xử lý thanh toán...
           </Title>
-          <Text type="secondary">
-            Vui lòng đợi {countdown} giây
-          </Text>
+          <Text type="secondary">Vui lòng đợi {countdown} giây</Text>
         </Card>
       </div>
     );
@@ -87,7 +98,9 @@ const MoMoMockPayment: React.FC = () => {
                 target.style.display = "none";
               }}
             />
-            {!document.querySelector('img[alt="MoMo"]')?.getAttribute("src") && (
+            {!document
+              .querySelector('img[alt="MoMo"]')
+              ?.getAttribute("src") && (
               <div className="text-3xl font-bold" style={{ color: "#A50064" }}>
                 MoMo
               </div>
@@ -132,8 +145,9 @@ const MoMoMockPayment: React.FC = () => {
         {/* Warning */}
         <div className="mb-6 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
           <Text type="warning" className="text-xs">
-            ⚠️ Đây là trang thanh toán giả lập (Mock) để test flow. 
-            Trong môi trường thực tế, bạn sẽ được chuyển đến trang thanh toán MoMo chính thức.
+            ⚠️ Đây là trang thanh toán giả lập (Mock) để test flow. Trong môi
+            trường thực tế, bạn sẽ được chuyển đến trang thanh toán MoMo chính
+            thức.
           </Text>
         </div>
 
@@ -172,4 +186,3 @@ const MoMoMockPayment: React.FC = () => {
 };
 
 export default MoMoMockPayment;
-

@@ -98,3 +98,28 @@ export const checkRoomTypeNameExists = async (
     throw error;
   }
 };
+
+// Lấy danh sách thiết bị chuẩn của một loại phòng
+export interface RoomTypeEquipment {
+  id: number;
+  equipment_id: number;
+  equipment_name: string;
+  equipment_type: string;
+  min_quantity: number;
+  max_quantity: number;
+}
+
+export const getRoomTypeEquipments = async (
+  roomTypeId: number | string
+): Promise<RoomTypeEquipment[]> => {
+  try {
+    const response = await instance.get(`/room-type-equipments/${roomTypeId}`);
+    return response.data?.data ?? [];
+  } catch (error) {
+    console.error(
+      `Error fetching equipments for room type ${roomTypeId}:`,
+      error
+    );
+    return [];
+  }
+};

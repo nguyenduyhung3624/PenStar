@@ -1,4 +1,9 @@
-import { createUser, getUsers, getUserByEmail, getUserById } from "../models/usersmodel.js";
+import {
+  createUser,
+  getUsers,
+  getUserByEmail,
+  getUserById,
+} from "../models/usersmodel.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
@@ -110,14 +115,26 @@ export const updateUserController = async (req, res) => {
     });
   }
 
-  // Only admin can change roles (role_id in request body)
-  if (req.body.role_id !== undefined) {
+  // Only admin can change roles (role_id in request body) or status (ban/unban)
+  if (req.body.role_id !== undefined || req.body.status !== undefined) {
     const userRole = (req.user.role || req.user.role_name || "")
       .toString()
       .toLowerCase();
+    // Fetch the target user to check their current role
+    const targetUser = await getUserById(userId);
+    const targetRole = (targetUser?.role_name || "").toLowerCase();
+
+    // Nếu cả 2 đều là admin thì không cho phép đổi role hoặc ban/bỏ chặn
+    if (userRole === "admin" && targetRole === "admin") {
+      return res.status(403).json({
+        message: "Admins cannot change the role or ban/unban another admin.",
+      });
+    }
+
+    // Chỉ admin mới được đổi role hoặc ban/bỏ chặn
     if (userRole !== "admin") {
       return res.status(403).json({
-        message: "Only admins can change user roles",
+        message: "Only admins can change user roles or ban/unban users",
       });
     }
   }

@@ -18,6 +18,8 @@ export interface RoomSearchParams {
   floor_id?: number; // Filter theo tầng
   num_adults?: number; // Sẽ chọn ở trang Results
   num_children?: number; // Sẽ chọn ở trang Results
+  status?: string; // Filter theo trạng thái phòng (available, occupied, cleaning...)
+  booking_statuses?: number[]; // Loại trừ các booking có trạng thái này
 }
 
 export interface RoomSearchResponse {

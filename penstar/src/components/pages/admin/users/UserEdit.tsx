@@ -14,6 +14,7 @@ const UserEdit = () => {
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
   const auth = useAuth();
+
   const currentUserId = auth?.user?.id;
   const currentUserRole = auth?.getRoleName(auth.user) || "";
   const isAdmin = currentUserRole.toLowerCase() === "admin";
@@ -39,6 +40,11 @@ const UserEdit = () => {
   const roles: Role[] = Array.isArray(rolesRaw)
     ? rolesRaw
     : (rolesRaw?.data ?? []);
+
+  const targetUserRole =
+    roles.find((r) => r.id === user?.role_id)?.name?.toLowerCase?.() || "";
+  // Chặn admin đổi role của admin khác (không phải chính mình)
+  const isAdminBlock = isAdmin && targetUserRole === "admin" && !isCurrentUser;
 
   const roleColorMap: Record<string, string> = {
     admin: "red",
@@ -167,11 +173,13 @@ const UserEdit = () => {
                 ? "Only admins can change roles"
                 : isCurrentUser
                   ? "You cannot change your own role"
-                  : null
+                  : isAdminBlock
+                    ? "Admin không thể đổi vai trò của admin khác"
+                    : null
             }
           >
             <Select
-              disabled={!isAdmin || isCurrentUser}
+              disabled={!isAdmin || isCurrentUser || isAdminBlock}
               placeholder="Chọn vai trò"
             >
               {roles.map((role) => (

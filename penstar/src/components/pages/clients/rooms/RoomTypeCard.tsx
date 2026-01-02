@@ -1,16 +1,30 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react-hooks/rules-of-hooks */
-import React, { useState, useMemo } from "react";
-import { Button, Collapse, Row, Col, Alert, Modal, Select } from "antd";
+import React, { useState, useMemo, useEffect } from "react";
+import {
+  Button,
+  Collapse,
+  Row,
+  Col,
+  Alert,
+  Modal,
+  Select,
+  Tooltip,
+} from "antd";
 import {
   LeftOutlined,
   RightOutlined,
   UserOutlined,
   CalendarOutlined,
   CoffeeOutlined,
+  ToolOutlined,
 } from "@ant-design/icons";
 import { getAmenityIcon } from "@/utils/amenities";
 import type { RoomTypeCardProps } from "@/types/roomBooking";
+import {
+  getRoomTypeEquipments,
+  type RoomTypeEquipment,
+} from "@/services/roomTypeApi";
 
 const { Panel } = Collapse;
 
@@ -23,7 +37,15 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [amenitiesModalOpen, setAmenitiesModalOpen] = useState(false);
     const [policyModalOpen, setPolicyModalOpen] = useState(false);
+    const [equipments, setEquipments] = useState<RoomTypeEquipment[]>([]);
     // const isInitialExpansion = React.useRef(false); // Removed: unused
+
+    // Fetch thiết bị chuẩn của loại phòng
+    useEffect(() => {
+      if (roomType.id) {
+        getRoomTypeEquipments(roomType.id).then(setEquipments);
+      }
+    }, [roomType.id]);
 
     // Khởi tạo mảng độc lập cho từng phòng
 
@@ -1073,6 +1095,55 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
               );
             })()}
           </div>
+
+          {/* Thiết bị trong phòng */}
+          {equipments.length > 0 && (
+            <>
+              <h2
+                style={{
+                  fontSize: 20,
+                  fontWeight: 600,
+                  marginTop: 32,
+                  marginBottom: 16,
+                  color: "#333",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                }}
+              >
+                <ToolOutlined style={{ fontSize: 20 }} />
+                Thiết bị trong phòng
+              </h2>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 10,
+                }}
+              >
+                {equipments.map((eq) => (
+                  <Tooltip
+                    key={eq.id}
+                    title={`Số lượng: ${eq.min_quantity}${eq.max_quantity > eq.min_quantity ? ` - ${eq.max_quantity}` : ""}`}
+                  >
+                    <span
+                      style={{
+                        display: "inline-block",
+                        padding: "6px 14px",
+                        backgroundColor: "#f5f5f5",
+                        borderRadius: "6px",
+                        fontSize: "14px",
+                        color: "#333",
+                        border: "1px solid #e8e8e8",
+                      }}
+                    >
+                      {eq.equipment_name}
+                    </span>
+                  </Tooltip>
+                ))}
+              </div>
+            </>
+          )}
         </Modal>
         {/* Modal Chính sách */}
         <Modal
@@ -1209,7 +1280,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
               {roomType.policies?.checkin &&
               typeof roomType.policies.checkin === "string"
                 ? roomType.policies.checkin
-                : "15:00"}
+                : "14:00"}
             </div>
 
             {/* Trả phòng */}
@@ -1218,7 +1289,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
               {roomType.policies?.checkout &&
               typeof roomType.policies.checkout === "string"
                 ? roomType.policies.checkout
-                : "12:00"}
+                : "14:00"}
             </div>
 
             {/* Phụ thu người lớn */}

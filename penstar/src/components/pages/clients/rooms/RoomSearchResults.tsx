@@ -11,7 +11,7 @@ import { CalendarOutlined } from "@ant-design/icons";
 import RoomSearchBar from "@/components/common/RoomSearchBar";
 import BookingSidebar from "@/components/common/BookingSidebar";
 import RoomTypeCard from "./RoomTypeCard";
-import dayjs from "dayjs";
+import dayjs from "@/utils/dayjs";
 
 const RoomSearchResults = () => {
   const location = useLocation();

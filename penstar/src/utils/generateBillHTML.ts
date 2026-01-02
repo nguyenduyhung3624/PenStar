@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Hàm sinh HTML hóa đơn in bill cho booking
 export function generateBillHTML(
   booking: any,
   rooms: any[],
   services: any[],
+  incidents: any[],
   formatDate: (d: any) => string,
   formatPrice: (p: any) => string
 ) {
@@ -78,20 +80,75 @@ export function generateBillHTML(
       })
       .join("") || "";
   html += `</tbody></table>`;
+  // Hiển thị dịch vụ theo từng phòng
   if (groupedServices && groupedServices.length > 0) {
-    html += `<table><thead><tr><th>STT</th><th>Dịch vụ</th><th class="text-right">Số lượng</th><th class="text-right">Thành tiền</th></tr></thead><tbody>`;
-    html += groupedServices
-      .map((service: any, idx: number) => {
+    // Lấy danh sách phòng có dịch vụ
+    const serviceRooms = Array.from(
+      new Set(groupedServices.map((s: any) => s.booking_item_id))
+    );
+    html += `<h3 style="margin-top:32px; color:#1890ff;">Dịch vụ bổ sung</h3>`;
+    serviceRooms.forEach((booking_item_id: any, ridx: number) => {
+      const roomItem = booking.items?.find(
+        (it: any) => it.id === booking_item_id
+      );
+      const roomName =
+        rooms.find((r) => r.id === roomItem?.room_id)?.name ||
+        `Phòng ${roomItem?.room_id}`;
+      html += `<div style="margin:8px 0 4px 0;font-weight:bold;">${roomName}</div>`;
+      html += `<table><thead><tr><th>STT</th><th>Dịch vụ</th><th class="text-right">Số lượng</th><th class="text-right">Thành tiền</th></tr></thead><tbody>`;
+      groupedServices
+        .filter((s: any) => s.booking_item_id === booking_item_id)
+        .forEach((service: any, idx: number) => {
+          const serviceInfo = services.find((s) => s.id === service.service_id);
+          html += `<tr><td>${idx + 1}</td><td>${serviceInfo?.name || `Dịch vụ #${service.service_id}`}</td><td class="text-right">${service.quantity || 1}</td><td class="text-right">${formatPrice(service.total_service_price || 0)}</td></tr>`;
+        });
+      html += `</tbody></table>`;
+    });
+    // Dịch vụ không gán phòng
+    const generalServices = groupedServices.filter(
+      (s: any) => !s.booking_item_id
+    );
+    if (generalServices.length > 0) {
+      html += `<div style="margin:8px 0 4px 0;font-weight:bold;">Dịch vụ chung</div>`;
+      html += `<table><thead><tr><th>STT</th><th>Dịch vụ</th><th class="text-right">Số lượng</th><th class="text-right">Thành tiền</th></tr></thead><tbody>`;
+      generalServices.forEach((service: any, idx: number) => {
         const serviceInfo = services.find((s) => s.id === service.service_id);
-        return `<tr><td>${idx + 1}</td><td>${serviceInfo?.name || `Dịch vụ #${service.service_id}`}</td><td class="text-right">${service.quantity || 1}</td><td class="text-right">${formatPrice(service.total_service_price || 0)}</td></tr>`;
-      })
-      .join("");
-    html += `</tbody></table>`;
+        html += `<tr><td>${idx + 1}</td><td>${serviceInfo?.name || `Dịch vụ #${service.service_id}`}</td><td class="text-right">${service.quantity || 1}</td><td class="text-right">${formatPrice(service.total_service_price || 0)}</td></tr>`;
+      });
+      html += `</tbody></table>`;
+    }
+  }
+  // Bảng thiết bị đền bù: phân theo từng phòng
+  if (Array.isArray(incidents) && incidents.length > 0) {
+    const incidentRooms = Array.from(
+      new Set(incidents.map((i: any) => i.room_id))
+    );
+    html += `<h3 style="margin-top:32px; color:#d4380d;">Thiết bị hỏng/đền bù</h3>`;
+    incidentRooms.forEach((room_id: any) => {
+      const roomName =
+        rooms.find((r) => r.id === room_id)?.name || `Phòng ${room_id}`;
+      html += `<div style="margin:8px 0 4px 0;font-weight:bold;">${roomName}</div>`;
+      html += `<table><thead><tr><th>STT</th><th>Thiết bị</th><th class="text-right">Số lượng</th><th class="text-right">Đơn giá</th><th class="text-right">Thành tiền</th></tr></thead><tbody>`;
+      incidents
+        .filter((i: any) => i.room_id === room_id)
+        .forEach((inc: any, idx: number) => {
+          html += `<tr><td>${idx + 1}</td><td>${inc.equipment_name || `Thiết bị #${inc.equipment_id}`}</td><td class="text-right">${inc.quantity}</td><td class="text-right">${formatPrice(inc.compensation_price || 0)}</td><td class="text-right">${formatPrice(inc.amount || 0)}</td></tr>`;
+        });
+      html += `</tbody></table>`;
+    });
   }
   html += `<div class="total-section">
           <div class="total-row"><span>Tiền phòng:</span><span>${formatPrice(booking.total_room_price || 0)}</span></div>`;
   if (booking.total_service_price) {
     html += `<div class="total-row"><span>Dịch vụ bổ sung:</span><span>${formatPrice(booking.total_service_price)}</span></div>`;
+  }
+  // Đền bù thiết bị
+  if (Array.isArray(incidents) && incidents.length > 0) {
+    const totalComp = incidents.reduce(
+      (sum, i) => sum + (Number(i.amount) || 0),
+      0
+    );
+    html += `<div class="total-row"><span>Đền bù thiết bị:</span><span>${formatPrice(totalComp)}</span></div>`;
   }
   html += `<div class="total-row total-final"><span>TỔNG CỘNG:</span><span>${formatPrice(booking.total_price || 0)}</span></div>
         </div>
