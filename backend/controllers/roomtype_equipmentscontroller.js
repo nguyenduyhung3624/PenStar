@@ -1,4 +1,5 @@
 import pool from "../db.js";
+import { ERROR_MESSAGES } from "../utils/constants.js";
 
 // Lấy danh sách thiết bị tiêu chuẩn của một loại phòng
 export const getRoomTypeEquipments = async (req, res) => {
@@ -15,8 +16,8 @@ export const getRoomTypeEquipments = async (req, res) => {
     `,
       [roomTypeId]
     );
-    res.json({ success: true, data: result.rows });
+    res.success(result.rows, "Lấy danh sách thiết bị tiêu chuẩn thành công");
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };

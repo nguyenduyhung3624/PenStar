@@ -1,4 +1,5 @@
 import pool from "../db.js";
+import { ERROR_MESSAGES } from "../utils/constants.js";
 
 export const createBillLog = async (req, res) => {
   try {
@@ -7,8 +8,8 @@ export const createBillLog = async (req, res) => {
       `INSERT INTO booking_bill_logs (booking_id, user_id, bill_number, note) VALUES ($1, $2, $3, $4) RETURNING *`,
       [booking_id, user_id, bill_number, note]
     );
-    res.json({ success: true, data: result.rows[0] });
+    res.success(result.rows[0], "Tạo bill log thành công");
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };

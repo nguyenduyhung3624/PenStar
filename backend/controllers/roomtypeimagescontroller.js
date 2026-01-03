@@ -10,6 +10,7 @@ import fs from "fs";
 import path from "path";
 import multer from "multer";
 import pool from "../db.js";
+import { ERROR_MESSAGES } from "../utils/constants.js";
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -32,17 +33,13 @@ export const uploadMiddleware = multer({ storage });
 export const getAllRoomTypeImages = async (req, res) => {
   try {
     const images = await getRoomTypeImages();
-    res.json({
-      success: true,
-      message: "✅ Fetched all room type images",
-      data: images,
-    });
+    res.success(images, "Lấy danh sách ảnh loại phòng thành công");
   } catch (error) {
     console.error(
       "roomtypeimagescontroller.getAllRoomTypeImages error:",
       error
     );
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -52,18 +49,12 @@ export const getRoomTypeImage = async (req, res) => {
   try {
     const image = await getRoomTypeImageById(Number(id));
     if (!image) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Image not found" });
+      return res.error("Không tìm thấy ảnh", null, 404);
     }
-    res.json({
-      success: true,
-      message: "✅ Fetched room type image",
-      data: image,
-    });
+    res.success(image, "Lấy ảnh loại phòng thành công");
   } catch (error) {
     console.error("roomtypeimagescontroller.getRoomTypeImage error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -72,14 +63,10 @@ export const getImagesByRoomType = async (req, res) => {
   const { roomTypeId } = req.params;
   try {
     const images = await getRoomTypeImagesByRoomTypeId(Number(roomTypeId));
-    res.json({
-      success: true,
-      message: "✅ Fetched images for room type",
-      data: images,
-    });
+    res.success(images, "Lấy ảnh loại phòng thành công");
   } catch (error) {
     console.error("roomtypeimagescontroller.getImagesByRoomType error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -87,14 +74,10 @@ export const getImagesByRoomType = async (req, res) => {
 export const createImage = async (req, res) => {
   try {
     const newImage = await createRoomTypeImage(req.body);
-    res.status(201).json({
-      success: true,
-      message: "✅ Created room type image",
-      data: newImage,
-    });
+    res.success(newImage, "Tạo ảnh loại phòng thành công", 201);
   } catch (error) {
     console.error("roomtypeimagescontroller.createImage error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -105,9 +88,7 @@ export const uploadImageForRoomType = async (req, res) => {
     req.body.is_thumbnail === "true" || req.body.is_thumbnail === true;
 
   if (!req.file) {
-    return res
-      .status(400)
-      .json({ success: false, message: "No file uploaded" });
+    return res.error("Không có file được tải lên", null, 400);
   }
 
   const filename = req.file.filename;
@@ -145,13 +126,7 @@ export const uploadImageForRoomType = async (req, res) => {
         );
       }
       await client.query("COMMIT");
-      return res
-        .status(201)
-        .json({
-          success: true,
-          message: "Đã dùng lại file ảnh cũ.",
-          data: newImage,
-        });
+      return res.success(newImage, "Đã dùng lại file ảnh cũ.", 201);
     }
 
     // Nếu chưa có file vật lý, lưu file như bình thường
@@ -175,11 +150,7 @@ export const uploadImageForRoomType = async (req, res) => {
       ]);
     }
     await client.query("COMMIT");
-    res.status(201).json({
-      success: true,
-      message: "✅ Uploaded image",
-      data: newImage,
-    });
+    res.success(newImage, "Tải ảnh lên thành công", 201);
   } catch (e) {
     await client.query("ROLLBACK");
     // Remove uploaded file if transaction fails
@@ -199,14 +170,10 @@ export const updateImage = async (req, res) => {
   const { id } = req.params;
   try {
     const updated = await updateRoomTypeImage(Number(id), req.body);
-    res.json({
-      success: true,
-      message: "✅ Updated room type image",
-      data: updated,
-    });
+    res.success(updated, "Cập nhật ảnh thành công");
   } catch (error) {
     console.error("roomtypeimagescontroller.updateImage error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -216,9 +183,7 @@ export const deleteImage = async (req, res) => {
   try {
     const deleted = await deleteRoomTypeImage(Number(id));
     if (!deleted) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Image not found" });
+      return res.error("Không tìm thấy ảnh", null, 404);
     }
 
     // Try to delete physical file
@@ -232,13 +197,9 @@ export const deleteImage = async (req, res) => {
       console.warn("Failed to delete physical file:", e.message);
     }
 
-    res.json({
-      success: true,
-      message: "✅ Deleted room type image",
-      data: deleted,
-    });
+    res.success(deleted, "Xóa ảnh thành công");
   } catch (error) {
     console.error("roomtypeimagescontroller.deleteImage error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };

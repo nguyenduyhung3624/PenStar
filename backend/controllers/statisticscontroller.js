@@ -2,210 +2,268 @@ import pool from "../db.js";
 
 export const getStatistics = async (req, res) => {
   try {
-    const { period = "month" } = req.query; // day, week, month, year
+    // 1. Nhận ngày bắt đầu và kết thúc từ Client gửi lên
+    const { startDate: qStart, endDate: qEnd } = req.query;
+    console.log(`--- Lấy thống kê từ ${qStart} đến ${qEnd} ---`);
 
-    let dateFilter = "";
-    const params = [];
+    let startDate, endDate;
 
-    const now = new Date();
-    let startDate;
-
-    switch (period) {
-      case "day":
-        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        break;
-      case "week":
-        const dayOfWeek = now.getDay();
-        startDate = new Date(now);
-        startDate.setDate(now.getDate() - dayOfWeek);
-        startDate.setHours(0, 0, 0, 0);
-        break;
-      case "month":
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      case "year":
-        startDate = new Date(now.getFullYear(), 0, 1);
-        break;
-      default:
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    if (qStart && qEnd) {
+      startDate = new Date(qStart);
+      endDate = new Date(qEnd);
+    } else {
+      // Mặc định: Lấy tháng hiện tại nếu không chọn
+      const now = new Date();
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     }
 
-    dateFilter = "WHERE created_at >= $1";
-    params.push(startDate);
+    // Quan trọng: Set giờ để bao trọn vẹn khoảng thời gian
+    startDate.setHours(0, 0, 0, 0);
+    endDate.setHours(23, 59, 59, 999);
 
-    // Total Users - Always count all users, not filtered by period
-    const usersRes = await pool.query(
-      `SELECT COUNT(*) as count FROM users`
+    const params = [startDate, endDate];
+
+    // Helper: Hàm chạy query an toàn
+    const safeQuery = async (query, queryParams, defaultValue) => {
+      try {
+        const result = await pool.query(query, queryParams);
+        return result;
+      } catch (err) {
+        console.error(`[SQL ERROR] ${err.message}`);
+        return { rows: defaultValue };
+      }
+    };
+
+    // --- CÁC QUERY THỐNG KÊ (KPIs) ---
+
+    // 1. Total Users
+    const usersRes = await safeQuery(
+      `SELECT COUNT(*) as count FROM users`,
+      [],
+      [{ count: 0 }]
     );
     const totalUsers = parseInt(usersRes.rows[0].count);
 
-    // Total Bookings
-    const bookingsRes = await pool.query(
-      `SELECT COUNT(*) as count FROM bookings ${dateFilter}`,
-      params
+    // 2. Total Bookings
+    const bookingsRes = await safeQuery(
+      `SELECT COUNT(*) as count FROM bookings b WHERE b.created_at >= $1 AND b.created_at <= $2`,
+      params,
+      [{ count: 0 }]
     );
     const totalBookings = parseInt(bookingsRes.rows[0].count);
 
-    // Available Rooms
-    const availableRoomsRes = await pool.query(
-      "SELECT COUNT(*) as count FROM rooms WHERE status = 'available'"
-    );
-    const availableRooms = parseInt(availableRoomsRes.rows[0].count);
-
-    // Total Revenue (from paid bookings)
-    const revenueRes = await pool.query(
+    // 3. Total Revenue
+    const revenueRes = await safeQuery(
       `SELECT COALESCE(SUM(total_price), 0) as total 
-       FROM bookings 
-       ${dateFilter} 
-       AND payment_status = 'paid'`,
-      params
+       FROM bookings b
+       WHERE b.created_at >= $1 AND b.created_at <= $2
+       AND b.payment_status = 'paid'`,
+      params,
+      [{ total: 0 }]
     );
     const totalRevenue = parseFloat(revenueRes.rows[0].total) || 0;
 
-    // Revenue by month (last 12 months)
-    const revenueByMonthRes = await pool.query(
+    // 4. Pending Bookings
+    const pendingBookingsRes = await safeQuery(
+      `SELECT COUNT(*) as count FROM bookings WHERE stay_status_id = 6`,
+      [],
+      [{ count: 0 }]
+    );
+    const pendingBookings = parseInt(pendingBookingsRes.rows[0].count) || 0;
+
+    // 5. Check-in / Check-out
+    const checkinsRes = await safeQuery(
+      `SELECT COUNT(DISTINCT b.id) as count
+       FROM bookings b
+       JOIN booking_items bi ON bi.booking_id = b.id
+       WHERE bi.check_in >= $1 AND bi.check_in <= $2
+       AND b.stay_status_id IN (1, 2)`,
+      params,
+      [{ count: 0 }]
+    );
+    const countCheckins = parseInt(checkinsRes.rows[0].count) || 0;
+
+    const checkoutsRes = await safeQuery(
+      `SELECT COUNT(DISTINCT b.id) as count
+       FROM bookings b
+       JOIN booking_items bi ON bi.booking_id = b.id
+       WHERE bi.check_out >= $1 AND bi.check_out <= $2
+       AND b.stay_status_id IN (2, 3)`,
+      params,
+      [{ count: 0 }]
+    );
+    const countCheckouts = parseInt(checkoutsRes.rows[0].count) || 0;
+
+    // --- BIỂU ĐỒ & DANH SÁCH ---
+
+    // 6. Doanh thu theo thời gian (Biểu đồ đường)
+    const revenueByTimeRes = await safeQuery(
       `SELECT 
-        DATE_TRUNC('month', created_at) as month,
+        DATE(created_at) as date,
         COALESCE(SUM(total_price), 0) as revenue
        FROM bookings
        WHERE payment_status = 'paid'
-         AND created_at >= NOW() - INTERVAL '12 months'
-       GROUP BY DATE_TRUNC('month', created_at)
-       ORDER BY month ASC`
+         AND created_at >= $1 AND created_at <= $2
+       GROUP BY DATE(created_at)
+       ORDER BY date ASC`,
+      params,
+      []
     );
 
-    // Bookings by status
-    const bookingsByStatusParams = dateFilter ? [...params] : [];
-    const dateCondition = dateFilter ? dateFilter.replace("WHERE ", "AND b.") : "";
-    const bookingsByStatusRes = await pool.query(
+    // 7. Phương thức thanh toán (Biểu đồ tròn)
+    const bookingByPaymentMethodRes = await safeQuery(
       `SELECT 
-        ss.id,
-        ss.name,
-        COUNT(b.id) as count
-       FROM stay_status ss
-       LEFT JOIN bookings b ON ss.id = b.stay_status_id ${dateCondition}
-       GROUP BY ss.id, ss.name
-       ORDER BY ss.id`,
-      bookingsByStatusParams
+        COALESCE(payment_method, 'unknown') as payment_method,
+        COUNT(*) as count
+       FROM bookings b
+       WHERE b.created_at >= $1 AND b.created_at <= $2
+       GROUP BY COALESCE(payment_method, 'unknown')
+       ORDER BY count DESC`,
+      params,
+      []
     );
 
-    // Recent bookings (last 10)
-    const recentBookingsRes = await pool.query(
+    // 8. Booking gần đây
+    const recentBookingsRes = await safeQuery(
       `SELECT 
         b.id,
         b.customer_name,
         b.total_price,
         b.created_at,
-        ss.name as stay_status_name,
-        u.email
+        b.payment_status,
+        ss.name as stay_status_name
        FROM bookings b
        LEFT JOIN stay_status ss ON b.stay_status_id = ss.id
-       LEFT JOIN users u ON b.user_id = u.id
        ORDER BY b.created_at DESC
-       LIMIT 10`
+       LIMIT 10`,
+      [],
+      []
     );
 
-    // Room occupancy rate
-    const totalRoomsRes = await pool.query(
-      "SELECT COUNT(*) as count FROM rooms"
+    // 9. Trạng thái phòng hiện tại
+    const roomStatusCountRes = await safeQuery(
+      `SELECT 
+        SUM(CASE WHEN r.status = 'available' AND NOT EXISTS (
+          SELECT 1 FROM booking_items bi JOIN bookings b ON bi.booking_id = b.id 
+          WHERE bi.room_id = r.id AND b.stay_status_id IN (1,2) 
+          AND bi.check_in <= NOW() AND bi.check_out > NOW()
+        ) THEN 1 ELSE 0 END) as available,
+        
+        SUM(CASE WHEN EXISTS (
+          SELECT 1 FROM booking_items bi JOIN bookings b ON bi.booking_id = b.id 
+          WHERE bi.room_id = r.id AND b.stay_status_id = 2 
+          AND bi.check_in <= NOW() AND bi.check_out > NOW()
+        ) THEN 1 ELSE 0 END) as occupied,
+        
+        SUM(CASE WHEN EXISTS (
+          SELECT 1 FROM booking_items bi JOIN bookings b ON bi.booking_id = b.id 
+          WHERE bi.room_id = r.id AND b.stay_status_id = 1 
+          AND bi.check_in <= NOW() + INTERVAL '1 day'
+        ) THEN 1 ELSE 0 END) as reserved,
+        
+        SUM(CASE WHEN r.status = 'maintenance' THEN 1 ELSE 0 END) as maintenance
+       FROM rooms r`,
+      [],
+      [{ available: 0, occupied: 0, reserved: 0, maintenance: 0 }]
+    );
+
+    // 10. Tỷ lệ lấp đầy
+    const totalRoomsRes = await safeQuery(
+      "SELECT COUNT(*) as count FROM rooms",
+      [],
+      [{ count: 0 }]
     );
     const totalRooms = parseInt(totalRoomsRes.rows[0].count);
-    const occupiedRoomsParams = dateFilter ? [...params] : [];
-    const occupiedRoomsDateCondition = dateFilter ? dateFilter.replace("WHERE ", "AND b.") : "";
-    const occupiedRoomsRes = await pool.query(
-      `SELECT COUNT(DISTINCT bi.room_id) as count
-       FROM booking_items bi
-       JOIN bookings b ON bi.booking_id = b.id
-       WHERE b.stay_status_id IN (1, 2) -- reserved or checked_in
-       ${occupiedRoomsDateCondition}`,
-      occupiedRoomsParams
-    );
-    const occupiedRooms = parseInt(occupiedRoomsRes.rows[0].count) || 0;
+    const occupiedRooms = parseInt(roomStatusCountRes.rows[0].occupied) || 0;
     const occupancyRate =
       totalRooms > 0 ? ((occupiedRooms / totalRooms) * 100).toFixed(2) : 0;
 
-    // Device Damage Statistics
-    const deviceDamageParams = dateFilter ? [...params] : [];
-    const deviceDamageWhereClause = dateFilter ? dateFilter : "WHERE 1=1";
-    const deviceDamageRes = await pool.query(
+    // 11. Thiết bị hỏng (Sự cố)
+    // Query tổng quát
+    const deviceDamageRes = await safeQuery(
       `SELECT 
         COUNT(*) as total_damage_cases,
-        COUNT(DISTINCT b.id) as bookings_with_damage
-       FROM bookings b
-       ${deviceDamageWhereClause}
-       AND b.notes LIKE '%[DEVICE_DAMAGE]%'
-       AND b.stay_status_id = 3`, // checked_out
-      deviceDamageParams
+        COALESCE(SUM(amount), 0) as total_damage_amount
+       FROM booking_incidents
+       WHERE deleted_at IS NULL AND created_at >= $1 AND created_at <= $2`,
+      params,
+      [{ total_damage_cases: 0, total_damage_amount: 0 }]
     );
 
-    // Extract device damage details from notes
-    const deviceDamageDetailsWhereClause = dateFilter ? dateFilter : "WHERE 1=1";
-    const deviceDamageDetailsParams = dateFilter ? [...params] : [];
-    const deviceDamageDetailsRes = await pool.query(
+    // Query chi tiết (để hiển thị bảng)
+    const deviceDamageDetailsRes = await safeQuery(
       `SELECT 
-        b.id as booking_id,
-        b.customer_name,
-        b.created_at,
-        b.notes
-       FROM bookings b
-       ${deviceDamageDetailsWhereClause}
-       AND b.notes LIKE '%[DEVICE_DAMAGE]%'
-       AND b.stay_status_id = 3
-       ORDER BY b.created_at DESC
-       LIMIT 20`,
-      deviceDamageDetailsParams
+        bi.id, bi.booking_id, bi.amount, me.name as equipment_name, r.name as room_name
+       FROM booking_incidents bi
+       JOIN master_equipments me ON bi.equipment_id = me.id
+       JOIN rooms r ON bi.room_id = r.id
+       WHERE bi.deleted_at IS NULL
+       ORDER BY bi.created_at DESC LIMIT 5`,
+      [],
+      []
     );
 
-    const deviceDamageDetails = deviceDamageDetailsRes.rows.map((row) => {
-      const damageMatch = row.notes.match(/\[DEVICE_DAMAGE\]([\s\S]*?)(?=\n\[|$)/);
-      const damageText = damageMatch ? damageMatch[1].trim() : "";
-      const damageItems = damageText.split('\n').filter(line => line.trim().startsWith('-'));
-      
-      return {
-        booking_id: row.booking_id,
-        customer_name: row.customer_name,
-        created_at: row.created_at,
-        damage_count: damageItems.length,
-        damage_items: damageItems,
-      };
-    });
+    // --- CHUẨN BỊ DATA TRẢ VỀ (Mapping) ---
+    // Xử lý Payment Methods cho đúng chuẩn PieChart
+    const formattedPaymentMethods = bookingByPaymentMethodRes.rows.map((r) => ({
+      name: r.payment_method, // Frontend cần 'name'
+      value: parseInt(r.count), // Frontend cần 'value'
+    }));
 
-    res.json({
-      success: true,
-      message: "✅ Get statistics successfully",
-      data: {
-        period,
+    // Xử lý Sự cố cho đúng chuẩn Table ở Frontend
+    const formattedRecentDamage = deviceDamageDetailsRes.rows.map((d) => ({
+      id: d.id,
+      room: d.room_name, // Map từ room_name -> room
+      item: d.equipment_name, // Map từ equipment_name -> item
+      amount: parseFloat(d.amount),
+    }));
+
+    res.success(
+      {
+        // KPI Cards
         totalUsers,
         totalBookings,
-        availableRooms,
-        totalRooms,
-        occupiedRooms,
-        occupancyRate: parseFloat(occupancyRate),
         totalRevenue,
-        revenueByMonth: revenueByMonthRes.rows.map((row) => ({
-          month: row.month,
-          revenue: parseFloat(row.revenue) || 0,
+        pendingBookings,
+        countCheckins,
+        countCheckouts,
+        occupancyRate: parseFloat(occupancyRate),
+
+        // Charts & Tables
+        revenueChart: revenueByTimeRes.rows.map((r) => ({
+          date: r.date,
+          revenue: parseFloat(r.revenue),
         })),
-        bookingsByStatus: bookingsByStatusRes.rows.map((row) => ({
-          statusId: row.id,
-          statusName: row.name,
-          count: parseInt(row.count) || 0,
-        })),
-        recentBookings: recentBookingsRes.rows,
-        deviceDamage: {
-          totalCases: parseInt(deviceDamageRes.rows[0].total_damage_cases) || 0,
-          bookingsWithDamage: parseInt(deviceDamageRes.rows[0].bookings_with_damage) || 0,
-          details: deviceDamageDetails,
+
+        // Cả 2 key để đảm bảo Frontend dùng cái nào cũng chạy
+        bookingsByPaymentMethod: formattedPaymentMethods,
+        paymentMethods: formattedPaymentMethods,
+
+        // Realtime Status
+        roomStatusCount: {
+          available: parseInt(roomStatusCountRes.rows[0]?.available) || 0,
+          occupied: parseInt(roomStatusCountRes.rows[0]?.occupied) || 0,
+          reserved: parseInt(roomStatusCountRes.rows[0]?.reserved) || 0,
+          maintenance: parseInt(roomStatusCountRes.rows[0]?.maintenance) || 0,
         },
+
+        recentBookings: recentBookingsRes.rows,
+
+        // SỰ CỐ THIẾT BỊ (Đã fix)
+        // 1. Trả về dạng object tổng quan (nếu cần dùng ở chỗ khác)
+        deviceDamage: {
+          totalCases: parseInt(deviceDamageRes.rows[0].total_damage_cases),
+          totalAmount: parseFloat(deviceDamageRes.rows[0].total_damage_amount),
+          details: deviceDamageDetailsRes.rows,
+        },
+        // 2. Trả về dạng mảng phẳng (recentDamage) để khớp với Table Dashboard
+        recentDamage: formattedRecentDamage,
       },
-    });
+      "Lấy thống kê thành công"
+    );
   } catch (error) {
     console.error("statistics.getStatistics error:", error);
-    res.status(500).json({
-      success: false,
-      message: "🚨 Internal server error",
-      error: error.message,
-    });
+    res.error("Lỗi lấy thống kê", error.message, 500);
   }
 };
-

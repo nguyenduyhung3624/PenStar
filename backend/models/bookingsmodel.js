@@ -1,4 +1,8 @@
 import pool from "../db.js";
+import moment from "moment-timezone";
+import { BOOKING } from "../utils/constants.js";
+
+const TIMEZONE = BOOKING.TIMEZONE;
 
 export const getNow = () => new Date().toISOString();
 // Check-in: cập nhật trạng thái và checked_in_by
@@ -22,10 +26,8 @@ export const confirmCheckin = async (id, userId) => {
       );
     }
     // Kiểm tra ngày/giờ check-in hợp lệ (>= hôm nay, >= 14:00, chuẩn hóa Asia/Ho_Chi_Minh)
-    const moment = require("moment-timezone");
-    const timeZone = "Asia/Ho_Chi_Minh";
-    const now = moment.tz(Date.now(), timeZone);
-    const checkInDate = moment.tz(check_in, timeZone);
+    const now = moment.tz(Date.now(), TIMEZONE);
+    const checkInDate = moment.tz(check_in, TIMEZONE);
     // Giờ giới hạn check-in là 14:00
     const checkInLimit = checkInDate
       .clone()
@@ -37,7 +39,9 @@ export const confirmCheckin = async (id, userId) => {
       "checkInLimit:",
       checkInLimit.format(),
       "server timezone:",
-      Intl.DateTimeFormat().resolvedOptions().timeZone
+      Intl.DateTimeFormat().resolvedOptions().timeZone,
+      "TZ env:",
+      process.env.TZ
     );
     if (now.isBefore(checkInLimit)) {
       throw new Error("Chỉ được check-in từ 14:00 ngày nhận phòng");
@@ -587,7 +591,6 @@ export const confirmCheckout = async (id, userId) => {
     }
 
     // Validate checkout time: chuẩn hóa về Asia/Ho_Chi_Minh
-    const moment = require("moment-timezone");
     const timeZone = "Asia/Ho_Chi_Minh";
     const now = moment.tz(Date.now(), timeZone);
     const checkOutDate = moment.tz(checkBooking.rows[0].check_out, timeZone);
@@ -686,24 +689,52 @@ export const cancelBooking = async (
 
     const booking = bookingRes.rows[0];
     const currentStatus = booking.stay_status_id;
-    const paymentStatus = booking.payment_status;
+    // Check-in thực tế là 14:00 giờ VN của ngày check_in
     const checkInDate = new Date(booking.check_in);
+    checkInDate.setUTCHours(7, 0, 0, 0); // 14:00 VN = 07:00 UTC
     const now = new Date();
     const hoursUntilCheckIn = (checkInDate - now) / (1000 * 60 * 60);
+
+    // Debug log
+    console.log("[cancelBooking Debug]", {
+      bookingId: id,
+      currentStatus,
+      userId,
+      isAdmin,
+      hoursUntilCheckIn,
+      checkInDate: checkInDate.toISOString(),
+      now: now.toISOString(),
+    });
+
+    // Lấy refund_deadline_hours từ refund_policies của room_type đầu tiên
+    const itemsForDeadline = await client.query(
+      "SELECT room_type_id FROM booking_items WHERE booking_id = $1 LIMIT 1",
+      [id]
+    );
+    let refundDeadlineHours = 24; // mặc định 24h
+    if (itemsForDeadline.rows.length > 0) {
+      const refundPolicyRes = await client.query(
+        `SELECT refund_deadline_hours FROM refund_policies WHERE room_type_id = $1`,
+        [itemsForDeadline.rows[0].room_type_id]
+      );
+      if (
+        refundPolicyRes.rows.length > 0 &&
+        refundPolicyRes.rows[0].refund_deadline_hours != null
+      ) {
+        refundDeadlineHours = refundPolicyRes.rows[0].refund_deadline_hours;
+      }
+    }
 
     // Permission check based on role and status
     if (!isAdmin) {
       // User cancellation rules
       if (currentStatus === 1) {
-        // reserved (1) - can cancel but check time
-        if (hoursUntilCheckIn < 24) {
-          throw new Error(
-            "Không thể hủy booking trong vòng 24h trước check-in. Vui lòng liên hệ admin."
-          );
-        }
-      } else if (currentStatus === 0) {
-        // pending (0) - can cancel freely
-        // Allow cancellation
+        // reserved (1) - can cancel, refund depends on deadline
+        // Không chặn hủy nữa, chỉ tính refund dựa trên deadline
+        // User vẫn được hủy, nhưng nếu < deadline thì refund = 0
+      } else if (currentStatus === 6) {
+        // pending (6) - can cancel freely (no confirmation yet)
+        // Allow cancellation, no refund needed since not paid yet
       } else if (currentStatus === 2) {
         // checked_in (2) - cannot cancel, only checkout
         throw new Error(
@@ -712,6 +743,9 @@ export const cancelBooking = async (
       } else if ([3, 4].includes(currentStatus)) {
         // checked_out/cancelled - already finished
         throw new Error("Booking đã hoàn tất hoặc đã bị hủy trước đó");
+      } else if (currentStatus === 5) {
+        // no_show - already marked
+        throw new Error("Booking đã được đánh dấu No-show");
       } else {
         throw new Error("Không thể hủy booking ở trạng thái này");
       }
@@ -722,8 +756,8 @@ export const cancelBooking = async (
       }
     } else {
       // Admin/Staff/Manager cancellation rules - more permissive
-      if (currentStatus === 0) {
-        // pending (0) - staff can cancel
+      if (currentStatus === 6) {
+        // pending (6) - staff can cancel freely
         // Allow
       } else if (currentStatus === 1) {
         // reserved (1) - staff can cancel
@@ -731,6 +765,9 @@ export const cancelBooking = async (
       } else if (currentStatus === 2) {
         // checked_in (2) - staff CAN cancel (force cancel)
         // Allow (staff has more power)
+      } else if (currentStatus === 5) {
+        // no_show - can still be cancelled by admin
+        // Allow
       } else if ([3, 4].includes(currentStatus)) {
         // checked_out/cancelled
         throw new Error("Booking đã hoàn tất hoặc đã bị hủy trước đó");
@@ -745,46 +782,73 @@ export const cancelBooking = async (
 
     // Lấy refund_policy cho từng room_type từ bảng refund_policies
     let totalRefund = 0;
-    for (const item of items.rows) {
-      const refundRes = await client.query(
-        `SELECT refundable, refund_percent, refund_deadline_hours, non_refundable
-         FROM refund_policies WHERE room_type_id = $1`,
-        [item.room_type_id]
-      );
-      const refundPolicy = refundRes.rows[0] || {};
-      // Mặc định: hoàn 0 nếu không có policy
-      let refundPercent = 0;
-      let refundable = false;
-      let deadline = 24; // giờ trước check-in
-      let nonRefundable = false;
-      if (refundPolicy) {
-        refundable = refundPolicy.refundable ?? false;
-        refundPercent = refundPolicy.refund_percent ?? 0;
-        deadline = refundPolicy.refund_deadline_hours ?? 24;
-        nonRefundable = refundPolicy.non_refundable ?? false;
-      }
 
-      // Nếu là No Show (stay_status_id === 5) thì không hoàn tiền
-      if (currentStatus === 5) {
-        refundPercent = 0;
-      } else if (nonRefundable) {
-        refundPercent = 0;
-      } else if (refundable && hoursUntilCheckIn >= deadline) {
-        // Đủ điều kiện hoàn tiền
-        refundPercent = refundPercent;
-      } else {
-        refundPercent = 0;
+    // Nếu booking chưa được thanh toán (pending status 6 hoặc payment_status !== 'paid'),
+    // thì không cần tính hoàn tiền
+    const paymentStatus = booking.payment_status;
+    const skipRefundCalculation =
+      currentStatus === 6 || paymentStatus !== "paid";
+
+    if (skipRefundCalculation) {
+      console.log("[REFUND DEBUG] Skipping refund - not paid yet", {
+        currentStatus,
+        paymentStatus,
+      });
+      totalRefund = 0;
+    } else {
+      for (const item of items.rows) {
+        const refundRes = await client.query(
+          `SELECT refundable, refund_percent, refund_deadline_hours, non_refundable
+           FROM refund_policies WHERE room_type_id = $1`,
+          [item.room_type_id]
+        );
+        const refundPolicy = refundRes.rows[0] || {};
+        // Mặc định: hoàn 0 nếu không có policy
+        let refundPercent = 0;
+        let refundable = false;
+        let deadline = 24; // giờ trước check-in
+        let nonRefundable = false;
+        if (refundPolicy && Object.keys(refundPolicy).length > 0) {
+          refundable = refundPolicy.refundable ?? false;
+          refundPercent = refundPolicy.refund_percent ?? 0;
+          deadline = refundPolicy.refund_deadline_hours ?? 24;
+          nonRefundable = refundPolicy.non_refundable ?? false;
+        }
+
+        // Debug log
+        console.log("[REFUND DEBUG]", {
+          room_type_id: item.room_type_id,
+          hasPolicy: !!refundRes.rows[0],
+          refundable,
+          refundPercent,
+          deadline,
+          nonRefundable,
+          hoursUntilCheckIn,
+          meetsDeadline: hoursUntilCheckIn >= deadline,
+        });
+
+        // Nếu là No Show (stay_status_id === 5) thì không hoàn tiền
+        if (currentStatus === 5) {
+          refundPercent = 0;
+        } else if (nonRefundable) {
+          refundPercent = 0;
+        } else if (refundable && hoursUntilCheckIn >= deadline) {
+          // Đủ điều kiện hoàn tiền
+          refundPercent = refundPercent;
+        } else {
+          refundPercent = 0;
+        }
+        // Tính số tiền hoàn lại cho từng phòng
+        const itemRefund = Math.round(
+          (item.room_type_price || 0) * (refundPercent / 100)
+        );
+        totalRefund += itemRefund;
+        // Lưu số tiền hoàn lại vào booking_items
+        await client.query(
+          `UPDATE booking_items SET refund_amount = $1 WHERE booking_id = $2 AND room_id = $3`,
+          [itemRefund, id, item.room_id]
+        );
       }
-      // Tính số tiền hoàn lại cho từng phòng
-      const itemRefund = Math.round(
-        (item.room_type_price || 0) * (refundPercent / 100)
-      );
-      totalRefund += itemRefund;
-      // Lưu số tiền hoàn lại vào booking_items
-      await client.query(
-        `UPDATE booking_items SET refund_amount = $1 WHERE booking_id = $2 AND room_id = $3`,
-        [itemRefund, id, item.room_id]
-      );
     }
 
     // Lấy trạng thái thanh toán hiện tại

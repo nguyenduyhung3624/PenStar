@@ -1,31 +1,33 @@
 import * as model from "../models/master_equipmentsmodel.js";
+import { ERROR_MESSAGES } from "../utils/constants.js";
 
 export const getAllEquipments = async (req, res) => {
   try {
     const equipments = await model.getAllEquipments();
-    res.json({ success: true, data: equipments });
+    res.success(equipments, "Lấy danh sách thiết bị thành công");
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
 export const getEquipmentById = async (req, res) => {
   try {
     const equipment = await model.getEquipmentById(Number(req.params.id));
-    if (!equipment)
-      return res.status(404).json({ success: false, message: "Not found" });
-    res.json({ success: true, data: equipment });
+    if (!equipment) {
+      return res.error("Thiết bị không tồn tại", null, 404);
+    }
+    res.success(equipment, "Lấy thông tin thiết bị thành công");
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
 export const createEquipment = async (req, res) => {
   try {
     const equipment = await model.createEquipment(req.body);
-    res.status(201).json({ success: true, data: equipment });
+    res.success(equipment, "Tạo thiết bị thành công", 201);
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -35,17 +37,17 @@ export const updateEquipment = async (req, res) => {
       Number(req.params.id),
       req.body
     );
-    res.json({ success: true, data: equipment });
+    res.success(equipment, "Cập nhật thiết bị thành công");
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
 export const deleteEquipment = async (req, res) => {
   try {
     const equipment = await model.deleteEquipment(Number(req.params.id));
-    res.json({ success: true, data: equipment });
+    res.success(equipment, "Xóa thiết bị thành công");
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };

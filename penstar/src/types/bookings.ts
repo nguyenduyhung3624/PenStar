@@ -70,6 +70,10 @@ export type Booking = {
   change_count?: number;
   // Tổng số tiền hoàn lại cho booking (nếu có)
   refund_amount?: number;
+  // Discount / promo code fields
+  original_total?: number;
+  discount_amount?: number;
+  promo_code?: string;
   // ...existing code...
   items: BookingItem[];
   services?: BookingService[];

@@ -1,9 +1,8 @@
-import useAuth from "@/hooks/useAuth";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery } from "@tanstack/react-query";
 import { getStatistics } from "@/services/statisticsApi";
-import { Spin } from "antd";
+import { Spin, DatePicker } from "antd"; // Chỉ giữ lại DatePicker vì xử lý lịch khá phức tạp
 import { format } from "date-fns";
-import { vi } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
 import {
   LineChart,
@@ -12,418 +11,416 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
 } from "recharts";
-import { Card, List, Tag, Empty } from "antd";
-import { WarningOutlined } from "@ant-design/icons";
+import { useState } from "react";
+import dayjs from "dayjs";
+import {
+  FaMoneyBillWave,
+  FaCalendarCheck,
+  FaBed,
+  FaUserClock,
+  FaArrowUp,
+  FaConciergeBell,
+} from "react-icons/fa"; // Cài thêm: npm install react-icons
+
+const { RangePicker } = DatePicker;
 
 const Dashboard = () => {
-  const auth = useAuth();
   const navigate = useNavigate();
-  const roleName = auth?.getRoleName(auth.user) || "user";
-  const isStaff = roleName === "staff";
-  const isManagerOrAdmin = roleName === "manager" || roleName === "admin";
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
+    dayjs().startOf("month"),
+    dayjs().endOf("month"),
+  ]);
 
-  const { data: statistics, isLoading } = useQuery({
-    queryKey: ["statistics", "month"],
-    queryFn: () => getStatistics("month"),
-    enabled: isManagerOrAdmin, // Only fetch for manager/admin
-    retry: 1,
+  const { data: stats, isLoading } = useQuery({
+    queryKey: [
+      "statistics",
+      dateRange[0].format("YYYY-MM-DD"),
+      dateRange[1].format("YYYY-MM-DD"),
+    ],
+    queryFn: () =>
+      getStatistics(
+        dateRange[0].format("YYYY-MM-DD"),
+        dateRange[1].format("YYYY-MM-DD")
+      ),
   });
 
-  return (
-    <div className="p-6 bg-gray-50">
-      <header className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-800">
-          {isStaff ? "Staff Dashboard" : "Admin Dashboard"}
-        </h1>
-        <p className="text-gray-600 mt-1">
-          Welcome back,{" "}
-          {roleName
-            ? roleName.charAt(0).toUpperCase() + roleName.slice(1)
-            : "User"}
-          ! Here's what's happening.
-        </p>
-      </header>
+  const formatVND = (value: number) =>
+    new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(value);
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* Total Users - Manager and Admin only */}
-        {!isStaff && (
-          <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300">
-            <div className="flex items-center">
-              <div className="bg-blue-100 text-blue-600 p-4 rounded-full">
-                <svg
-                  className="w-7 h-7"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.653-.234-1.256-.644-1.724M11 16v-2a3 3 0 013-3h2m-3 3H9m2 0v2m0-2v-2a3 3 0 00-3-3H7m2 10H7m0 0v-2c0-.653.234-1.256.644-1.724M7 16H5m2 0v2m0-2v-2a3 3 0 013-3h2m-5 3H3m2 0v2m0-2v-2a3 3 0 00-3-3H3m12 10v-2a3 3 0 00-3-3H9m9 6v2m0-2h-2m-2 2H9m10-2v-2a3 3 0 00-3-3h-2m-3 3h2m-2 0h-2m2 0v2m-2-2v-2"
-                  ></path>
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-gray-500 font-medium">Total Users</p>
-                <p className="text-3xl font-bold text-gray-800">
-                  {isLoading ? (
-                    <Spin size="small" />
-                  ) : (
-                    statistics?.totalUsers.toLocaleString("vi-VN") || 0
-                  )}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-        <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300">
-          <div className="flex items-center">
-            <div className="bg-green-100 text-green-600 p-4 rounded-full">
-              <svg
-                className="w-7 h-7"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-gray-500 font-medium">Bookings</p>
-              <p className="text-3xl font-bold text-gray-800">
-                {isLoading && !isStaff ? (
-                  <Spin size="small" />
-                ) : (
-                  statistics?.totalBookings.toLocaleString("vi-VN") || 0
-                )}
-              </p>
-            </div>
-          </div>
+  const PIE_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
+
+  if (isLoading)
+    return (
+      <div className="h-screen flex items-center justify-center">
+        <Spin size="large" />
+      </div>
+    );
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-6 font-sans text-gray-800">
+      {/* --- HEADER --- */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            Tổng quan hoạt động
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">
+            Số liệu từ {dateRange[0].format("DD/MM/YYYY")} đến{" "}
+            {dateRange[1].format("DD/MM/YYYY")}
+          </p>
         </div>
-        <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300">
-          <div className="flex items-center">
-            <div className="bg-yellow-100 text-yellow-600 p-4 rounded-full">
-              <svg
-                className="w-7 h-7"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h6m-6 4h6m-6 4h6"
-                />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-gray-500 font-medium">Available Rooms</p>
-              <p className="text-3xl font-bold text-gray-800">
-                {isLoading && !isStaff ? (
-                  <Spin size="small" />
-                ) : (
-                  statistics?.availableRooms.toLocaleString("vi-VN") || 0
-                )}
-              </p>
-            </div>
-          </div>
+        <div className="bg-white p-1 rounded-lg shadow-sm border border-gray-200">
+          <RangePicker
+            value={dateRange}
+            onChange={(dates) => dates && setDateRange([dates[0]!, dates[1]!])}
+            format="DD/MM/YYYY"
+            allowClear={false}
+            className="border-none"
+          />
         </div>
-        {/* Revenue - Manager and Admin only */}
-        {!isStaff && (
-          <div className="bg-white p-6 rounded-xl shadow-lg hover:shadow-2xl transition-shadow duration-300">
-            <div className="flex items-center">
-              <div className="bg-red-100 text-red-600 p-4 rounded-full">
-                <svg
-                  className="w-7 h-7"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01M12 6v-1m0-1H8.5m3.5 1H12m0-1h3.5m-3.5 1H12m0 0h.01M12 3v1m0-1c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01M12 6v-1m0-1H8.5m3.5 1H12m0-1h3.5m-3.5 1H12m0 0h.01M12 3v1"
-                  />
-                </svg>
-              </div>
-              <div className="ml-4">
-                <p className="text-gray-500 font-medium">Revenue</p>
-                <p className="text-3xl font-bold text-gray-800">
-                  {isLoading ? (
-                    <Spin size="small" />
-                  ) : (
-                    new Intl.NumberFormat("vi-VN", {
-                      style: "currency",
-                      currency: "VND",
-                    }).format(statistics?.totalRevenue || 0)
-                  )}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* Main Content Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Revenue Chart - Only for Manager and Admin */}
-        {!isStaff && (
-          <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-lg">
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              Revenue Overview
-            </h2>
-            {isLoading ? (
-              <div className="h-80 bg-gray-100 rounded-lg flex items-center justify-center">
-                <Spin size="large" />
-              </div>
-            ) : statistics?.revenueByMonth && statistics.revenueByMonth.length > 0 ? (
-              <ResponsiveContainer width="100%" height={320}>
-                <LineChart
-                  data={statistics.revenueByMonth.map((item) => ({
-                    month: format(new Date(item.month), "MM/yyyy", { locale: vi }),
-                    revenue: item.revenue,
-                  }))}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
+      {/* --- KPI STATS GRID --- */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {/* Doanh thu */}
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
+          <div>
+            <p className="text-gray-500 text-sm font-medium mb-1">
+              Tổng doanh thu
+            </p>
+            <h3 className="text-2xl font-bold text-emerald-600">
+              {formatVND(stats?.totalRevenue || 0)}
+            </h3>
+          </div>
+          <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
+            <FaMoneyBillWave size={20} />
+          </div>
+        </div>
+
+        {/* Booking */}
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
+          <div>
+            <p className="text-gray-500 text-sm font-medium mb-1">
+              Đơn đặt phòng
+            </p>
+            <h3 className="text-2xl font-bold text-blue-600">
+              {stats?.totalBookings || 0}
+            </h3>
+          </div>
+          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
+            <FaCalendarCheck size={20} />
+          </div>
+        </div>
+
+        {/* Lấp đầy */}
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
+          <div>
+            <p className="text-gray-500 text-sm font-medium mb-1">
+              Tỷ lệ lấp đầy
+            </p>
+            <h3 className="text-2xl font-bold text-amber-500">
+              {stats?.occupancyRate || 0}%
+            </h3>
+          </div>
+          <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
+            <FaBed size={20} />
+          </div>
+        </div>
+
+        {/* Chờ duyệt */}
+        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
+          <div>
+            <p className="text-gray-500 text-sm font-medium mb-1">
+              Đang chờ duyệt
+            </p>
+            <h3 className="text-2xl font-bold text-rose-500">
+              {stats?.pendingBookings || 0}
+            </h3>
+          </div>
+          <div className="w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center text-rose-600">
+            <FaUserClock size={20} />
+          </div>
+        </div>
+      </div>
+
+      {/* --- STATUS & CHARTS SECTION --- */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        {/* Cột trái: Trạng thái phòng (Realtime) */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <FaConciergeBell className="text-gray-400" /> Trạng thái phòng hiện
+            tại
+          </h3>
+          <div className="space-y-4">
+            <StatusItem
+              label="Phòng trống"
+              count={stats?.roomStatusCount?.available ?? 0}
+              color="bg-emerald-500"
+            />
+            <StatusItem
+              label="Đang có khách"
+              count={stats?.roomStatusCount?.occupied ?? 0}
+              color="bg-blue-500"
+            />
+            <StatusItem
+              label="Đã đặt trước"
+              count={stats?.roomStatusCount?.reserved ?? 0}
+              color="bg-amber-500"
+            />
+            <StatusItem
+              label="Đang bảo trì"
+              count={stats?.roomStatusCount?.maintenance ?? 0}
+              color="bg-gray-400"
+            />
+          </div>
+          <div className="mt-6 pt-4 border-t border-gray-100">
+            <div className="flex justify-between text-sm text-gray-500">
+              <span>
+                Check-in trong kỳ:{" "}
+                <b className="text-gray-800">{stats?.countCheckins ?? 0}</b>
+              </span>
+              <span>
+                Check-out trong kỳ:{" "}
+                <b className="text-gray-800">{stats?.countCheckouts ?? 0}</b>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Cột phải: Biểu đồ doanh thu (Chiếm 2/3) */}
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+          <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
+            <FaArrowUp className="text-emerald-500 rotate-45" /> Xu hướng doanh
+            thu
+          </h3>
+          <div className="h-[300px] w-full">
+            {(stats?.revenueChart?.length ?? 0) > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={stats?.revenueChart ?? []}>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={false}
+                    stroke="#E5E7EB"
+                  />
                   <XAxis
-                    dataKey="month"
-                    tick={{ fontSize: 12 }}
-                    angle={-45}
-                    textAnchor="end"
-                    height={80}
+                    dataKey="date"
+                    tickFormatter={(t) => format(new Date(t), "dd/MM")}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#9CA3AF", fontSize: 12 }}
+                    dy={10}
                   />
                   <YAxis
-                    tick={{ fontSize: 12 }}
-                    tickFormatter={(value) =>
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#9CA3AF", fontSize: 12 }}
+                    tickFormatter={(v) =>
                       new Intl.NumberFormat("vi-VN", {
                         notation: "compact",
-                        compactDisplay: "short",
-                      }).format(value)
+                      }).format(v)
                     }
                   />
                   <Tooltip
-                    formatter={(value: number) =>
-                      new Intl.NumberFormat("vi-VN", {
-                        style: "currency",
-                        currency: "VND",
-                      }).format(value)
-                    }
+                    contentStyle={{
+                      borderRadius: "8px",
+                      border: "none",
+                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
+                    }}
+                    formatter={(v: number) => [formatVND(v), "Doanh thu"]}
                   />
-                  <Legend />
                   <Line
                     type="monotone"
                     dataKey="revenue"
-                    stroke="#0a4f86"
-                    strokeWidth={2}
-                    name="Doanh thu"
-                    dot={{ r: 4 }}
-                    activeDot={{ r: 6 }}
+                    stroke="#10B981"
+                    strokeWidth={3}
+                    dot={{
+                      r: 4,
+                      fill: "#10B981",
+                      strokeWidth: 2,
+                      stroke: "#fff",
+                    }}
                   />
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-80 bg-gray-100 rounded-lg flex items-center justify-center">
-                <p className="text-gray-500">Chưa có dữ liệu doanh thu</p>
+              <div className="h-full flex items-center justify-center text-gray-400 bg-gray-50 rounded-lg">
+                Chưa có dữ liệu
               </div>
             )}
           </div>
-        )}
-
-        {/* Recent Activity */}
-        <div
-          className={`bg-white p-6 rounded-xl shadow-lg ${
-            isStaff ? "lg:col-span-3" : ""
-          }`}
-        >
-          <h2 className="text-2xl font-bold text-gray-800 mb-4">
-            Recent Activity
-          </h2>
-          {isLoading && !isStaff ? (
-            <div className="text-center py-8">
-              <Spin />
-            </div>
-          ) : (
-            <ul className="space-y-4">
-              {statistics?.recentBookings &&
-              statistics.recentBookings.length > 0 ? (
-                statistics.recentBookings.slice(0, 5).map((booking) => (
-                  <li
-                    key={booking.id}
-                    className="flex items-start cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
-                    onClick={() => navigate(`/admin/bookings/${booking.id}`)}
-                  >
-                    <div className="bg-green-100 text-green-600 p-2 rounded-full mr-4 mt-1">
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-700">
-                        Booking #{booking.id} - {booking.customer_name}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {booking.stay_status_name} -{" "}
-                        {new Intl.NumberFormat("vi-VN", {
-                          style: "currency",
-                          currency: "VND",
-                        }).format(booking.total_price)}{" "}
-                        -{" "}
-                        {format(
-                          new Date(booking.created_at),
-                          "dd/MM/yyyy HH:mm",
-                          { locale: vi }
-                        )}
-                      </p>
-                    </div>
-                  </li>
-                ))
-              ) : (
-                <li className="text-center py-4 text-gray-500">
-                  Chưa có booking nào
-                </li>
-              )}
-            </ul>
-          )}
         </div>
       </div>
 
-      {/* Device Damage Statistics Section */}
-      {!isStaff && (
-        <div className="mt-8 bg-white p-6 rounded-xl shadow-lg">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-800 flex items-center">
-              <WarningOutlined className="mr-2 text-orange-500" />
-              Thống kê thiết bị hỏng khi checkout
-            </h2>
+      {/* --- TABLES SECTION --- */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Booking Table (Chiếm 2/3) */}
+        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="p-5 border-b border-gray-100">
+            <h3 className="font-bold text-gray-800">Booking mới nhất</h3>
           </div>
-          {isLoading ? (
-            <div className="text-center py-8">
-              <Spin />
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-              {/* Total Cases */}
-              <Card className="text-center">
-                <div className="text-3xl font-bold text-orange-600 mb-2">
-                  {statistics?.deviceDamage?.totalCases || 0}
-                </div>
-                <div className="text-gray-600">Tổng số thiết bị hỏng</div>
-              </Card>
-              {/* Bookings with Damage */}
-              <Card className="text-center">
-                <div className="text-3xl font-bold text-red-600 mb-2">
-                  {statistics?.deviceDamage?.bookingsWithDamage || 0}
-                </div>
-                <div className="text-gray-600">Số booking có thiết bị hỏng</div>
-              </Card>
-              {/* Average per Booking */}
-              <Card className="text-center">
-                <div className="text-3xl font-bold text-yellow-600 mb-2">
-                  {statistics?.deviceDamage?.bookingsWithDamage && statistics.deviceDamage.bookingsWithDamage > 0
-                    ? (
-                        ((statistics.deviceDamage.totalCases || 0) /
-                          statistics.deviceDamage.bookingsWithDamage) *
-                        1
-                      ).toFixed(1)
-                    : 0}
-                </div>
-                <div className="text-gray-600">TB thiết bị/booking</div>
-              </Card>
-            </div>
-          )}
-          
-          {/* Recent Device Damage Details */}
-          {statistics?.deviceDamage?.details && statistics.deviceDamage.details.length > 0 && (
-            <div className="mt-6">
-              <h3 className="text-lg font-semibold text-gray-700 mb-4">
-                Chi tiết thiết bị hỏng gần đây
-              </h3>
-              <List
-                dataSource={statistics.deviceDamage.details.slice(0, 10)}
-                renderItem={(item) => (
-                  <List.Item
-                    className="cursor-pointer hover:bg-gray-50 p-3 rounded-lg transition-colors"
-                    onClick={() => navigate(`/admin/bookings/${item.booking_id}`)}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-gray-600">
+              <thead className="bg-gray-50 text-xs uppercase font-semibold text-gray-500">
+                <tr>
+                  <th className="px-5 py-3">ID</th>
+                  <th className="px-5 py-3">Khách hàng</th>
+                  <th className="px-5 py-3">Tổng tiền</th>
+                  <th className="px-5 py-3">Thanh toán</th>
+                  <th className="px-5 py-3">Ngày tạo</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {stats?.recentBookings?.map((item: any) => (
+                  <tr
+                    key={item.id}
+                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => navigate(`/admin/bookings/${item.id}`)}
                   >
-                    <List.Item.Meta
-                      avatar={
-                        <div className="bg-orange-100 text-orange-600 p-2 rounded-full">
-                          <WarningOutlined />
-                        </div>
-                      }
-                      title={
-                        <span>
-                          Booking #{item.booking_id} - {item.customer_name}
-                          <Tag color="orange" className="ml-2">
-                            {item.damage_count} thiết bị
-                          </Tag>
-                        </span>
-                      }
-                      description={
-                        <div>
-                          <div className="text-sm text-gray-500 mb-2">
-                            {format(
-                              new Date(item.created_at),
-                              "dd/MM/yyyy HH:mm",
-                              { locale: vi }
-                            )}
-                          </div>
-                          <div className="text-sm">
-                            {item.damage_items.slice(0, 3).map((damage, idx) => (
-                              <Tag key={idx} color="red" className="mb-1">
-                                {damage.replace(/^-\s*/, "")}
-                              </Tag>
-                            ))}
-                            {item.damage_items.length > 3 && (
-                              <Tag>+{item.damage_items.length - 3} khác</Tag>
-                            )}
-                          </div>
-                        </div>
-                      }
-                    />
-                  </List.Item>
+                    <td className="px-5 py-3 font-medium text-gray-900">
+                      #{item.id}
+                    </td>
+                    <td className="px-5 py-3">{item.customer_name}</td>
+                    <td className="px-5 py-3 font-medium text-emerald-600">
+                      {formatVND(item.total_price)}
+                    </td>
+                    <td className="px-5 py-3">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          item.payment_status === "paid"
+                            ? "bg-emerald-100 text-emerald-700"
+                            : item.payment_status === "pending"
+                              ? "bg-amber-100 text-amber-700"
+                              : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {item.payment_status === "paid"
+                          ? "Đã TT"
+                          : item.payment_status === "pending"
+                            ? "Chờ TT"
+                            : "Chưa TT"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-gray-400 text-xs">
+                      {format(new Date(item.created_at), "dd/MM/yy HH:mm")}
+                    </td>
+                  </tr>
+                ))}
+                {(!stats?.recentBookings ||
+                  stats.recentBookings.length === 0) && (
+                  <tr>
+                    <td colSpan={5} className="text-center py-4 text-gray-400">
+                      Không có dữ liệu
+                    </td>
+                  </tr>
                 )}
-              />
-            </div>
-          )}
-          {statistics?.deviceDamage?.details?.length === 0 && (
-            <Empty
-              description="Chưa có thiết bị hỏng nào được ghi nhận"
-              className="py-8"
-            />
-          )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      )}
+
+        {/* Damage Table / Payment Pie Chart */}
+        <div className="flex flex-col gap-6">
+          {/* Biểu đồ tròn nhỏ */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h3 className="font-bold text-gray-800 mb-4 text-sm">
+              Phương thức thanh toán
+            </h3>
+            <div className="h-[180px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={stats?.paymentMethods || []}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={70}
+                    paddingAngle={5}
+                    dataKey="value"
+                  >
+                    {(stats?.bookingsByPaymentMethod || []).map(
+                      (_: any, index: number) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={PIE_COLORS[index % PIE_COLORS.length]}
+                        />
+                      )
+                    )}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-wrap gap-2 justify-center mt-2">
+              {stats?.bookingsByPaymentMethod?.map((m: any, idx: number) => (
+                <span
+                  key={idx}
+                  className="text-xs text-gray-500 flex items-center gap-1"
+                >
+                  <span
+                    className="w-2 h-2 rounded-full"
+                    style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }}
+                  ></span>
+                  {m.name || m.paymentMethod}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Sự cố thiết bị */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex-1">
+            <div className="p-4 border-b border-gray-100 bg-red-50">
+              <h3 className="font-bold text-red-700 text-sm">
+                Sự cố thiết bị mới
+              </h3>
+            </div>
+            <div className="p-0">
+              <table className="w-full text-left text-xs">
+                <tbody className="divide-y divide-gray-100">
+                  {stats?.recentDamage?.map((d: any) => (
+                    <tr key={d.id}>
+                      <td className="px-4 py-3 text-gray-600">
+                        <b>{d.room}</b> - {d.item}
+                      </td>
+                      <td className="px-4 py-3 text-right text-red-600 font-medium">
+                        {formatVND(d.amount)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
+
+// Component con để hiển thị thanh trạng thái
+const StatusItem = ({
+  label,
+  count,
+  color,
+}: {
+  label: string;
+  count: number;
+  color: string;
+}) => (
+  <div className="flex items-center justify-between">
+    <span className="text-gray-600 text-sm flex items-center gap-2">
+      <span className={`w-3 h-3 rounded-full ${color}`}></span>
+      {label}
+    </span>
+    <span className="font-bold text-gray-800">{count || 0}</span>
+  </div>
+);
 
 export default Dashboard;

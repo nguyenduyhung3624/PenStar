@@ -209,7 +209,7 @@ export const deleteDevice = async (id) => {
 
 // Điều chuyển thiết bị giữa 2 phòng
 export const transferDevice = async ({
-  equipment_id,
+  equipment_id, // đây là master_equipment_id
   quantity,
   from_room_id,
   to_room_id,
@@ -218,42 +218,68 @@ export const transferDevice = async ({
     throw new Error("Thiếu thông tin điều chuyển");
   if (from_room_id === to_room_id)
     throw new Error("Không thể chuyển thiết bị sang chính phòng hiện tại");
-  // Kiểm tra tồn kho phòng đi
+
+  // Kiểm tra tồn kho phòng đi - sử dụng master_equipment_id
   const fromRes = await pool.query(
-    `SELECT * FROM room_devices WHERE room_id = $1 AND device_type = $2`,
+    `SELECT * FROM room_devices WHERE room_id = $1 AND master_equipment_id = $2`,
     [from_room_id, equipment_id]
   );
   if (!fromRes.rows[0] || fromRes.rows[0].quantity < quantity)
     throw new Error("Không đủ tồn kho phòng đi");
-  // Kiểm tra phòng đến đã có thiết bị cùng loại chưa (nếu nghiệp vụ yêu cầu, có thể bỏ qua nếu muốn cộng dồn)
-  // Đã xử lý ở frontend, nhưng vẫn nên kiểm tra ở backend
+
   // Trừ tồn kho phòng đi
   await pool.query(
-    `UPDATE room_devices SET quantity = quantity - $1 WHERE room_id = $2 AND device_type = $3`,
+    `UPDATE room_devices SET quantity = quantity - $1 WHERE room_id = $2 AND master_equipment_id = $3`,
     [quantity, from_room_id, equipment_id]
   );
+
   // Cộng tồn kho phòng đến (nếu chưa có thì tạo mới)
   const toRes = await pool.query(
-    `SELECT * FROM room_devices WHERE room_id = $1 AND device_type = $2`,
+    `SELECT * FROM room_devices WHERE room_id = $1 AND master_equipment_id = $2`,
     [to_room_id, equipment_id]
   );
   if (toRes.rows[0]) {
     await pool.query(
-      `UPDATE room_devices SET quantity = quantity + $1 WHERE room_id = $2 AND device_type = $3`,
+      `UPDATE room_devices SET quantity = quantity + $1 WHERE room_id = $2 AND master_equipment_id = $3`,
       [quantity, to_room_id, equipment_id]
     );
   } else {
     // Lấy thông tin thiết bị từ phòng đi để clone sang phòng đến
     const {
       device_name,
+      device_type,
+      master_equipment_id,
       status = "working",
       note = null,
       images = null,
     } = fromRes.rows[0];
     await pool.query(
-      `INSERT INTO room_devices (device_name, device_type, status, room_id, note, images, quantity) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [device_name, equipment_id, status, to_room_id, note, images, quantity]
+      `INSERT INTO room_devices (master_equipment_id, device_name, device_type, status, room_id, note, images, quantity) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        master_equipment_id,
+        device_name,
+        device_type,
+        status,
+        to_room_id,
+        note,
+        images,
+        quantity,
+      ]
     );
   }
+
+  // Ghi log điều chuyển
+  const { createStockLog } = await import("./equipment_stock_logsmodel.js");
+  await createStockLog({
+    equipment_id: equipment_id,
+    type: "transfer",
+    action: "transfer",
+    quantity: quantity,
+    from_room_id: from_room_id,
+    to_room_id: to_room_id,
+    note: `Điều chuyển ${quantity} thiết bị từ phòng ${from_room_id} sang phòng ${to_room_id}`,
+  });
+
   return true;
 };

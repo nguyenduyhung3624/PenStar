@@ -1,273 +1,324 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useState } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Form,
   Input,
   Button,
   Card,
-  Steps,
   message,
   DatePicker,
-  InputNumber,
   Select,
-  Space,
   Typography,
   Divider,
+  Row,
+  Col,
+  Alert,
+  Spin,
+  Radio,
+  InputNumber,
+  Table,
+  Space,
 } from "antd";
 import {
   UserOutlined,
   PhoneOutlined,
   MailOutlined,
-  HomeOutlined,
+  CalendarOutlined,
+  CheckCircleOutlined,
+  PlusOutlined,
+  DeleteOutlined,
 } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
-import { getServices } from "@/services/servicesApi";
 import { getRoomTypes } from "@/services/roomTypeApi";
+import { getRooms } from "@/services/roomsApi";
 import { createBooking } from "@/services/bookingsApi";
-import type { Services } from "@/types/services";
 import type { RoomType } from "@/types/roomtypes";
 import dayjs from "@/utils/dayjs";
 
-const { TextArea } = Input;
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
+
+interface Room {
+  id: number;
+  name: string;
+  type_id: number;
+  status: string;
+  floor_id?: number;
+  floor_name?: string;
+}
+
+interface SelectedRoom {
+  id: string; // unique key for the row
+  roomId: number | null;
+  roomTypeId: number;
+  numAdults: number;
+  numChildren: number;
+  // Calculated
+  basePrice: number;
+  extraAdultFees: number;
+  extraChildFees: number;
+  totalPrice: number;
+  extraAdultsCount: number;
+  extraChildrenCount: number;
+}
 
 const AdminWalkInBooking = () => {
   const navigate = useNavigate();
   const [form] = Form.useForm();
-  const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [selectedRoomTypeId, setSelectedRoomTypeId] = useState<
-    number | undefined
-  >(undefined);
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(
     null
   );
+  const [paymentMethod, setPaymentMethod] = useState<string>("cash");
+  const [immediateCheckin, setImmediateCheckin] = useState(false);
+  const [selectedRooms, setSelectedRooms] = useState<SelectedRoom[]>([]);
 
-  // Load dữ liệu
-  const { data: services = [] } = useQuery<Services[]>({
-    queryKey: ["services"],
-    queryFn: getServices,
-  });
-
-  const { data: roomTypes = [] } = useQuery<RoomType[]>({
+  // Load room types
+  const { data: roomTypes = [], isLoading: loadingTypes } = useQuery<
+    RoomType[]
+  >({
     queryKey: ["roomTypes"],
     queryFn: getRoomTypes,
   });
 
-  const [selectedRooms, setSelectedRooms] = useState<
-    Array<{
-      room_type_id: number;
-      quantity: number;
-      num_adults: number;
-      num_children: number;
-      services: Array<{ service_id: number; quantity: number }>;
-    }>
-  >([]);
+  // Load all rooms
+  const { data: allRooms = [], isLoading: loadingRooms } = useQuery<Room[]>({
+    queryKey: ["rooms"],
+    queryFn: getRooms,
+  });
 
-  const handleAddRoom = () => {
-    const values = form.getFieldsValue();
-    if (!values.room_type_id) {
-      message.error("Vui lòng chọn loại phòng");
-      return;
+  // Calculate nights
+  const nights = useMemo(() => {
+    if (!dateRange) return 0;
+    return dateRange[1].diff(dateRange[0], "day");
+  }, [dateRange]);
+
+  // Check if check-in date is today (can only check-in immediately if today)
+  const isCheckInToday = useMemo(() => {
+    if (!dateRange) return false;
+    return dateRange[0].isSame(dayjs(), "day");
+  }, [dateRange]);
+
+  // Auto-disable immediate checkin if not today
+  useMemo(() => {
+    if (!isCheckInToday && immediateCheckin) {
+      setImmediateCheckin(false);
     }
+  }, [isCheckInToday, immediateCheckin]);
 
-    // Kiểm tra dateRange từ state hoặc form
-    const currentDateRange = dateRange || values.dateRange;
-    if (
-      !currentDateRange ||
-      (Array.isArray(currentDateRange) && currentDateRange.length !== 2)
-    ) {
-      message.error("Vui lòng chọn ngày nhận và trả phòng ở bước 1");
-      return;
-    }
-
-    const roomType = roomTypes.find((rt) => rt.id === values.room_type_id);
-    if (!roomType) {
-      message.error("Không tìm thấy loại phòng");
-      return;
-    }
-
-    // Validation số lượng người
-    const numAdults = values.num_adults || 1;
-    const numChildren = values.num_children || 0;
-    const totalGuests = numAdults + numChildren;
-
-    // Kiểm tra số người lớn
-    if (roomType.max_adults && numAdults > roomType.max_adults) {
-      message.error(
-        `Số người lớn không được vượt quá ${roomType.max_adults} người cho loại phòng ${roomType.name}`
+  // Get available rooms by room type (excluding already selected)
+  const getAvailableRooms = useCallback(
+    (roomTypeId: number, excludeRoomId?: number) => {
+      const selectedRoomIds = selectedRooms
+        .filter((r) => r.roomId !== excludeRoomId)
+        .map((r) => r.roomId);
+      return allRooms.filter(
+        (room) =>
+          room.type_id === roomTypeId &&
+          room.status === "available" &&
+          !selectedRoomIds.includes(room.id)
       );
-      return;
-    }
+    },
+    [allRooms, selectedRooms]
+  );
 
-    // Kiểm tra số trẻ em
-    if (roomType.max_children && numChildren > roomType.max_children) {
-      message.error(
-        `Số trẻ em không được vượt quá ${roomType.max_children} trẻ cho loại phòng ${roomType.name}`
-      );
-      return;
-    }
-
-    // Kiểm tra tổng số người (capacity)
-    if (roomType.capacity && totalGuests > roomType.capacity) {
-      message.error(
-        `Tổng số người (${totalGuests}) không được vượt quá sức chứa của phòng (${roomType.capacity} người) cho loại phòng ${roomType.name}`
-      );
-      return;
-    }
-
-    // Kiểm tra số người lớn tối thiểu
-    if (numAdults < 1) {
-      message.error("Phải có ít nhất 1 người lớn");
-      return;
-    }
-
-    const newRoom = {
-      room_type_id: values.room_type_id,
-      quantity: values.quantity || 1,
-      num_adults: numAdults,
-      num_children: numChildren,
-      services: [],
-    };
-
-    setSelectedRooms([...selectedRooms, newRoom]);
-    form.setFieldsValue({
-      room_type_id: undefined,
-      quantity: 1,
-      num_adults: 1,
-      num_children: 0,
-    });
-    message.success("Đã thêm phòng vào danh sách");
-  };
-
-  const handleRemoveRoom = (index: number) => {
-    const newRooms = selectedRooms.filter((_, i) => i !== index);
-    setSelectedRooms(newRooms);
-  };
-
-  const calculateTotal = () => {
-    const values = form.getFieldsValue();
-    const currentDateRange = dateRange || values.dateRange;
-    if (
-      !currentDateRange ||
-      (Array.isArray(currentDateRange) && currentDateRange.length !== 2)
-    )
-      return 0;
-
-    const checkIn = dayjs(
-      Array.isArray(currentDateRange) ? currentDateRange[0] : currentDateRange
-    );
-    const checkOut = dayjs(
-      Array.isArray(currentDateRange) ? currentDateRange[1] : currentDateRange
-    );
-    const nights = checkOut.diff(checkIn, "day");
-
-    let total = 0;
-    selectedRooms.forEach((room) => {
-      const roomType = roomTypes.find((rt) => rt.id === room.room_type_id);
-      if (roomType && roomType.price) {
-        total += roomType.price * nights * room.quantity;
+  // Calculate extra fees for a room
+  const calculateExtraFees = useCallback(
+    (
+      roomTypeId: number,
+      numAdults: number,
+      numChildren: number
+    ): {
+      basePrice: number;
+      extraAdultFees: number;
+      extraChildFees: number;
+      totalPrice: number;
+      extraAdultsCount: number;
+      extraChildrenCount: number;
+    } => {
+      const roomType = roomTypes.find((rt) => rt.id === roomTypeId);
+      if (!roomType) {
+        return {
+          basePrice: 0,
+          extraAdultFees: 0,
+          extraChildFees: 0,
+          totalPrice: 0,
+          extraAdultsCount: 0,
+          extraChildrenCount: 0,
+        };
       }
-      room.services.forEach((service) => {
-        const serviceInfo = services.find((s) => s.id === service.service_id);
-        if (serviceInfo) {
-          total += serviceInfo.price * service.quantity;
-        }
-      });
-    });
 
-    return total;
+      const basePrice = roomType.price || 0;
+      const baseAdults = roomType.base_adults || 2;
+      const baseChildren = roomType.base_children || 0;
+      const extraAdultFee = Number(roomType.extra_adult_fee) || 0;
+      const extraChildFee = Number(roomType.extra_child_fee) || 0;
+
+      const extraAdultsCount = Math.max(0, numAdults - baseAdults);
+      const extraChildrenCount = Math.max(0, numChildren - baseChildren);
+
+      const extraAdultFees = extraAdultsCount * extraAdultFee;
+      const extraChildFees = extraChildrenCount * extraChildFee;
+      const totalPrice = basePrice + extraAdultFees + extraChildFees;
+
+      return {
+        basePrice,
+        extraAdultFees,
+        extraChildFees,
+        totalPrice,
+        extraAdultsCount,
+        extraChildrenCount,
+      };
+    },
+    [roomTypes]
+  );
+
+  // Add new room
+  const handleAddRoom = () => {
+    if (roomTypes.length === 0) {
+      message.warning("Chưa có loại phòng nào");
+      return;
+    }
+    const defaultRoomType = roomTypes[0];
+    const fees = calculateExtraFees(defaultRoomType.id, 1, 0);
+    setSelectedRooms((prev) => [
+      ...prev,
+      {
+        id: `room-${Date.now()}`,
+        roomId: null,
+        roomTypeId: defaultRoomType.id,
+        numAdults: 1,
+        numChildren: 0,
+        ...fees,
+      },
+    ]);
   };
+
+  // Remove room
+  const handleRemoveRoom = (id: string) => {
+    setSelectedRooms((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  // Update room
+  const handleUpdateRoom = (
+    id: string,
+    field: keyof SelectedRoom,
+    value: any
+  ) => {
+    setSelectedRooms((prev) =>
+      prev.map((room) => {
+        if (room.id !== id) return room;
+
+        const updated = { ...room, [field]: value };
+
+        // Recalculate fees when room type or guests change
+        if (
+          field === "roomTypeId" ||
+          field === "numAdults" ||
+          field === "numChildren"
+        ) {
+          const newTypeId = field === "roomTypeId" ? value : room.roomTypeId;
+          const newAdults = field === "numAdults" ? value : room.numAdults;
+          const newChildren =
+            field === "numChildren" ? value : room.numChildren;
+
+          // Reset room selection if type changes
+          if (field === "roomTypeId") {
+            updated.roomId = null;
+          }
+
+          const fees = calculateExtraFees(newTypeId, newAdults, newChildren);
+          return { ...updated, ...fees };
+        }
+
+        return updated;
+      })
+    );
+  };
+
+  // Calculate total
+  const totalPrice = useMemo(() => {
+    return selectedRooms.reduce(
+      (sum, room) => sum + room.totalPrice * nights,
+      0
+    );
+  }, [selectedRooms, nights]);
+
+  const totalExtraFees = useMemo(() => {
+    return selectedRooms.reduce(
+      (sum, room) => sum + (room.extraAdultFees + room.extraChildFees) * nights,
+      0
+    );
+  }, [selectedRooms, nights]);
 
   const handleSubmit = async () => {
     try {
-      // Lấy tất cả giá trị từ form (kể cả các field không được render)
-      const allFormValues = form.getFieldsValue(true);
+      await form.validateFields();
+      const values = form.getFieldsValue();
 
-      // Kiểm tra các field bắt buộc thủ công
-      if (!allFormValues.customer_name) {
-        message.error("Vui lòng nhập tên khách hàng");
-        // Quay lại bước 1 để nhập
-        setCurrentStep(0);
-        form.scrollToField("customer_name");
-        return;
-      }
-      if (!allFormValues.customer_phone) {
-        message.error("Vui lòng nhập số điện thoại");
-        setCurrentStep(0);
-        form.scrollToField("customer_phone");
+      if (!dateRange) {
+        message.error("Vui lòng chọn ngày nhận và trả phòng");
         return;
       }
 
       if (selectedRooms.length === 0) {
-        message.error("Vui lòng thêm ít nhất một phòng");
-        setCurrentStep(1);
+        message.error("Vui lòng thêm ít nhất 1 phòng");
         return;
       }
 
-      const currentDateRange = dateRange || allFormValues.dateRange;
-      if (
-        !currentDateRange ||
-        (Array.isArray(currentDateRange) && currentDateRange.length !== 2)
-      ) {
-        message.error("Vui lòng chọn ngày nhận và trả phòng");
-        setCurrentStep(0);
-        form.scrollToField("dateRange");
+      // Check all rooms have been selected
+      const unselectedRooms = selectedRooms.filter((r) => !r.roomId);
+      if (unselectedRooms.length > 0) {
+        message.error("Vui lòng chọn phòng cụ thể cho tất cả các mục");
+        return;
+      }
+
+      if (nights > 30) {
+        message.error("Không thể đặt phòng quá 30 đêm");
         return;
       }
 
       setLoading(true);
 
-      const dateArray = Array.isArray(currentDateRange)
-        ? currentDateRange
-        : [currentDateRange, currentDateRange];
-      const checkIn = dayjs(dateArray[0]).format("YYYY-MM-DD");
-      const checkOut = dayjs(dateArray[1]).format("YYYY-MM-DD");
-      const nights = dayjs(dateArray[1]).diff(dayjs(dateArray[0]), "day");
-
-      const roomsConfig = selectedRooms.map((room) => {
-        const roomType = roomTypes.find((rt) => rt.id === room.room_type_id);
-        const servicesArray = room.services.map((s) => {
-          const serviceInfo = services.find((sv) => sv.id === s.service_id);
-          return {
-            service_id: s.service_id,
-            quantity: s.quantity,
-            total_service_price: serviceInfo
-              ? serviceInfo.price * s.quantity
-              : 0,
-          };
-        });
-
-        return {
-          room_type_id: room.room_type_id,
-          quantity: room.quantity,
-          check_in: checkIn,
-          check_out: checkOut,
-          room_type_price:
-            roomType && roomType.price ? roomType.price * nights : 0,
-          num_adults: room.num_adults,
-          num_children: room.num_children,
-          services: servicesArray,
-        };
-      });
+      const checkIn = dateRange[0].format("YYYY-MM-DD");
+      const checkOut = dateRange[1].format("YYYY-MM-DD");
 
       const bookingData = {
-        customer_name: allFormValues.customer_name,
-        customer_email: allFormValues.customer_email || null,
-        customer_phone: allFormValues.customer_phone,
-        notes: allFormValues.notes || null,
-        total_price: calculateTotal(),
-        payment_status: "pending", // Chờ thanh toán tại quầy
-        payment_method: allFormValues.payment_method || null,
-        booking_method: "offline", // Đặt phòng trực tiếp
-        stay_status_id: 6, // Pending - chờ duyệt
-        rooms_config: roomsConfig,
+        customer_name: values.customer_name,
+        customer_email: values.customer_email || null,
+        customer_phone: values.customer_phone,
+        notes: values.notes || null,
+        total_price: totalPrice,
+        // Check-in ngay = đã thanh toán, không thì = chờ thanh toán
+        payment_status: immediateCheckin ? "paid" : "pending",
+        payment_method: paymentMethod,
+        booking_method: "offline",
+        // Check-in ngay = checked_in (2), không thì = reserved (1) - hold phòng
+        stay_status_id: immediateCheckin ? 2 : 1,
+        items: selectedRooms.map((room) => ({
+          room_id: room.roomId,
+          room_type_id: room.roomTypeId,
+          check_in: checkIn,
+          check_out: checkOut,
+          room_type_price: room.totalPrice * nights,
+          base_price: room.basePrice,
+          extra_fees: room.extraAdultFees + room.extraChildFees,
+          extra_adult_fees: room.extraAdultFees,
+          extra_child_fees: room.extraChildFees,
+          extra_adults_count: room.extraAdultsCount,
+          extra_children_count: room.extraChildrenCount,
+          num_adults: room.numAdults,
+          num_children: room.numChildren,
+        })),
       };
 
       const booking = await createBooking(bookingData as any);
-      message.success("Đã tạo booking thành công!");
+      message.success(
+        immediateCheckin
+          ? "Đã tạo booking và check-in thành công!"
+          : "Đã tạo booking thành công! Phòng đã được hold cho khách."
+      );
       navigate(`/admin/bookings/${booking.id}`);
     } catch (error: any) {
       console.error("Error creating booking:", error);
@@ -279,421 +330,376 @@ const AdminWalkInBooking = () => {
     }
   };
 
-  const steps = [
+  // Table columns for rooms
+  const columns = [
     {
-      title: "Thông tin khách hàng",
-      icon: <UserOutlined />,
+      title: "Loại phòng",
+      dataIndex: "roomTypeId",
+      key: "roomTypeId",
+      width: 200,
+      render: (value: number, record: SelectedRoom) => (
+        <Select
+          value={value}
+          onChange={(v) => handleUpdateRoom(record.id, "roomTypeId", v)}
+          style={{ width: "100%" }}
+        >
+          {roomTypes.map((rt) => (
+            <Select.Option key={rt.id} value={rt.id}>
+              {rt.name}
+            </Select.Option>
+          ))}
+        </Select>
+      ),
     },
     {
-      title: "Chọn phòng",
-      icon: <HomeOutlined />,
+      title: "Phòng",
+      dataIndex: "roomId",
+      key: "roomId",
+      width: 150,
+      render: (value: number | null, record: SelectedRoom) => {
+        const available = getAvailableRooms(
+          record.roomTypeId,
+          value || undefined
+        );
+        return (
+          <Select
+            value={value}
+            onChange={(v) => handleUpdateRoom(record.id, "roomId", v)}
+            style={{ width: "100%" }}
+            placeholder="Chọn phòng"
+          >
+            {available.map((room) => (
+              <Select.Option key={room.id} value={room.id}>
+                {room.name}
+              </Select.Option>
+            ))}
+          </Select>
+        );
+      },
     },
     {
-      title: "Xác nhận",
-      icon: <UserOutlined />,
+      title: "Người lớn",
+      dataIndex: "numAdults",
+      key: "numAdults",
+      width: 100,
+      render: (value: number, record: SelectedRoom) => (
+        <InputNumber
+          min={1}
+          max={5}
+          value={value}
+          onChange={(v) => handleUpdateRoom(record.id, "numAdults", v || 1)}
+        />
+      ),
+    },
+    {
+      title: "Trẻ em",
+      dataIndex: "numChildren",
+      key: "numChildren",
+      width: 100,
+      render: (value: number, record: SelectedRoom) => (
+        <InputNumber
+          min={0}
+          max={3}
+          value={value}
+          onChange={(v) => handleUpdateRoom(record.id, "numChildren", v || 0)}
+        />
+      ),
+    },
+    {
+      title: "Giá/đêm",
+      key: "price",
+      width: 180,
+      render: (_: any, record: SelectedRoom) => (
+        <div>
+          <div>{record.basePrice.toLocaleString("vi-VN")} ₫</div>
+          {(record.extraAdultFees > 0 || record.extraChildFees > 0) && (
+            <div className="text-xs text-orange-500">
+              +
+              {(record.extraAdultFees + record.extraChildFees).toLocaleString(
+                "vi-VN"
+              )}{" "}
+              ₫ phụ phí
+            </div>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: "Thành tiền",
+      key: "total",
+      width: 150,
+      render: (_: any, record: SelectedRoom) => (
+        <Text strong style={{ color: "#d97706" }}>
+          {(record.totalPrice * nights).toLocaleString("vi-VN")} ₫
+        </Text>
+      ),
+    },
+    {
+      title: "",
+      key: "action",
+      width: 50,
+      render: (_: any, record: SelectedRoom) => (
+        <Button
+          type="text"
+          danger
+          icon={<DeleteOutlined />}
+          onClick={() => handleRemoveRoom(record.id)}
+        />
+      ),
     },
   ];
 
   return (
     <div className="bg-gray-50 py-6 min-h-screen">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-5xl mx-auto px-4">
         <Card>
-          <Title level={2}>Đặt phòng cho khách đến trực tiếp</Title>
-          <Steps current={currentStep} items={steps} className="mb-8" />
+          <Title level={3} className="mb-6">
+            <CalendarOutlined className="mr-2" />
+            Đặt phòng trực tiếp
+          </Title>
 
           <Form form={form} layout="vertical">
-            {/* Step 1: Customer Info */}
-            {currentStep === 0 && (
-              <div>
-                <Title level={4}>Thông tin khách hàng</Title>
-                <Form.Item
-                  name="customer_name"
-                  label="Tên khách hàng"
-                  rules={[
-                    { required: true, message: "Vui lòng nhập tên khách hàng" },
-                  ]}
-                >
-                  <Input
-                    prefix={<UserOutlined />}
-                    placeholder="Nhập tên khách hàng"
-                  />
-                </Form.Item>
-
-                <Form.Item
-                  name="customer_phone"
-                  label="Số điện thoại"
-                  rules={[
-                    {
-                      required: true,
-                      message: "Vui lòng nhập số điện thoại",
-                    },
-                  ]}
-                >
-                  <Input
-                    prefix={<PhoneOutlined />}
-                    placeholder="Nhập số điện thoại"
-                  />
-                </Form.Item>
-
-                <Form.Item name="customer_email" label="Email">
-                  <Input
-                    prefix={<MailOutlined />}
-                    placeholder="Nhập email (tùy chọn)"
-                  />
-                </Form.Item>
-
-                <Form.Item
-                  name="dateRange"
-                  label="Ngày nhận và trả phòng"
-                  rules={[
-                    {
-                      required: true,
-                      message: "Vui lòng chọn ngày nhận và trả phòng",
-                    },
-                  ]}
-                >
-                  <RangePicker
-                    style={{ width: "100%" }}
-                    format="DD/MM/YYYY"
-                    disabledDate={(current) =>
-                      current && current < dayjs().startOf("day")
+            {/* Date Range */}
+            <Card size="small" className="mb-4" title="1. Chọn ngày">
+              <Form.Item
+                name="dateRange"
+                rules={[{ required: true, message: "Vui lòng chọn ngày" }]}
+              >
+                <RangePicker
+                  size="large"
+                  style={{ width: "100%" }}
+                  format="DD/MM/YYYY"
+                  placeholder={["Ngày nhận phòng", "Ngày trả phòng"]}
+                  disabledDate={(current) =>
+                    current && current < dayjs().startOf("day")
+                  }
+                  onChange={(dates) => {
+                    if (dates && dates[0] && dates[1]) {
+                      setDateRange([dates[0], dates[1]]);
+                    } else {
+                      setDateRange(null);
                     }
-                    onChange={(dates) => {
-                      if (dates && dates[0] && dates[1]) {
-                        setDateRange([dates[0], dates[1]]);
-                      }
-                    }}
-                  />
-                </Form.Item>
+                  }}
+                />
+              </Form.Item>
+              {dateRange && (
+                <Text type="secondary">
+                  Số đêm: <strong>{nights}</strong>
+                </Text>
+              )}
+            </Card>
 
-                <Form.Item name="notes" label="Ghi chú">
-                  <TextArea rows={3} placeholder="Ghi chú (tùy chọn)" />
-                </Form.Item>
-              </div>
-            )}
-
-            {/* Step 2: Select Rooms */}
-            {currentStep === 1 && (
-              <div>
-                <Title level={4}>Chọn phòng</Title>
-                <Card>
-                  <Form.Item
-                    name="room_type_id"
-                    label="Loại phòng"
-                    dependencies={["num_adults", "num_children"]}
-                  >
-                    <Select
-                      placeholder="Chọn loại phòng"
-                      onChange={(value) => {
-                        setSelectedRoomTypeId(value);
-                        // Reset validation khi đổi loại phòng
-                        form.validateFields(["num_adults", "num_children"]);
-                      }}
-                    >
-                      {roomTypes.map((rt) => (
-                        <Select.Option key={rt.id} value={rt.id}>
-                          {rt.name} -{" "}
-                          {rt.price ? rt.price.toLocaleString("vi-VN") : 0}{" "}
-                          VND/đêm
-                          {rt.capacity && ` (Tối đa ${rt.capacity} người)`}
-                        </Select.Option>
-                      ))}
-                    </Select>
-                  </Form.Item>
-
-                  {/* Hiển thị thông tin giới hạn của loại phòng đã chọn */}
-                  {selectedRoomTypeId &&
-                    (() => {
-                      const selectedRoomType = roomTypes.find(
-                        (rt) => rt.id === selectedRoomTypeId
-                      );
-                      if (selectedRoomType) {
-                        return (
-                          <div
-                            style={{
-                              marginBottom: 16,
-                              padding: 12,
-                              backgroundColor: "#f0f2f5",
-                              borderRadius: 4,
-                            }}
-                          >
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                              <strong>Thông tin loại phòng:</strong>
-                              {selectedRoomType.max_adults && (
-                                <>
-                                  {" "}
-                                  Tối đa {selectedRoomType.max_adults} người lớn
-                                </>
-                              )}
-                              {selectedRoomType.max_children && (
-                                <>
-                                  {" "}
-                                  • Tối đa {selectedRoomType.max_children} trẻ
-                                  em
-                                </>
-                              )}
-                              {selectedRoomType.capacity && (
-                                <>
-                                  {" "}
-                                  • Sức chứa: {selectedRoomType.capacity} người
-                                </>
-                              )}
-                            </Text>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-
-                  <Form.Item
-                    name="quantity"
-                    label="Số lượng phòng"
-                    initialValue={1}
-                  >
-                    <InputNumber min={1} max={10} style={{ width: "100%" }} />
-                  </Form.Item>
-
-                  <Form.Item
-                    name="num_adults"
-                    label="Số người lớn"
-                    initialValue={1}
-                    dependencies={["num_children", "room_type_id"]}
-                    rules={[
-                      { required: true, message: "Vui lòng nhập số người lớn" },
-                      {
-                        type: "number",
-                        min: 1,
-                        message: "Phải có ít nhất 1 người lớn",
-                      },
-                      {
-                        validator: (_, value) => {
-                          const roomTypeId = form.getFieldValue("room_type_id");
-                          if (!roomTypeId) return Promise.resolve();
-                          const roomType = roomTypes.find(
-                            (rt) => rt.id === roomTypeId
-                          );
-                          if (
-                            roomType &&
-                            roomType.max_adults &&
-                            value > roomType.max_adults
-                          ) {
-                            return Promise.reject(
-                              new Error(
-                                `Số người lớn không được vượt quá ${roomType.max_adults} người`
-                              )
-                            );
-                          }
-                          // Kiểm tra tổng số người
-                          const numChildren =
-                            form.getFieldValue("num_children") || 0;
-                          const totalGuests = value + numChildren;
-                          if (
-                            roomType &&
-                            roomType.capacity &&
-                            totalGuests > roomType.capacity
-                          ) {
-                            return Promise.reject(
-                              new Error(
-                                `Tổng số người (${totalGuests}) vượt quá sức chứa phòng (${roomType.capacity} người)`
-                              )
-                            );
-                          }
-                          return Promise.resolve();
-                        },
-                      },
-                    ]}
-                  >
-                    <InputNumber min={1} max={20} style={{ width: "100%" }} />
-                  </Form.Item>
-
-                  <Form.Item
-                    name="num_children"
-                    label="Số trẻ em"
-                    initialValue={0}
-                    dependencies={["num_adults", "room_type_id"]}
-                    rules={[
-                      {
-                        type: "number",
-                        min: 0,
-                        message: "Số trẻ em không được âm",
-                      },
-                      {
-                        validator: (_, value) => {
-                          const roomTypeId = form.getFieldValue("room_type_id");
-                          if (!roomTypeId) return Promise.resolve();
-                          const roomType = roomTypes.find(
-                            (rt) => rt.id === roomTypeId
-                          );
-                          if (
-                            roomType &&
-                            roomType.max_children &&
-                            value > roomType.max_children
-                          ) {
-                            return Promise.reject(
-                              new Error(
-                                `Số trẻ em không được vượt quá ${roomType.max_children} trẻ`
-                              )
-                            );
-                          }
-                          // Kiểm tra tổng số người
-                          const numAdults =
-                            form.getFieldValue("num_adults") || 1;
-                          const totalGuests = numAdults + (value || 0);
-                          if (
-                            roomType &&
-                            roomType.capacity &&
-                            totalGuests > roomType.capacity
-                          ) {
-                            return Promise.reject(
-                              new Error(
-                                `Tổng số người (${totalGuests}) vượt quá sức chứa phòng (${roomType.capacity} người)`
-                              )
-                            );
-                          }
-                          return Promise.resolve();
-                        },
-                      },
-                    ]}
-                  >
-                    <InputNumber min={0} max={20} style={{ width: "100%" }} />
-                  </Form.Item>
-
-                  <Button type="primary" onClick={handleAddRoom} block>
-                    Thêm phòng vào danh sách
-                  </Button>
-                </Card>
-
-                <Divider />
-
-                <Title level={5}>Danh sách phòng đã chọn</Title>
-                {selectedRooms.length === 0 ? (
-                  <Text type="secondary">Chưa có phòng nào được chọn</Text>
-                ) : (
-                  selectedRooms.map((room, index) => {
-                    const roomType = roomTypes.find(
-                      (rt) => rt.id === room.room_type_id
-                    );
-                    return (
-                      <Card key={index} className="mb-4">
-                        <Space direction="vertical" style={{ width: "100%" }}>
-                          <div>
-                            <Text strong>{roomType?.name}</Text>
-                            <Button
-                              danger
-                              size="small"
-                              onClick={() => handleRemoveRoom(index)}
-                              style={{ float: "right" }}
-                            >
-                              Xóa
-                            </Button>
-                          </div>
-                          <Text>
-                            Số lượng: {room.quantity} | Người lớn:{" "}
-                            {room.num_adults} | Trẻ em: {room.num_children}
-                          </Text>
-                        </Space>
-                      </Card>
-                    );
-                  })
-                )}
-              </div>
-            )}
-
-            {/* Step 3: Confirm */}
-            {currentStep === 2 && (
-              <div>
-                <Title level={4}>Xác nhận thông tin</Title>
-                <Card>
-                  <Space direction="vertical" style={{ width: "100%" }}>
-                    <div>
-                      <Text strong>Khách hàng: </Text>
-                      <Text>{form.getFieldValue("customer_name")}</Text>
-                    </div>
-                    <div>
-                      <Text strong>Số điện thoại: </Text>
-                      <Text>{form.getFieldValue("customer_phone")}</Text>
-                    </div>
-                    <div>
-                      <Text strong>Email: </Text>
-                      <Text>{form.getFieldValue("customer_email") || "—"}</Text>
-                    </div>
-                    <div>
-                      <Text strong>Tổng tiền: </Text>
-                      <Text strong style={{ color: "#ff4d4f", fontSize: 18 }}>
-                        {calculateTotal().toLocaleString("vi-VN")} VND
-                      </Text>
-                    </div>
-                  </Space>
-                </Card>
-
-                <Form.Item
-                  name="payment_method"
-                  label="Phương thức thanh toán dự kiến"
-                  initialValue="cash"
+            {/* Room Selection */}
+            <Card
+              size="small"
+              className="mb-4"
+              title="2. Chọn phòng"
+              extra={
+                <Button
+                  type="primary"
+                  icon={<PlusOutlined />}
+                  onClick={handleAddRoom}
+                  disabled={loadingTypes || loadingRooms}
                 >
-                  <Select placeholder="Chọn phương thức thanh toán">
-                    <Select.Option value="cash">Tiền mặt</Select.Option>
-                    <Select.Option value="card">Thẻ</Select.Option>
-                    <Select.Option value="transfer">Chuyển khoản</Select.Option>
-                    <Select.Option value="momo">MoMo</Select.Option>
-                    <Select.Option value="vnpay">VNPay</Select.Option>
-                  </Select>
-                </Form.Item>
-              </div>
-            )}
+                  Thêm phòng
+                </Button>
+              }
+            >
+              {loadingTypes || loadingRooms ? (
+                <Spin />
+              ) : selectedRooms.length === 0 ? (
+                <Alert
+                  type="info"
+                  message="Chưa có phòng nào. Nhấn 'Thêm phòng' để bắt đầu."
+                  showIcon
+                />
+              ) : (
+                <>
+                  <Table
+                    dataSource={selectedRooms}
+                    columns={columns}
+                    rowKey="id"
+                    pagination={false}
+                    size="small"
+                  />
 
-            <div style={{ marginTop: 24, textAlign: "right" }}>
-              <Space>
-                {currentStep > 0 && (
-                  <Button onClick={() => setCurrentStep((s) => s - 1)}>
-                    Quay lại
-                  </Button>
-                )}
-                {currentStep < steps.length - 1 && (
-                  <Button
-                    type="primary"
-                    onClick={async () => {
-                      try {
-                        // Validate form trước khi chuyển bước
-                        await form.validateFields();
-
-                        // Lưu dateRange vào state khi chuyển từ bước 1 sang bước 2
-                        if (currentStep === 0) {
-                          const values = form.getFieldsValue();
-                          if (
-                            values.dateRange &&
-                            Array.isArray(values.dateRange) &&
-                            values.dateRange.length === 2
-                          ) {
-                            setDateRange([
-                              dayjs(values.dateRange[0]),
-                              dayjs(values.dateRange[1]),
-                            ]);
-                          }
-                        }
-
-                        setCurrentStep((s) => s + 1);
-                      } catch (error) {
-                        // Form validation failed, error messages will be shown automatically
-                        console.error("Validation error:", error);
+                  {/* Extra fees info */}
+                  {totalExtraFees > 0 && (
+                    <Alert
+                      type="warning"
+                      className="mt-3"
+                      message={
+                        <span>
+                          Tổng phụ phí (người lớn/trẻ em thêm):{" "}
+                          <strong>
+                            {totalExtraFees.toLocaleString("vi-VN")} ₫
+                          </strong>
+                        </span>
                       }
-                    }}
+                      showIcon
+                    />
+                  )}
+                </>
+              )}
+            </Card>
+
+            {/* Customer Info */}
+            <Card size="small" className="mb-4" title="3. Thông tin khách hàng">
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item
+                    name="customer_name"
+                    label="Tên khách hàng"
+                    rules={[{ required: true, message: "Vui lòng nhập tên" }]}
                   >
-                    Tiếp theo
-                  </Button>
-                )}
-                {currentStep === steps.length - 1 && (
-                  <Button
-                    type="primary"
-                    onClick={handleSubmit}
-                    loading={loading}
-                    size="large"
+                    <Input
+                      size="large"
+                      prefix={<UserOutlined />}
+                      placeholder="Họ và tên"
+                    />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    name="customer_phone"
+                    label="Số điện thoại"
+                    rules={[{ required: true, message: "Vui lòng nhập SĐT" }]}
                   >
-                    Tạo booking
-                  </Button>
-                )}
+                    <Input
+                      size="large"
+                      prefix={<PhoneOutlined />}
+                      placeholder="Số điện thoại"
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+              <Form.Item name="customer_email" label="Email (tùy chọn)">
+                <Input
+                  size="large"
+                  prefix={<MailOutlined />}
+                  placeholder="Email"
+                />
+              </Form.Item>
+              <Form.Item name="notes" label="Ghi chú">
+                <Input.TextArea rows={2} placeholder="Ghi chú (tùy chọn)" />
+              </Form.Item>
+            </Card>
+
+            {/* Payment & Confirm */}
+            <Card
+              size="small"
+              className="mb-4"
+              title="4. Thanh toán & Xác nhận"
+            >
+              <Form.Item label="Phương thức thanh toán">
+                <Radio.Group
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  size="large"
+                >
+                  <Radio.Button value="cash">Tiền mặt</Radio.Button>
+                  <Radio.Button value="card">Thẻ</Radio.Button>
+                  <Radio.Button value="transfer">Chuyển khoản</Radio.Button>
+                </Radio.Group>
+              </Form.Item>
+
+              <Form.Item>
+                <label
+                  className={`flex items-center gap-2 ${isCheckInToday ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={immediateCheckin}
+                    onChange={(e) => setImmediateCheckin(e.target.checked)}
+                    disabled={!isCheckInToday}
+                    className="w-4 h-4"
+                  />
+                  <span>
+                    <CheckCircleOutlined className="text-green-500 mr-1" />
+                    Check-in ngay lập tức
+                  </span>
+                </label>
+                <div className="text-xs text-gray-500 mt-1">
+                  {!isCheckInToday ? (
+                    <span className="text-orange-500">
+                      Chỉ có thể check-in ngay khi đặt phòng cho hôm nay
+                    </span>
+                  ) : immediateCheckin ? (
+                    "Khách check-in ngay + Đã thanh toán"
+                  ) : (
+                    "Phòng được hold (giữ chỗ), khách thanh toán khi đến"
+                  )}
+                </div>
+              </Form.Item>
+
+              <Divider />
+
+              {/* Summary */}
+              {selectedRooms.length > 0 && dateRange && (
+                <div className="bg-gray-50 p-4 rounded mb-4">
+                  <Row justify="space-between" className="mb-2">
+                    <Col>
+                      <Text>Số phòng:</Text>
+                    </Col>
+                    <Col>
+                      <Text strong>{selectedRooms.length} phòng</Text>
+                    </Col>
+                  </Row>
+                  <Row justify="space-between" className="mb-2">
+                    <Col>
+                      <Text>Số đêm:</Text>
+                    </Col>
+                    <Col>
+                      <Text strong>{nights} đêm</Text>
+                    </Col>
+                  </Row>
+                  {totalExtraFees > 0 && (
+                    <Row justify="space-between" className="mb-2">
+                      <Col>
+                        <Text>Phụ phí:</Text>
+                      </Col>
+                      <Col>
+                        <Text type="warning">
+                          +{totalExtraFees.toLocaleString("vi-VN")} ₫
+                        </Text>
+                      </Col>
+                    </Row>
+                  )}
+                  <Divider className="my-2" />
+                  <Row justify="space-between">
+                    <Col>
+                      <Text strong style={{ fontSize: 16 }}>
+                        Tổng cộng:
+                      </Text>
+                    </Col>
+                    <Col>
+                      <Text strong style={{ fontSize: 20, color: "#d97706" }}>
+                        {totalPrice.toLocaleString("vi-VN")} ₫
+                      </Text>
+                    </Col>
+                  </Row>
+                </div>
+              )}
+
+              <Space direction="vertical" style={{ width: "100%" }}>
+                <Button
+                  type="primary"
+                  size="large"
+                  block
+                  loading={loading}
+                  onClick={handleSubmit}
+                  disabled={selectedRooms.length === 0 || !dateRange}
+                  icon={<CheckCircleOutlined />}
+                >
+                  {immediateCheckin
+                    ? "Xác nhận & Check-in"
+                    : "Xác nhận đặt phòng"}
+                </Button>
+                <div className="text-center text-xs text-gray-500">
+                  Booking admin luôn được xác nhận ngay (không cần duyệt)
+                </div>
               </Space>
-            </div>
+            </Card>
           </Form>
         </Card>
       </div>

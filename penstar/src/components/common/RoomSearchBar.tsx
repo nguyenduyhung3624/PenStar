@@ -96,6 +96,27 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
     ) {
       return { valid: false, error: "Ngày check-out phải sau ngày check-in." };
     }
+
+    // Giới hạn số đêm tối đa (30 đêm)
+    const nights = checkOutDate.diff(checkInDate, "day");
+    const MAX_NIGHTS = 30;
+    if (nights > MAX_NIGHTS) {
+      return {
+        valid: false,
+        error: `Không thể đặt phòng quá ${MAX_NIGHTS} đêm. Vui lòng liên hệ khách sạn.`,
+      };
+    }
+
+    // Giới hạn đặt trước tối đa (365 ngày)
+    const MAX_ADVANCE_DAYS = 365;
+    const daysInAdvance = checkInDate.diff(todayStart, "day");
+    if (daysInAdvance > MAX_ADVANCE_DAYS) {
+      return {
+        valid: false,
+        error: `Không thể đặt phòng trước quá ${MAX_ADVANCE_DAYS} ngày.`,
+      };
+    }
+
     return { valid: true, error: "" };
   };
 

@@ -29,7 +29,7 @@ export const getIncidentsByBooking = async (
 
 export const createIncident = async (data) => {
   const { booking_id, room_id, equipment_id, quantity, reason } = data;
-  // Validate trạng thái booking: chỉ cho phép báo hỏng khi booking đang ở (stay_status_id = 2)
+  // Validate trạng thái booking: chỉ cho phép báo hỏng khi booking đang ở (stay_status_id = 2) hoặc checked_out (stay_status_id = 3)
   const bookingRes = await pool.query(
     `SELECT stay_status_id FROM bookings WHERE id = $1`,
     [booking_id]
@@ -37,8 +37,10 @@ export const createIncident = async (data) => {
   if (!bookingRes.rows.length) {
     throw new Error("Booking không tồn tại");
   }
-  if (bookingRes.rows[0].stay_status_id !== 2) {
-    throw new Error("Chỉ có thể báo hỏng khi booking đang ở (Checked-in)");
+  if (![2, 3].includes(bookingRes.rows[0].stay_status_id)) {
+    throw new Error(
+      "Chỉ có thể báo hỏng khi booking đang ở (Checked-in) hoặc Checked-out"
+    );
   }
   // Lấy giá đền bù từ master_equipments
   const eqRes = await pool.query(

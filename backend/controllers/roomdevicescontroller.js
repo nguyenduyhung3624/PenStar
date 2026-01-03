@@ -1,5 +1,7 @@
 import * as model from "../models/room_devicesmodel.js";
 import { validateRoomEquipments } from "../models/validateRoomEquipments.js";
+import { ERROR_MESSAGES } from "../utils/constants.js";
+
 // Khôi phục trạng thái thiết bị về 'working'
 export const restoreDeviceStatus = async (req, res) => {
   try {
@@ -10,9 +12,7 @@ export const restoreDeviceStatus = async (req, res) => {
     console.log("[RESTORE DEVICE] device:", device);
     if (!device) {
       console.log("[RESTORE DEVICE] Thiết bị không tồn tại");
-      return res
-        .status(404)
-        .json({ success: false, message: "Thiết bị không tồn tại" });
+      return res.error("Thiết bị không tồn tại", null, 404);
     }
     // Truy vấn booking liên quan đến phòng này
     const pool = (await import("../db.js")).default;
@@ -28,20 +28,21 @@ export const restoreDeviceStatus = async (req, res) => {
         "[RESTORE DEVICE] Không tìm thấy booking đã checkout cho room_id:",
         device.room_id
       );
-      return res.status(400).json({
-        success: false,
-        message: "Chỉ được khôi phục thiết bị sau khi checkout.",
-      });
+      return res.error(
+        "Chỉ được khôi phục thiết bị sau khi checkout.",
+        null,
+        400
+      );
     }
     // Chỉ cho phép nếu booking đã checkout
     const updatedDevice = await model.updateDevice(Number(id), {
       status: "working",
     });
     console.log("[RESTORE DEVICE] updatedDevice:", updatedDevice);
-    res.json({ success: true, data: updatedDevice });
+    res.success(updatedDevice, "Khôi phục thiết bị thành công");
   } catch (error) {
     console.error("[RESTORE DEVICE ERROR]", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 import { getRooms } from "../models/roomsmodel.js";
@@ -60,20 +61,22 @@ export const checkRoomDevicesStandardByType = async (req, res) => {
       const result = await validateRoomEquipments(room.id);
       results.push({ room_id: room.id, room_name: room.name, ...result });
     }
-    res.json({ success: true, data: results });
+    res.success(results, "Kiểm tra tiêu chuẩn thiết bị thành công");
   } catch (error) {
     console.error("[checkRoomDevicesStandardByType] Error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
+
 export const getDeviceById = async (req, res) => {
   try {
     const device = await model.getDeviceById(Number(req.params.id));
-    if (!device)
-      return res.status(404).json({ success: false, message: "Not found" });
-    res.json({ success: true, data: device });
+    if (!device) {
+      return res.error("Thiết bị không tồn tại", null, 404);
+    }
+    res.success(device, "Lấy thông tin thiết bị thành công");
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -83,9 +86,9 @@ export const getDevices = async (req, res) => {
     const devices = await model.getDevices({
       room_id: room_id ? Number(room_id) : null,
     });
-    res.json({ success: true, data: devices });
+    res.success(devices, "Lấy danh sách thiết bị thành công");
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -93,9 +96,9 @@ export const createDevice = async (req, res) => {
   try {
     // req.body.images: mảng đường dẫn ảnh (nếu có)
     const device = await model.createDevice(req.body);
-    res.status(201).json({ success: true, data: device });
+    res.success(device, "Tạo thiết bị thành công", 201);
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -104,9 +107,9 @@ export const updateDevice = async (req, res) => {
     // req.body.images: mảng đường dẫn ảnh (nếu có)
     const { id } = req.params;
     const device = await model.updateDevice(Number(id), req.body);
-    res.json({ success: true, data: device });
+    res.success(device, "Cập nhật thiết bị thành công");
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -114,9 +117,9 @@ export const deleteDevice = async (req, res) => {
   try {
     const { id } = req.params;
     const device = await model.deleteDevice(Number(id));
-    res.json({ success: true, data: device });
+    res.success(device, "Xóa thiết bị thành công");
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -148,9 +151,9 @@ export const transferDevice = async (req, res) => {
       note,
       created_by,
     });
-    res.json({ success: true, message: "Điều chuyển thành công" });
+    res.success(null, "Điều chuyển thành công");
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    res.error(error.message, null, 400);
   }
 };
 
@@ -160,9 +163,9 @@ export const checkRoomDevicesStandard = async (req, res) => {
   try {
     const result = await validateRoomEquipments(roomId);
     console.log("[checkRoomDevicesStandard] Result:", result);
-    res.json(result);
+    res.success(result, "Kiểm tra thiết bị phòng thành công");
   } catch (error) {
     console.error("[checkRoomDevicesStandard] Error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };

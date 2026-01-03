@@ -5,21 +5,15 @@ import {
   updateFloor as modelUpdateFloor,
   deleteFloor as modelDeleteFloor,
 } from "../models/floorsmodel.js";
+import { ERROR_MESSAGES, SUCCESS_MESSAGES } from "../utils/constants.js";
 
 export const getFloors = async (req, res) => {
   try {
     const data = await modelGetFloors();
-    res.json({
-      success: true,
-      message: "✅ Get all floors successfully",
-      data,
-    });
+    res.success(data, "Lấy danh sách tầng thành công");
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "🚨 Internal server error",
-      error: error.message,
-    });
+    console.error("getFloors error:", error);
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -28,22 +22,12 @@ export const getFloorID = async (req, res) => {
   try {
     const floor = await modelGetFloorID(id);
     if (!floor) {
-      return res.status(404).json({
-        success: false,
-        message: "❌ Floor not found",
-      });
+      return res.error("Tầng không tồn tại", null, 404);
     }
-    res.json({
-      success: true,
-      message: "✅ Get floor by ID successfully",
-      data: floor,
-    });
+    res.success(floor, "Lấy thông tin tầng thành công");
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "🚨 Internal server error",
-      error: error.message,
-    });
+    console.error("getFloorID error:", error);
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -52,22 +36,13 @@ export const createFloor = async (req, res) => {
     const { existsFloorWithName } = await import("../models/floorsmodel.js");
     const { name } = req.body;
     if (await existsFloorWithName(String(name))) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Floor name already exists" });
+      return res.error("Tên tầng đã tồn tại", null, 400);
     }
     const newFloor = await modelCreateFloor(req.body);
-    res.status(201).json({
-      success: true,
-      message: "✅ Floor created successfully",
-      data: newFloor,
-    });
+    res.success(newFloor, "Tạo tầng thành công", 201);
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "🚨 Internal server error",
-      error: error.message,
-    });
+    console.error("createFloor error:", error);
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -77,22 +52,13 @@ export const updateFloor = async (req, res) => {
     const { existsFloorWithName } = await import("../models/floorsmodel.js");
     const { name } = req.body;
     if (name && (await existsFloorWithName(String(name), Number(id)))) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Floor name already exists" });
+      return res.error("Tên tầng đã tồn tại", null, 400);
     }
     const updated = await modelUpdateFloor(id, req.body);
-    res.json({
-      success: true,
-      message: "✅ Floor updated successfully",
-      data: updated,
-    });
+    res.success(updated, "Cập nhật tầng thành công");
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "🚨 Internal server error",
-      error: error.message,
-    });
+    console.error("updateFloor error:", error);
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -102,35 +68,27 @@ export const deleteFloor = async (req, res) => {
     const { countRoomsByFloorId } = await import("../models/roomsmodel.js");
     const count = await countRoomsByFloorId(id);
     if (count > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Cannot delete floor: rooms still reference it",
-      });
+      return res.error(
+        "Không thể xóa tầng: vẫn còn phòng thuộc tầng này",
+        null,
+        400
+      );
     }
 
     const deleted = await modelDeleteFloor(id);
-    if (!deleted)
-      return res
-        .status(404)
-        .json({ success: false, message: "Floor not found" });
-    res.json({
-      success: true,
-      message: "✅ Floor deleted successfully",
-      data: deleted,
-    });
-  } catch (error) {
-    // handle FK constraint
-    if (error && error.code === "23503") {
-      return res.status(400).json({
-        success: false,
-        message: "Foreign key constraint failed: cannot delete",
-        error: error.message,
-      });
+    if (!deleted) {
+      return res.error("Tầng không tồn tại", null, 404);
     }
-    res.status(500).json({
-      success: false,
-      message: "🚨 Internal server error",
-      error: error.message,
-    });
+    res.success(deleted, "Xóa tầng thành công");
+  } catch (error) {
+    console.error("deleteFloor error:", error);
+    if (error && error.code === "23503") {
+      return res.error(
+        "Không thể xóa: ràng buộc khóa ngoại",
+        error.message,
+        400
+      );
+    }
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };

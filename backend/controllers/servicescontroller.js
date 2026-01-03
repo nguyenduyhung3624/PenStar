@@ -5,42 +5,28 @@ import {
   updateService as modelUpdateService,
   deleteService as modelDeleteService,
 } from "../models/servicesmodel.js";
+import { ERROR_MESSAGES } from "../utils/constants.js";
 
 export const getServices = async (req, res) => {
   try {
     const data = await modelGetServices();
-    res.json({
-      success: true,
-      message: "✅ Get all services successfully",
-      data,
-    });
+    res.success(data, "Lấy danh sách dịch vụ thành công");
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "🚨 Internal server error",
-      error: error.message,
-    });
+    console.error("getServices error:", error);
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 export const getServiceById = async (req, res) => {
   const { id } = req.params;
   try {
     const data = await modelGetServicesId(id);
-    if (!data)
-      return res
-        .status(404)
-        .json({ success: false, message: "Service not found" });
-    res.json({
-      success: true,
-      message: "✅ Get service by ID successfully",
-      data,
-    });
+    if (!data) {
+      return res.error("Dịch vụ không tồn tại", null, 404);
+    }
+    res.success(data, "Lấy thông tin dịch vụ thành công");
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "🚨 Internal server error",
-      error: error.message,
-    });
+    console.error("getServiceById error:", error);
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 export const createService = async (req, res) => {
@@ -50,22 +36,13 @@ export const createService = async (req, res) => {
     );
     const { name } = req.body;
     if (await existsServiceWithName(String(name))) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Service name already exists" });
+      return res.error("Tên dịch vụ đã tồn tại", null, 400);
     }
     const newService = await modelCreateService(req.body);
-    res.status(201).json({
-      success: true,
-      message: "✅ Service created successfully",
-      data: newService,
-    });
+    res.success(newService, "Tạo dịch vụ thành công", 201);
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "🚨 Internal server error",
-      error: error.message,
-    });
+    console.error("createService error:", error);
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 export const updateService = async (req, res) => {
@@ -76,26 +53,16 @@ export const updateService = async (req, res) => {
     );
     const { name } = req.body;
     if (name && (await existsServiceWithName(String(name), Number(id)))) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Service name already exists" });
+      return res.error("Tên dịch vụ đã tồn tại", null, 400);
     }
     const updated = await modelUpdateService(id, req.body);
-    if (!updated)
-      return res
-        .status(404)
-        .json({ success: false, message: "Service not found" });
-    res.json({
-      success: true,
-      message: "✅ Service updated successfully",
-      data: updated,
-    });
+    if (!updated) {
+      return res.error("Dịch vụ không tồn tại", null, 404);
+    }
+    res.success(updated, "Cập nhật dịch vụ thành công");
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "🚨 Internal server error",
-      error: error.message,
-    });
+    console.error("updateService error:", error);
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -103,16 +70,12 @@ export const deleteService = async (req, res) => {
   const { id } = req.params;
   try {
     const deleted = await modelDeleteService(id);
-    if (!deleted)
-      return res
-        .status(404)
-        .json({ success: false, message: "Service not found" });
-    res.json({ success: true, message: "✅ Service deleted successfully" });
+    if (!deleted) {
+      return res.error("Dịch vụ không tồn tại", null, 404);
+    }
+    res.success(deleted, "Xóa dịch vụ thành công");
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "🚨 Internal server error",
-      error: error.message,
-    });
+    console.error("deleteService error:", error);
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };

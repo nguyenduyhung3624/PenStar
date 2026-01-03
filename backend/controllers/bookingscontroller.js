@@ -1,16 +1,5 @@
-// Đánh dấu hoàn tiền cho booking (admin)
-export const markBookingRefunded = async (req, res) => {
-  const { id } = req.params;
-  try {
-    await pool.query("UPDATE bookings SET is_refunded = true WHERE id = $1", [
-      id,
-    ]);
-    res.json({ success: true, message: "Đã đánh dấu hoàn tiền booking." });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
-  }
-};
-import { sendBookingConfirmationEmail } from "../utils/mailer.js";
+import pool from "../db.js";
+import { sendEmailWithRetry } from "../utils/emailWithRetry.js";
 import {
   getBookings as modelGetBookings,
   getBookingById as modelGetBookingById,
@@ -19,42 +8,41 @@ import {
   getBookingsByUser as modelGetBookingsByUser,
   confirmCheckout as modelConfirmCheckout,
   cancelBooking as modelCancelBooking,
-  changeRoomInBooking as modelChangeRoomInBooking,
-  autoAssignRooms as modelAutoAssignRooms,
   confirmCheckin as modelConfirmCheckin,
 } from "../models/bookingsmodel.js";
-import pool from "../db.js";
-import { markNoShow } from "../utils/markNoShow.js";
+import {
+  STAY_STATUS,
+  PAYMENT_STATUS,
+  ERROR_MESSAGES,
+  SUCCESS_MESSAGES,
+  BOOKING,
+} from "../utils/constants.js";
 
+/**
+ * Get all bookings
+ */
 export const getBookings = async (req, res) => {
   try {
     const data = await modelGetBookings();
-    res.json({
-      success: true,
-      message: "✅ Get all bookings successfully",
-      data,
-    });
+    res.success(data, "Lấy danh sách booking thành công");
   } catch (error) {
-    console.error("bookingscontroller.getBookings error:", error);
-    res.status(500).json({
-      success: false,
-      message: "🚨 Internal server error",
-      error: error.message,
-    });
+    console.error("getBookings error:", error);
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
+/**
+ * Get booking by ID with items and services
+ */
 export const getBookingById = async (req, res) => {
   const { id } = req.params;
   try {
     const booking = await modelGetBookingById(id);
     if (!booking) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Booking not found" });
+      return res.error(ERROR_MESSAGES.BOOKING_NOT_FOUND, null, 404);
     }
 
-    // fetch items and services only
+    // Fetch items and services
     const itemsRes = await pool.query(
       `SELECT bi.*, 
               rp.refundable, rp.refund_percent, rp.refund_deadline_hours, rp.non_refundable, rp.notes as refund_notes
@@ -69,7 +57,7 @@ export const getBookingById = async (req, res) => {
       [id]
     );
 
-    // Map refund_policy fields for each item
+    // Map refund_policy fields
     booking.items = itemsRes.rows.map((item) => {
       const refund_policy =
         item.refundable !== null
@@ -81,7 +69,6 @@ export const getBookingById = async (req, res) => {
               notes: item.refund_notes,
             }
           : null;
-      // Remove raw refund_policy fields from item
       const {
         refundable,
         refund_percent,
@@ -90,26 +77,23 @@ export const getBookingById = async (req, res) => {
         refund_notes,
         ...rest
       } = item;
-      return {
-        ...rest,
-        refund_policy,
-      };
+      return { ...rest, refund_policy };
     });
     booking.services = servicesRes.rows;
 
-    // Add check_in and check_out from first booking_item for convenience
-    if (booking.items && booking.items.length > 0) {
+    // Add check_in/out from first item
+    if (booking.items?.length > 0) {
       booking.check_in = booking.items[0].check_in;
       booking.check_out = booking.items[0].check_out;
     }
 
-    // Nếu DB chưa có total_room_price/total_service_price (old data), tính lại
+    // Calculate totals if missing
     if (!booking.total_room_price) {
-      booking.total_room_price = booking.items.reduce((sum, item) => {
-        return sum + Number(item.room_type_price || 0);
-      }, 0);
+      booking.total_room_price = booking.items.reduce(
+        (sum, item) => sum + Number(item.room_type_price || 0),
+        0
+      );
     }
-
     if (!booking.total_service_price) {
       booking.total_service_price = booking.services.reduce(
         (sum, service) => sum + Number(service.total_service_price || 0),
@@ -117,85 +101,114 @@ export const getBookingById = async (req, res) => {
       );
     }
 
-    // Nếu booking đã bị hủy và có canceled_by, lấy tên người hủy
+    // Get cancellation info if exists
     if (booking.canceled_by) {
       const userRes = await pool.query(
         "SELECT full_name, email FROM users WHERE id = $1",
         [booking.canceled_by]
       );
       if (userRes.rows[0]) {
-        booking.canceled_by_name = userRes.rows[0].email || null;
-        if (!booking.canceled_by_name && userRes.rows[0].full_name) {
-          booking.canceled_by_name = userRes.rows[0].full_name;
-        }
+        booking.canceled_by_name =
+          userRes.rows[0].email || userRes.rows[0].full_name;
       }
     }
-    res.json({
-      success: true,
-      message: "✅ Get booking by ID successfully",
-      data: booking,
-    });
+
+    res.success(booking);
   } catch (error) {
-    console.error("bookingscontroller.getBookingById error:", error);
-    res.status(500).json({
-      success: false,
-      message: "🚨 Internal server error",
-      error: error.message,
-    });
+    console.error("getBookingById error:", error);
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
+/**
+ * Create new booking
+ */
 export const createBooking = async (req, res) => {
   try {
     console.log("=== CREATE BOOKING REQUEST ===");
     console.log("Request body:", JSON.stringify(req.body, null, 2));
-    console.log("Request user:", req.user);
 
     const payload = req.body;
-    // If authenticated, prefer user id from token
-    if (req.user && req.user.id) {
+    if (req.user?.id) {
       payload.user_id = Number(req.user.id);
     }
 
-    // Không build lại items từ rooms_config nữa. Nếu frontend gửi items thì insert trực tiếp, nếu gửi rooms_config thì báo lỗi.
-    if (Array.isArray(payload.rooms_config)) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Vui lòng gửi trực tiếp mảng items từ frontend. Không hỗ trợ build lại items từ rooms_config ở backend nữa.",
-      });
+    // Validate booking duration
+    if (payload.check_in && payload.check_out) {
+      const checkIn = new Date(payload.check_in);
+      const checkOut = new Date(payload.check_out);
+      const now = new Date();
+
+      // Reset time to compare dates only
+      checkIn.setHours(0, 0, 0, 0);
+      checkOut.setHours(0, 0, 0, 0);
+      now.setHours(0, 0, 0, 0);
+
+      // Calculate nights
+      const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+
+      // Validate max nights
+      if (nights > BOOKING.MAX_NIGHTS) {
+        return res.error(
+          `Không thể đặt phòng quá ${BOOKING.MAX_NIGHTS} đêm. Vui lòng liên hệ khách sạn để đặt dài hạn.`,
+          null,
+          400
+        );
+      }
+
+      // Validate min nights
+      if (nights < BOOKING.MIN_NIGHTS) {
+        return res.error(
+          `Phải đặt tối thiểu ${BOOKING.MIN_NIGHTS} đêm.`,
+          null,
+          400
+        );
+      }
+
+      // Validate advance booking
+      const daysInAdvance = Math.ceil((checkIn - now) / (1000 * 60 * 60 * 24));
+      if (daysInAdvance > BOOKING.MAX_ADVANCE_DAYS) {
+        return res.error(
+          `Không thể đặt phòng trước quá ${BOOKING.MAX_ADVANCE_DAYS} ngày.`,
+          null,
+          400
+        );
+      }
+
+      // Check if check_in is not in the past
+      if (checkIn < now) {
+        return res.error(
+          "Ngày nhận phòng không thể là ngày trong quá khứ.",
+          null,
+          400
+        );
+      }
     }
 
-    console.log("Final payload:", JSON.stringify(payload, null, 2));
+    // Reject rooms_config - must send items
+    if (Array.isArray(payload.rooms_config)) {
+      return res.error(
+        "Vui lòng gửi trực tiếp mảng items từ frontend.",
+        null,
+        400
+      );
+    }
 
     const booking = await modelCreateBooking(payload);
 
-    // fetch created items and services
+    // Fetch created items
     const itemsRes = await pool.query(
       "SELECT * FROM booking_items WHERE booking_id = $1",
       [booking.id]
     );
-    const servicesRes = await pool.query(
-      "SELECT * FROM booking_services WHERE booking_id = $1",
-      [booking.id]
-    );
     booking.items = itemsRes.rows;
 
-    // Đã bỏ gửi email ở đây, chỉ gửi sau khi thanh toán thành công
-
-    res.status(201).json({
-      success: true,
-      message: "✅ Booking created successfully",
-      data: booking,
-    });
+    res.success(booking, SUCCESS_MESSAGES.BOOKING_CREATED, 201);
   } catch (error) {
-    console.error("=== CREATE BOOKING ERROR ===");
-    console.error("Error:", error);
-    console.error("Error message:", error.message);
-    console.error("Error stack:", error.stack);
+    console.error("=== CREATE BOOKING ERROR ===", error);
 
-    // Foreign key constraint - record liên quan không tồn tại
-    if (error && error.code === "23503") {
+    // Handle FK constraint
+    if (error?.code === "23503") {
       const fieldMap = {
         user_id: "Người dùng không tồn tại",
         stay_status_id: "Trạng thái booking không hợp lệ",
@@ -203,9 +216,8 @@ export const createBooking = async (req, res) => {
         service_id: "Dịch vụ không tồn tại",
       };
 
-      let detail = error.detail || "";
       let friendlyMsg = "Dữ liệu liên quan không tồn tại";
-
+      const detail = error.detail || "";
       for (const [field, msg] of Object.entries(fieldMap)) {
         if (detail.includes(field)) {
           friendlyMsg = msg;
@@ -213,108 +225,82 @@ export const createBooking = async (req, res) => {
         }
       }
 
-      return res.status(400).json({
-        success: false,
-        message: friendlyMsg,
-        error: error.message,
-      });
+      return res.error(friendlyMsg, error.message, 400);
     }
 
-    // Not null constraint - thiếu trường bắt buộc
-    if (error && error.code === "23502") {
-      return res.status(400).json({
-        success: false,
-        message: "Thiếu thông tin bắt buộc. Vui lòng điền đầy đủ form.",
-        error: error.message,
-      });
+    // Handle NOT NULL constraint
+    if (error?.code === "23502") {
+      return res.error(
+        ERROR_MESSAGES.MISSING_REQUIRED_FIELD,
+        error.message,
+        400
+      );
     }
 
-    // Check constraint - dữ liệu không hợp lệ
-    if (error && error.code === "23514") {
-      return res.status(400).json({
-        success: false,
-        message: "Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.",
-        error: error.message,
-      });
+    // Handle CHECK constraint
+    if (error?.code === "23514") {
+      return res.error(ERROR_MESSAGES.INVALID_INPUT, error.message, 400);
     }
 
-    // Custom error từ business logic
-    if (error.message && error.message.includes("Phòng đã được đặt")) {
-      return res.status(409).json({
-        success: false,
-        message: error.message,
-        error: error.message,
-      });
-    }
-
-    if (error.message && error.message.includes("Không đủ phòng trống")) {
-      return res.status(409).json({
-        success: false,
-        message: error.message,
-        error: error.message,
-      });
-    }
-
-    if (error.message && error.message.includes("Thiếu thông tin")) {
-      return res.status(400).json({
-        success: false,
-        message: error.message,
-        error: error.message,
-      });
-    }
-
-    // Lỗi chung
-    res.status(500).json({
-      success: false,
-      message: error.message || "Lỗi hệ thống. Vui lòng thử lại sau.",
-      error: error.message,
-    });
+    res.error(
+      error.message || ERROR_MESSAGES.INTERNAL_ERROR,
+      error.message,
+      500
+    );
   }
 };
 
+/**
+ * Get user's own bookings
+ */
 export const getMyBookings = async (req, res) => {
   try {
-    const userId = req.user && req.user.id;
-    if (!userId) return res.status(401).json({ success: false });
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.error(ERROR_MESSAGES.UNAUTHORIZED, null, 401);
+    }
     const data = await modelGetBookingsByUser(userId);
-    res.json({ success: true, data });
+    res.success(data);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ success: false, message: "Internal error" });
+    console.error("getMyBookings error:", err);
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, err.message, 500);
   }
 };
 
+/**
+ * Admin sets booking status
+ */
 export const setBookingStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const fields = req.body;
 
-    // ⚠️ Nếu cập nhật stay_status_id = 4 (cancelled), cần giải phóng phòng
-    if (fields.stay_status_id === 4) {
-      // Lấy danh sách phòng từ booking_items
+    // If marking as cancelled, release rooms
+    if (fields.stay_status_id === STAY_STATUS.CANCELLED) {
       const itemsRes = await pool.query(
         "SELECT room_id FROM booking_items WHERE booking_id = $1",
         [id]
       );
 
-      // Giải phóng tất cả phòng về "available"
       for (const item of itemsRes.rows) {
         if (item.room_id) {
-          await pool.query(
-            "UPDATE rooms SET status = 'available' WHERE id = $1",
-            [item.room_id]
-          );
+          await pool.query("UPDATE rooms SET status = $1 WHERE id = $2", [
+            "available",
+            item.room_id,
+          ]);
         }
       }
-
       console.log(
-        `✅ Đã giải phóng ${itemsRes.rows.length} phòng của booking #${id}`
+        `✅ Released ${itemsRes.rows.length} rooms for cancelled booking #${id}`
       );
     }
 
-    // Lấy trạng thái payment_status cũ trước khi update
+    // Get old payment status
     let oldPaymentStatus = null;
-    if (fields.payment_status && fields.payment_status === "paid") {
+    if (
+      fields.payment_status &&
+      fields.payment_status === PAYMENT_STATUS.PAID
+    ) {
       const oldBookingRes = await pool.query(
         "SELECT payment_status, user_id FROM bookings WHERE id = $1",
         [id]
@@ -322,236 +308,186 @@ export const setBookingStatus = async (req, res) => {
       const oldBooking = oldBookingRes.rows[0];
       oldPaymentStatus = oldBooking?.payment_status;
     }
+
     const updated = await modelSetBookingStatus(id, fields);
-    // Chỉ gửi email nếu payment_status chuyển từ khác 'paid' sang 'paid'
+
+    // Send confirmation email on payment
     if (
-      fields.payment_status &&
-      fields.payment_status === "paid" &&
-      oldPaymentStatus !== "paid"
+      fields.payment_status === PAYMENT_STATUS.PAID &&
+      oldPaymentStatus !== PAYMENT_STATUS.PAID
     ) {
       const bookingRes = await pool.query(
         "SELECT user_id FROM bookings WHERE id = $1",
         [id]
       );
       const booking = bookingRes.rows[0];
-      if (booking && booking.user_id) {
+
+      if (booking?.user_id) {
         const userRes = await pool.query(
           "SELECT email FROM users WHERE id = $1",
           [booking.user_id]
         );
         const user = userRes.rows[0];
-        if (user && user.email) {
-          try {
-            await sendBookingConfirmationEmail(user.email, id);
-            console.log(
-              `[EMAIL] Đã gửi email xác nhận booking #${id} cho ${user.email}`
-            );
-          } catch (err) {
-            console.error(
-              `[EMAIL] Lỗi gửi email xác nhận booking #${id}:`,
-              err
+
+        if (user?.email) {
+          const emailResult = await sendEmailWithRetry(user.email, id);
+          if (!emailResult.success) {
+            console.warn(
+              `[EMAIL] Failed to send confirmation for booking #${id}`
             );
           }
         }
       }
     }
-    res.json({ success: true, data: updated });
+
+    res.success(updated, "Cập nhật trạng thái booking thành công");
   } catch (err) {
-    console.error(err);
-    res
-      .status(500)
-      .json({ success: false, message: "Internal error", error: err.message });
+    console.error("setBookingStatus error:", err);
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, err.message, 500);
   }
 };
 
-// Client can update their own booking status (check-in, check-out)
+/**
+ * ✅ FIXED: Client updates their own booking status (payment only)
+ */
 export const updateMyBookingStatus = async (req, res) => {
   try {
+    // ✅ Early authentication check
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.error(ERROR_MESSAGES.UNAUTHORIZED, null, 401);
+    }
+
     const { id } = req.params;
     const { stay_status_id, payment_method, payment_status } = req.body;
-    const userId = req.user?.id;
 
-    if (!userId) {
-      // Nếu cập nhật payment_status thành 'paid' thì gửi email xác nhận
-      if (fields.payment_status && fields.payment_status === "paid") {
-        // Lấy email khách hàng
-        const bookingRes = await pool.query(
-          "SELECT user_id FROM bookings WHERE id = $1",
-          [id]
-        );
-        const booking = bookingRes.rows[0];
-        if (booking && booking.user_id) {
-          const userRes = await pool.query(
-            "SELECT email FROM users WHERE id = $1",
-            [booking.user_id]
-          );
-          const user = userRes.rows[0];
-          if (user && user.email) {
-            try {
-              await sendBookingConfirmationEmail(user.email, id);
-              console.log(
-                `[EMAIL] Đã gửi email xác nhận booking #${id} cho ${user.email}`
-              );
-            } catch (err) {
-              console.error(
-                `[EMAIL] Lỗi gửi email xác nhận booking #${id}:`,
-                err
-              );
-            }
-          }
-        }
-      }
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized. Please login.",
-      });
-    }
-
-    // Verify booking belongs to user
+    // ✅ Verify booking exists
     const booking = await modelGetBookingById(id);
-
     if (!booking) {
-      return res.status(404).json({
-        success: false,
-        message: "Booking không tồn tại",
-      });
+      return res.error(ERROR_MESSAGES.BOOKING_NOT_FOUND, null, 404);
     }
 
+    // ✅ Verify booking belongs to user
     if (booking.user_id !== userId) {
-      return res.status(403).json({
-        success: false,
-        message: "Bạn không có quyền cập nhật booking này",
-      });
+      return res.error(ERROR_MESSAGES.BOOKING_BELONGS_TO_OTHER, null, 403);
     }
 
-    // Nếu client gửi payment_status thì update payment_status
+    // ✅ Prevent user from changing stay_status_id
+    if (stay_status_id !== undefined) {
+      return res.error(
+        "Chỉ admin hoặc nhân viên mới được phép check-in/check-out!",
+        null,
+        403
+      );
+    }
+
+    // ✅ Handle payment_status update
     if (payment_status) {
-      // Lấy trạng thái payment_status cũ trước khi update
-      let oldPaymentStatus = null;
-      if (payment_status === "paid") {
-        const oldBookingRes = await pool.query(
-          "SELECT payment_status, user_id FROM bookings WHERE id = $1",
-          [id]
-        );
-        const oldBooking = oldBookingRes.rows[0];
-        oldPaymentStatus = oldBooking?.payment_status;
-      }
+      const oldBookingRes = await pool.query(
+        "SELECT payment_status FROM bookings WHERE id = $1",
+        [id]
+      );
+      const oldPaymentStatus = oldBookingRes.rows[0]?.payment_status;
+
       const updated = await modelSetBookingStatus(id, { payment_status });
-      // Chỉ gửi email nếu payment_status chuyển từ khác 'paid' sang 'paid'
-      if (payment_status === "paid" && oldPaymentStatus !== "paid") {
-        const bookingRes = await pool.query(
-          "SELECT user_id FROM bookings WHERE id = $1",
-          [id]
+
+      // Send email if transitioning to paid
+      if (
+        payment_status === PAYMENT_STATUS.PAID &&
+        oldPaymentStatus !== PAYMENT_STATUS.PAID
+      ) {
+        const userRes = await pool.query(
+          "SELECT email FROM users WHERE id = $1",
+          [booking.user_id]
         );
-        const booking = bookingRes.rows[0];
-        if (booking && booking.user_id) {
-          const userRes = await pool.query(
-            "SELECT email FROM users WHERE id = $1",
-            [booking.user_id]
-          );
-          const user = userRes.rows[0];
-          if (user && user.email) {
-            try {
-              await sendBookingConfirmationEmail(user.email, id);
-              console.log(
-                `[EMAIL] Đã gửi email xác nhận booking #${id} cho ${user.email}`
-              );
-            } catch (err) {
-              console.error(
-                `[EMAIL] Lỗi gửi email xác nhận booking #${id}:`,
-                err
-              );
-            }
+        const user = userRes.rows[0];
+
+        if (user?.email) {
+          const emailResult = await sendEmailWithRetry(user.email, id);
+          if (!emailResult.success) {
+            console.warn(`[EMAIL] Failed for booking #${id}`);
           }
         }
       }
-      return res.json({
-        success: true,
-        message: "Cập nhật trạng thái thanh toán thành công!",
-        data: updated,
-      });
+
+      return res.success(updated, "Cập nhật trạng thái thanh toán thành công!");
     }
 
-    // Nếu client gửi payment_method thì chỉ update payment_method
+    // ✅ Handle payment_method update
     if (payment_method) {
       const updated = await modelSetBookingStatus(id, { payment_method });
-      return res.json({
-        success: true,
-        message: "Cập nhật phương thức thanh toán thành công!",
-        data: updated,
-      });
+      return res.success(
+        updated,
+        "Cập nhật phương thức thanh toán thành công!"
+      );
     }
 
-    // Không cho phép user cập nhật stay_status_id (check-in/check-out)
-    if (stay_status_id !== undefined) {
-      return res.status(403).json({
-        success: false,
-        message:
-          "Chỉ admin hoặc nhân viên mới được phép check-in/check-out. Vui lòng liên hệ lễ tân hoặc quản trị viên!",
-      });
-    }
+    return res.error(
+      "Vui lòng cung cấp payment_status hoặc payment_method",
+      null,
+      400
+    );
   } catch (err) {
     console.error("updateMyBookingStatus error:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Internal error", error: err.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, err.message, 500);
   }
 };
 
+/**
+ * Confirm check-in
+ */
 export const confirmCheckin = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
+
     if (!userId) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+      return res.error(ERROR_MESSAGES.UNAUTHORIZED, null, 401);
     }
+
     const result = await modelConfirmCheckin(id, userId);
-    res.json({
-      success: true,
-      message: "Đã check-in thành công",
-      data: result,
-    });
+    res.success(result, SUCCESS_MESSAGES.CHECKIN_SUCCESS);
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    res.error(err.message, null, 400);
   }
 };
 
+/**
+ * Confirm check-out
+ */
 export const confirmCheckout = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
+
     if (!userId) {
-      return res.status(401).json({ success: false, message: "Unauthorized" });
+      return res.error(ERROR_MESSAGES.UNAUTHORIZED, null, 401);
     }
+
     const updated = await modelConfirmCheckout(id, userId);
-    res.json({
-      success: true,
-      message: "Đã xác nhận checkout - Phòng chuyển sang trạng thái Cleaning",
-      data: updated,
-    });
+    res.success(updated, SUCCESS_MESSAGES.CHECKOUT_SUCCESS);
   } catch (err) {
     console.error("confirmCheckout error:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "Internal error", error: err.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, err.message, 500);
   }
 };
 
+/**
+ * Cancel booking
+ */
 export const cancelBooking = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
     const userRoleId = req.user?.role_id;
     const { cancel_reason } = req.body;
-    // Admin (4), Manager (3), Staff (2) đều có quyền hủy bất kỳ booking nào
-    const isStaffOrAbove = userRoleId && userRoleId >= 2;
 
     if (!userId) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized. Please login.",
-      });
+      return res.error(ERROR_MESSAGES.UNAUTHORIZED, null, 401);
     }
+
+    // Staff and above can cancel any booking
+    const isStaffOrAbove = userRoleId && userRoleId >= 2;
 
     const result = await modelCancelBooking(
       id,
@@ -560,43 +496,45 @@ export const cancelBooking = async (req, res) => {
       cancel_reason
     );
 
-    res.json({
-      success: true,
-      message: result.message || "Đã hủy booking thành công.",
-      data: {
-        booking: result.booking,
-        refund_amount: result.refund_amount || 0,
-      },
-    });
+    const refundMsg =
+      result.refund_amount > 0
+        ? `Số tiền hoàn lại: ${result.refund_amount} VND.`
+        : "Không đủ điều kiện hoàn tiền theo chính sách.";
+
+    res.success(
+      { booking: result.booking, refund_amount: result.refund_amount },
+      `${SUCCESS_MESSAGES.BOOKING_CANCELLED} ${refundMsg}`
+    );
   } catch (err) {
     console.error("cancelBooking error:", err);
-    res.status(400).json({
-      success: false,
-      message: err.message || "Không thể hủy booking",
-      error: err.message,
-    });
+    res.error(err.message || "Không thể hủy booking", err.message, 400);
   }
 };
 
+/**
+ * Admin marks booking as no-show
+ */
 export const adminMarkNoShow = async (req, res) => {
-  const { id } = req.params; // id booking
+  const { id } = req.params;
   try {
+    const { markNoShow } = await import("../utils/markNoShow.js");
     await markNoShow(Number(id));
-    res.json({ success: true, message: "Booking đã chuyển sang no_show." });
+    res.success(null, "Booking đã chuyển sang no_show.");
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.error(err.message, null, 500);
   }
 };
 
-// Admin đánh dấu đã hoàn tiền cho booking
+/**
+ * Admin marks booking as refunded
+ */
 export const adminMarkRefunded = async (req, res) => {
   const { id } = req.params;
   try {
-    // Import pool hoặc dùng model
     const { setBookingStatus } = await import("../models/bookingsmodel.js");
     await setBookingStatus(id, { is_refunded: true });
-    res.json({ success: true, message: "Đã đánh dấu hoàn tiền thành công." });
+    res.success(null, SUCCESS_MESSAGES.REFUND_PROCESSED);
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    res.error(err.message, null, 500);
   }
 };

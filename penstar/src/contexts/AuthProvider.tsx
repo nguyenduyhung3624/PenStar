@@ -23,11 +23,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       type Decoded = {
         id?: number | string;
         email?: string;
+        full_name?: string;
+        phone?: string;
         role_id?: number | string;
         role?: string;
       };
       const decoded = jwtDecode<Decoded>(token as string);
-      // Fallback lấy full_name và phone từ localStorage nếu token không chứa
+      // Lấy full_name và phone từ token trước, fallback localStorage nếu không có
       let full_name = decoded.full_name ? String(decoded.full_name) : undefined;
       let phone = decoded.phone ? String(decoded.phone) : undefined;
       if (!full_name || !phone) {
