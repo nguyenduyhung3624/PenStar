@@ -266,23 +266,31 @@ const BookingDetail = () => {
     if (!booking || !booking.id) return;
     setUpdating(true);
     try {
-      // Nếu thanh toán tiền mặt thì khi duyệt sẽ tự động coi là đã thanh toán thành công
-      if (booking.payment_method === "cash") {
-        await setBookingStatus(booking.id, {
-          stay_status_id: 1,
-          payment_status: "paid",
-        });
-        message.success("Đã duyệt booking & thanh toán tiền mặt thành công");
-      } else {
-        await setBookingStatus(booking.id, { stay_status_id: 1 });
-        message.success(
-          "Đã duyệt booking - Phòng chuyển sang trạng thái Booked"
-        );
-      }
+      // Duyệt booking: chuyển sang trạng thái reserved
+      // Với tiền mặt: chưa thu tiền nên vẫn giữ payment_status = pending, sẽ đánh dấu paid khi check-in
+      // Với online: payment_status sẽ được callback từ cổng thanh toán cập nhật
+      await setBookingStatus(booking.id, { stay_status_id: 1 });
+      message.success("Đã duyệt booking - Phòng chuyển sang trạng thái Booked");
       refetch();
     } catch (err) {
       console.error("Lỗi duyệt booking:", err);
       message.error("Lỗi duyệt booking");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // Xác nhận đã thanh toán tiền mặt (dùng cho booking cash khi check-in)
+  const handleMarkPaid = async () => {
+    if (!booking || !booking.id) return;
+    setUpdating(true);
+    try {
+      await setBookingStatus(booking.id, { payment_status: "paid" });
+      message.success("Đã xác nhận thanh toán tiền mặt thành công");
+      refetch();
+    } catch (err) {
+      console.error("Lỗi xác nhận thanh toán:", err);
+      message.error("Lỗi xác nhận thanh toán");
     } finally {
       setUpdating(false);
     }
@@ -1391,6 +1399,24 @@ const BookingDetail = () => {
             {/* Ẩn toàn bộ action button nếu đã hủy hoặc no show */}
             {booking.stay_status_id !== 4 && booking.stay_status_id !== 5 && (
               <>
+                {/* Nút xác nhận đã thanh toán tiền mặt: 
+                    Hiện khi booking reserved + tiền mặt + chưa paid */}
+                {booking.stay_status_id === 1 &&
+                  booking.payment_method === "cash" &&
+                  booking.payment_status !== "paid" && (
+                    <Button
+                      type="primary"
+                      style={{
+                        backgroundColor: "#52c41a",
+                        borderColor: "#52c41a",
+                      }}
+                      onClick={handleMarkPaid}
+                      loading={updating}
+                      disabled={updating}
+                    >
+                      Xác nhận đã thanh toán
+                    </Button>
+                  )}
                 {booking.stay_status_id === 1 && (
                   <Button
                     type="primary"

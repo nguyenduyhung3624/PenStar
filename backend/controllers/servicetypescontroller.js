@@ -5,22 +5,15 @@ import {
   updateServiceType as modelUpdateServiceType,
   deleteServiceType as modelDeleteServiceType,
 } from "../models/servicetypesmodel.js";
+import { ERROR_MESSAGES } from "../utils/constants.js";
 
 export const getServiceTypes = async (req, res) => {
   try {
     const data = await modelGetServiceTypes();
-    res.json({
-      success: true,
-      message: "✅ Get all service types successfully",
-      data,
-    });
+    res.success(data, "Lấy danh sách loại dịch vụ thành công");
   } catch (error) {
     console.error("servicetypescontroller.getServiceTypes error:", error);
-    res.status(500).json({
-      success: false,
-      message: "🚨 Internal server error",
-      error: error.message,
-    });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -29,41 +22,22 @@ export const getServiceTypeByCode = async (req, res) => {
   try {
     const data = await modelGetServiceTypeByCode(code);
     if (!data) {
-      return res.status(404).json({
-        success: false,
-        message: "Service type not found",
-      });
+      return res.error("Loại dịch vụ không tồn tại", null, 404);
     }
-    res.json({
-      success: true,
-      message: "✅ Get service type successfully",
-      data,
-    });
+    res.success(data, "Lấy thông tin loại dịch vụ thành công");
   } catch (error) {
     console.error("servicetypescontroller.getServiceTypeByCode error:", error);
-    res.status(500).json({
-      success: false,
-      message: "🚨 Internal server error",
-      error: error.message,
-    });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
 export const createServiceType = async (req, res) => {
   try {
     const data = await modelCreateServiceType(req.body);
-    res.status(201).json({
-      success: true,
-      message: "✅ Service type created successfully",
-      data,
-    });
+    res.success(data, "Tạo loại dịch vụ thành công", 201);
   } catch (error) {
     console.error("servicetypescontroller.createServiceType error:", error);
-    res.status(500).json({
-      success: false,
-      message: "🚨 Internal server error",
-      error: error.message,
-    });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -72,23 +46,12 @@ export const updateServiceType = async (req, res) => {
   try {
     const data = await modelUpdateServiceType(code, req.body);
     if (!data) {
-      return res.status(404).json({
-        success: false,
-        message: "Service type not found",
-      });
+      return res.error("Loại dịch vụ không tồn tại", null, 404);
     }
-    res.json({
-      success: true,
-      message: "✅ Service type updated successfully",
-      data,
-    });
+    res.success(data, "Cập nhật loại dịch vụ thành công");
   } catch (error) {
     console.error("servicetypescontroller.updateServiceType error:", error);
-    res.status(500).json({
-      success: false,
-      message: "🚨 Internal server error",
-      error: error.message,
-    });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -97,22 +60,11 @@ export const deleteServiceType = async (req, res) => {
   try {
     const data = await modelDeleteServiceType(code);
     if (!data) {
-      return res.status(404).json({
-        success: false,
-        message: "Service type not found",
-      });
+      return res.error("Loại dịch vụ không tồn tại", null, 404);
     }
-    res.json({
-      success: true,
-      message: "✅ Service type deleted successfully",
-      data,
-    });
+    res.success(data, "Xóa loại dịch vụ thành công");
   } catch (error) {
     console.error("servicetypescontroller.deleteServiceType error:", error);
-    res.status(500).json({
-      success: false,
-      message: "🚨 Internal server error",
-      error: error.message,
-    });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };

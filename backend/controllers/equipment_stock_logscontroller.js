@@ -4,16 +4,14 @@ import {
   getAllStockLogs,
 } from "../models/equipment_stock_logsmodel.js";
 import pool from "../db.js";
+import { ERROR_MESSAGES } from "../utils/constants.js";
 
 // Nhập kho thiết bị
 export const importEquipment = async (req, res) => {
   try {
     const { equipment_id, quantity, note, created_by } = req.body;
     if (!equipment_id || !quantity || quantity <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Thiếu thông tin hoặc số lượng không hợp lệ",
-      });
+      return res.error("Thiếu thông tin hoặc số lượng không hợp lệ", null, 400);
     }
     // Tăng tồn kho
     await pool.query(
@@ -31,11 +29,9 @@ export const importEquipment = async (req, res) => {
       note,
       created_by,
     });
-    res.json({ success: true, message: "Nhập kho thành công" });
+    res.success(null, "Nhập kho thành công");
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: "Lỗi nhập kho", error: error.message });
+    res.error("Lỗi nhập kho", error.message, 500);
   }
 };
 
@@ -44,10 +40,7 @@ export const exportEquipment = async (req, res) => {
   try {
     const { equipment_id, quantity, note, created_by } = req.body;
     if (!equipment_id || !quantity || quantity <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Thiếu thông tin hoặc số lượng không hợp lệ",
-      });
+      return res.error("Thiếu thông tin hoặc số lượng không hợp lệ", null, 400);
     }
     // Kiểm tra tồn kho
     const check = await pool.query(
@@ -55,9 +48,7 @@ export const exportEquipment = async (req, res) => {
       [equipment_id]
     );
     if (!check.rows[0] || check.rows[0].total_stock < quantity) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Không đủ tồn kho để xuất" });
+      return res.error("Không đủ tồn kho để xuất", null, 400);
     }
     // Giảm tồn kho
     await pool.query(
@@ -75,11 +66,9 @@ export const exportEquipment = async (req, res) => {
       note,
       created_by,
     });
-    res.json({ success: true, message: "Xuất kho thành công" });
+    res.success(null, "Xuất kho thành công");
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: "Lỗi xuất kho", error: error.message });
+    res.error("Lỗi xuất kho", error.message, 500);
   }
 };
 
@@ -101,10 +90,11 @@ export const transferEquipment = async (req, res) => {
       !from_room_id ||
       !to_room_id
     ) {
-      return res.status(400).json({
-        success: false,
-        message: "Thiếu thông tin hoặc số lượng/phòng không hợp lệ",
-      });
+      return res.error(
+        "Thiếu thông tin hoặc số lượng/phòng không hợp lệ",
+        null,
+        400
+      );
     }
     // Ghi log điều chuyển (không thay đổi tổng tồn kho)
     await createStockLog({
@@ -117,13 +107,9 @@ export const transferEquipment = async (req, res) => {
       note,
       created_by,
     });
-    res.json({ success: true, message: "Điều chuyển thành công" });
+    res.success(null, "Điều chuyển thành công");
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Lỗi điều chuyển",
-      error: error.message,
-    });
+    res.error("Lỗi điều chuyển", error.message, 500);
   }
 };
 
@@ -131,16 +117,13 @@ export const transferEquipment = async (req, res) => {
 export const getEquipmentLogs = async (req, res) => {
   try {
     const { equipment_id } = req.query;
-    if (!equipment_id)
-      return res
-        .status(400)
-        .json({ success: false, message: "Thiếu equipment_id" });
+    if (!equipment_id) {
+      return res.error("Thiếu equipment_id", null, 400);
+    }
     const logs = await getStockLogsByEquipment(equipment_id);
-    res.json({ success: true, data: logs });
+    res.success(logs, "Lấy lịch sử thiết bị thành công");
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: "Lỗi lấy log", error: error.message });
+    res.error("Lỗi lấy log", error.message, 500);
   }
 };
 
@@ -148,10 +131,8 @@ export const getEquipmentLogs = async (req, res) => {
 export const getAllLogs = async (req, res) => {
   try {
     const logs = await getAllStockLogs();
-    res.json({ success: true, data: logs });
+    res.success(logs, "Lấy toàn bộ log thành công");
   } catch (error) {
-    res
-      .status(500)
-      .json({ success: false, message: "Lỗi lấy log", error: error.message });
+    res.error("Lỗi lấy log", error.message, 500);
   }
 };
