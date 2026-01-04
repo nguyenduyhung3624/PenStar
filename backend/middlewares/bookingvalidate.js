@@ -48,9 +48,9 @@ const validateCheckOutDate = (value, helpers) => {
 
   // Nếu check-out ngày hôm nay, phải trước 14:00
   const isToday = checkOutDate.isSame(today, "day");
-  if (isToday && now.hour() >= 14) {
+  if (isToday && now.hour() < 14) {
     return helpers.message(
-      "Check-out trước 14:00. Đã quá giờ check-out cho ngày hôm nay."
+      "Check-out sau 14:00. Đã quá giờ check-out cho ngày hôm nay."
     );
   }
 

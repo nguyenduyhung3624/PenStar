@@ -18,9 +18,6 @@ import {
   BOOKING,
 } from "../utils/constants.js";
 
-/**
- * Get all bookings
- */
 export const getBookings = async (req, res) => {
   try {
     const data = await modelGetBookings();
@@ -31,9 +28,6 @@ export const getBookings = async (req, res) => {
   }
 };
 
-/**
- * Get booking by ID with items and services
- */
 export const getBookingById = async (req, res) => {
   const { id } = req.params;
   try {
@@ -42,7 +36,6 @@ export const getBookingById = async (req, res) => {
       return res.error(ERROR_MESSAGES.BOOKING_NOT_FOUND, null, 404);
     }
 
-    // Fetch items and services
     const itemsRes = await pool.query(
       `SELECT bi.*, 
               rp.refundable, rp.refund_percent, rp.refund_deadline_hours, rp.non_refundable, rp.notes as refund_notes
@@ -57,7 +50,6 @@ export const getBookingById = async (req, res) => {
       [id]
     );
 
-    // Map refund_policy fields
     booking.items = itemsRes.rows.map((item) => {
       const refund_policy =
         item.refundable !== null
@@ -81,13 +73,11 @@ export const getBookingById = async (req, res) => {
     });
     booking.services = servicesRes.rows;
 
-    // Add check_in/out from first item
     if (booking.items?.length > 0) {
       booking.check_in = booking.items[0].check_in;
       booking.check_out = booking.items[0].check_out;
     }
 
-    // Calculate totals if missing
     if (!booking.total_room_price) {
       booking.total_room_price = booking.items.reduce(
         (sum, item) => sum + Number(item.room_type_price || 0),
@@ -101,7 +91,6 @@ export const getBookingById = async (req, res) => {
       );
     }
 
-    // Get cancellation info if exists
     if (booking.canceled_by) {
       const userRes = await pool.query(
         "SELECT full_name, email FROM users WHERE id = $1",
@@ -120,9 +109,6 @@ export const getBookingById = async (req, res) => {
   }
 };
 
-/**
- * Create new booking
- */
 export const createBooking = async (req, res) => {
   try {
     console.log("=== CREATE BOOKING REQUEST ===");
@@ -133,21 +119,17 @@ export const createBooking = async (req, res) => {
       payload.user_id = Number(req.user.id);
     }
 
-    // Validate booking duration
     if (payload.check_in && payload.check_out) {
       const checkIn = new Date(payload.check_in);
       const checkOut = new Date(payload.check_out);
       const now = new Date();
 
-      // Reset time to compare dates only
       checkIn.setHours(0, 0, 0, 0);
       checkOut.setHours(0, 0, 0, 0);
       now.setHours(0, 0, 0, 0);
 
-      // Calculate nights
       const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
 
-      // Validate max nights
       if (nights > BOOKING.MAX_NIGHTS) {
         return res.error(
           `Không thể đặt phòng quá ${BOOKING.MAX_NIGHTS} đêm. Vui lòng liên hệ khách sạn để đặt dài hạn.`,
@@ -156,7 +138,6 @@ export const createBooking = async (req, res) => {
         );
       }
 
-      // Validate min nights
       if (nights < BOOKING.MIN_NIGHTS) {
         return res.error(
           `Phải đặt tối thiểu ${BOOKING.MIN_NIGHTS} đêm.`,
@@ -165,7 +146,6 @@ export const createBooking = async (req, res) => {
         );
       }
 
-      // Validate advance booking
       const daysInAdvance = Math.ceil((checkIn - now) / (1000 * 60 * 60 * 24));
       if (daysInAdvance > BOOKING.MAX_ADVANCE_DAYS) {
         return res.error(
@@ -175,7 +155,6 @@ export const createBooking = async (req, res) => {
         );
       }
 
-      // Check if check_in is not in the past
       if (checkIn < now) {
         return res.error(
           "Ngày nhận phòng không thể là ngày trong quá khứ.",
@@ -183,9 +162,16 @@ export const createBooking = async (req, res) => {
           400
         );
       }
+      const finalCheckIn = new Date(payload.check_in);
+      finalCheckIn.setHours(14, 0, 0, 0);
+
+      const finalCheckOut = new Date(payload.check_out);
+      finalCheckOut.setHours(14, 0, 0, 0);
+
+      payload.check_in = finalCheckIn;
+      payload.check_out = finalCheckOut;
     }
 
-    // Reject rooms_config - must send items
     if (Array.isArray(payload.rooms_config)) {
       return res.error(
         "Vui lòng gửi trực tiếp mảng items từ frontend.",
@@ -196,7 +182,6 @@ export const createBooking = async (req, res) => {
 
     const booking = await modelCreateBooking(payload);
 
-    // Fetch created items
     const itemsRes = await pool.query(
       "SELECT * FROM booking_items WHERE booking_id = $1",
       [booking.id]
@@ -207,7 +192,6 @@ export const createBooking = async (req, res) => {
   } catch (error) {
     console.error("=== CREATE BOOKING ERROR ===", error);
 
-    // Handle FK constraint
     if (error?.code === "23503") {
       const fieldMap = {
         user_id: "Người dùng không tồn tại",
@@ -228,7 +212,6 @@ export const createBooking = async (req, res) => {
       return res.error(friendlyMsg, error.message, 400);
     }
 
-    // Handle NOT NULL constraint
     if (error?.code === "23502") {
       return res.error(
         ERROR_MESSAGES.MISSING_REQUIRED_FIELD,
@@ -237,7 +220,6 @@ export const createBooking = async (req, res) => {
       );
     }
 
-    // Handle CHECK constraint
     if (error?.code === "23514") {
       return res.error(ERROR_MESSAGES.INVALID_INPUT, error.message, 400);
     }
@@ -250,9 +232,6 @@ export const createBooking = async (req, res) => {
   }
 };
 
-/**
- * Get user's own bookings
- */
 export const getMyBookings = async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -267,15 +246,11 @@ export const getMyBookings = async (req, res) => {
   }
 };
 
-/**
- * Admin sets booking status
- */
 export const setBookingStatus = async (req, res) => {
   try {
     const { id } = req.params;
     const fields = req.body;
 
-    // If marking as cancelled, release rooms
     if (fields.stay_status_id === STAY_STATUS.CANCELLED) {
       const itemsRes = await pool.query(
         "SELECT room_id FROM booking_items WHERE booking_id = $1",
@@ -295,7 +270,6 @@ export const setBookingStatus = async (req, res) => {
       );
     }
 
-    // Get old payment status
     let oldPaymentStatus = null;
     if (
       fields.payment_status &&
@@ -311,7 +285,6 @@ export const setBookingStatus = async (req, res) => {
 
     const updated = await modelSetBookingStatus(id, fields);
 
-    // Send confirmation email on payment
     if (
       fields.payment_status === PAYMENT_STATUS.PAID &&
       oldPaymentStatus !== PAYMENT_STATUS.PAID
@@ -347,12 +320,8 @@ export const setBookingStatus = async (req, res) => {
   }
 };
 
-/**
- * ✅ FIXED: Client updates their own booking status (payment only)
- */
 export const updateMyBookingStatus = async (req, res) => {
   try {
-    // ✅ Early authentication check
     const userId = req.user?.id;
     if (!userId) {
       return res.error(ERROR_MESSAGES.UNAUTHORIZED, null, 401);
@@ -361,18 +330,15 @@ export const updateMyBookingStatus = async (req, res) => {
     const { id } = req.params;
     const { stay_status_id, payment_method, payment_status } = req.body;
 
-    // ✅ Verify booking exists
     const booking = await modelGetBookingById(id);
     if (!booking) {
       return res.error(ERROR_MESSAGES.BOOKING_NOT_FOUND, null, 404);
     }
 
-    // ✅ Verify booking belongs to user
     if (booking.user_id !== userId) {
       return res.error(ERROR_MESSAGES.BOOKING_BELONGS_TO_OTHER, null, 403);
     }
 
-    // ✅ Prevent user from changing stay_status_id
     if (stay_status_id !== undefined) {
       return res.error(
         "Chỉ admin hoặc nhân viên mới được phép check-in/check-out!",
@@ -381,7 +347,6 @@ export const updateMyBookingStatus = async (req, res) => {
       );
     }
 
-    // ✅ Handle payment_status update
     if (payment_status) {
       const oldBookingRes = await pool.query(
         "SELECT payment_status FROM bookings WHERE id = $1",
@@ -391,7 +356,6 @@ export const updateMyBookingStatus = async (req, res) => {
 
       const updated = await modelSetBookingStatus(id, { payment_status });
 
-      // Send email if transitioning to paid
       if (
         payment_status === PAYMENT_STATUS.PAID &&
         oldPaymentStatus !== PAYMENT_STATUS.PAID
@@ -413,7 +377,6 @@ export const updateMyBookingStatus = async (req, res) => {
       return res.success(updated, "Cập nhật trạng thái thanh toán thành công!");
     }
 
-    // ✅ Handle payment_method update
     if (payment_method) {
       const updated = await modelSetBookingStatus(id, { payment_method });
       return res.success(
@@ -433,9 +396,6 @@ export const updateMyBookingStatus = async (req, res) => {
   }
 };
 
-/**
- * Confirm check-in
- */
 export const confirmCheckin = async (req, res) => {
   try {
     const { id } = req.params;
@@ -444,37 +404,33 @@ export const confirmCheckin = async (req, res) => {
     if (!userId) {
       return res.error(ERROR_MESSAGES.UNAUTHORIZED, null, 401);
     }
-
     const result = await modelConfirmCheckin(id, userId);
     res.success(result, SUCCESS_MESSAGES.CHECKIN_SUCCESS);
   } catch (err) {
+    console.error("confirmCheckin error:", err);
     res.error(err.message, null, 400);
   }
 };
 
-/**
- * Confirm check-out
- */
 export const confirmCheckout = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
+    // Bỏ dòng lấy clientTimestamp
 
     if (!userId) {
       return res.error(ERROR_MESSAGES.UNAUTHORIZED, null, 401);
     }
 
+    // Gọi model, không truyền timestamp nữa
     const updated = await modelConfirmCheckout(id, userId);
     res.success(updated, SUCCESS_MESSAGES.CHECKOUT_SUCCESS);
   } catch (err) {
     console.error("confirmCheckout error:", err);
-    res.error(ERROR_MESSAGES.INTERNAL_ERROR, err.message, 500);
+    res.error(err.message || ERROR_MESSAGES.INTERNAL_ERROR, null, 400);
   }
 };
 
-/**
- * Cancel booking
- */
 export const cancelBooking = async (req, res) => {
   try {
     const { id } = req.params;
@@ -486,7 +442,6 @@ export const cancelBooking = async (req, res) => {
       return res.error(ERROR_MESSAGES.UNAUTHORIZED, null, 401);
     }
 
-    // Staff and above can cancel any booking
     const isStaffOrAbove = userRoleId && userRoleId >= 2;
 
     const result = await modelCancelBooking(
@@ -511,9 +466,6 @@ export const cancelBooking = async (req, res) => {
   }
 };
 
-/**
- * Admin marks booking as no-show
- */
 export const adminMarkNoShow = async (req, res) => {
   const { id } = req.params;
   try {
@@ -525,9 +477,6 @@ export const adminMarkNoShow = async (req, res) => {
   }
 };
 
-/**
- * Admin marks booking as refunded
- */
 export const adminMarkRefunded = async (req, res) => {
   const { id } = req.params;
   try {

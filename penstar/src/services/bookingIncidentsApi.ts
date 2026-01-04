@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { instance } from "./api";
 
 export const getIncidentsByRoom = async (room_id: number) => {
