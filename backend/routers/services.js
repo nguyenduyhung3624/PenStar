@@ -10,6 +10,8 @@ import {
   validateServiceCreate,
   validateServiceUpdate,
 } from "../middlewares/servicevalidate.js";
+import multer from "multer";
+const upload = multer({ dest: "uploads/services/" });
 import { requireAuth, requireRole } from "../middlewares/auth.js";
 const serviceRouter = express.Router();
 
@@ -38,6 +40,10 @@ serviceRouter.post(
   "/",
   requireAuth,
   requireRole("staff"),
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "thumbnail_file", maxCount: 1 },
+  ]),
   validateServiceCreate,
   createService
 );
@@ -45,6 +51,10 @@ serviceRouter.put(
   "/:id",
   requireAuth,
   requireRole("staff"),
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "thumbnail_file", maxCount: 1 },
+  ]),
   validateServiceUpdate,
   updateService
 );

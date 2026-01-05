@@ -6,6 +6,9 @@ import {
   deleteService as modelDeleteService,
 } from "../models/servicesmodel.js";
 import { ERROR_MESSAGES } from "../utils/constants.js";
+import fs from "fs";
+import path from "path";
+import crypto from "crypto";
 
 export const getServices = async (req, res) => {
   try {
@@ -16,6 +19,7 @@ export const getServices = async (req, res) => {
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
+
 export const getServiceById = async (req, res) => {
   const { id } = req.params;
   try {
@@ -29,39 +33,142 @@ export const getServiceById = async (req, res) => {
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
+
 export const createService = async (req, res) => {
   try {
     const { existsServiceWithName } = await import(
       "../models/servicesmodel.js"
     );
     const { name } = req.body;
+
     if (await existsServiceWithName(String(name))) {
       return res.error("Tên dịch vụ đã tồn tại", null, 400);
     }
-    const newService = await modelCreateService(req.body);
+
+    let thumbnail = null;
+    let thumbnail_hash = null;
+
+    // ✅ XỬ LÝ FILE IMAGE
+
+    // ✅ XỬ LÝ FILE THUMBNAIL
+    if (req.files && req.files.thumbnail_file && req.files.thumbnail_file[0]) {
+      const file = req.files.thumbnail_file[0];
+      const filePath = path.join(
+        process.cwd(),
+        "uploads",
+        "services",
+        file.filename
+      );
+      const fileBuffer = fs.readFileSync(filePath);
+      const fileHash = crypto
+        .createHash("sha1")
+        .update(fileBuffer)
+        .digest("hex");
+
+      const allServices = await modelGetServices();
+      const existed = allServices.find((s) => s.thumbnail_hash === fileHash);
+
+      if (existed) {
+        fs.unlinkSync(filePath);
+        thumbnail = existed.thumbnail;
+        thumbnail_hash = fileHash;
+      } else {
+        thumbnail = `/uploads/services/${file.filename}`;
+        thumbnail_hash = fileHash;
+      }
+    }
+
+    const newService = await modelCreateService({
+      ...req.body,
+      thumbnail,
+      thumbnail_hash,
+    });
+
     res.success(newService, "Tạo dịch vụ thành công", 201);
   } catch (error) {
     console.error("createService error:", error);
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
+
 export const updateService = async (req, res) => {
   const { id } = req.params;
+  console.log(
+    "[updateService] Controller called. id:",
+    id,
+    "body:",
+    req.body,
+    "files:",
+    req.files
+  );
+
   try {
     const { existsServiceWithName } = await import(
       "../models/servicesmodel.js"
     );
     const { name } = req.body;
+
     if (name && (await existsServiceWithName(String(name), Number(id)))) {
       return res.error("Tên dịch vụ đã tồn tại", null, 400);
     }
-    const updated = await modelUpdateService(id, req.body);
+
+    // ✅ LẤY THÔNG TIN HIỆN TẠI TỪ DB
+    const currentService = await modelGetServicesId(id);
+    if (!currentService) {
+      return res.error("Dịch vụ không tồn tại", null, 404);
+    }
+
+    let thumbnail = req.body.thumbnail || currentService.thumbnail;
+    let thumbnail_hash = currentService.thumbnail_hash;
+
+    // ✅ XỬ LÝ FILE IMAGE MỚI
+
+    // ✅ XỬ LÝ FILE THUMBNAIL MỚI
+    if (req.files && req.files.thumbnail_file && req.files.thumbnail_file[0]) {
+      const file = req.files.thumbnail_file[0];
+      const filePath = path.join(
+        process.cwd(),
+        "uploads",
+        "services",
+        file.filename
+      );
+      const fileBuffer = fs.readFileSync(filePath);
+      const fileHash = crypto
+        .createHash("sha1")
+        .update(fileBuffer)
+        .digest("hex");
+
+      const allServices = await modelGetServices();
+      const existed = allServices.find((s) => s.thumbnail_hash === fileHash);
+
+      if (existed) {
+        fs.unlinkSync(filePath);
+        thumbnail = existed.thumbnail;
+        thumbnail_hash = fileHash;
+      } else {
+        thumbnail = `/uploads/services/${file.filename}`;
+        thumbnail_hash = fileHash;
+      }
+    }
+
+    const updateData = {
+      ...req.body,
+      thumbnail,
+      thumbnail_hash,
+    };
+
+    const updated = await modelUpdateService(id, updateData);
+
     if (!updated) {
       return res.error("Dịch vụ không tồn tại", null, 404);
     }
+
     res.success(updated, "Cập nhật dịch vụ thành công");
   } catch (error) {
-    console.error("updateService error:", error);
+    console.error(
+      "[updateService] ERROR:",
+      error && error.stack ? error.stack : error
+    );
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
@@ -75,7 +182,10 @@ export const deleteService = async (req, res) => {
     }
     res.success(deleted, "Xóa dịch vụ thành công");
   } catch (error) {
-    console.error("deleteService error:", error);
+    console.error(
+      "[deleteService] ERROR:",
+      error && error.stack ? error.stack : error
+    );
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };

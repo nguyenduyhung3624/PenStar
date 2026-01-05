@@ -204,6 +204,10 @@ export const searchAvailableRooms = async ({
     LEFT JOIN room_types rt ON r.type_id = rt.id
     WHERE r.status = ANY($1)
       AND rt.capacity >= $2
+      AND EXISTS (
+        SELECT 1 FROM room_devices rd
+        WHERE rd.room_id = r.id
+      )
       AND NOT EXISTS (
         SELECT 1 FROM room_devices rd
         WHERE rd.room_id = r.id AND rd.status != 'working'

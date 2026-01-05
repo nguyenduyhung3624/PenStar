@@ -4,12 +4,41 @@ export const getServices = async () => {
   const result = await pool.query(`
     SELECT * FROM services ORDER BY id
   `);
-  return result.rows;
+  // Đảm bảo thumbnail luôn là đường dẫn đầy đủ
+  return result.rows.map((row) => {
+    let thumbnail = row.thumbnail;
+    if (thumbnail && !thumbnail.startsWith("/uploads/services/")) {
+      // Nếu chỉ là tên file hoặc thiếu prefix, thêm prefix
+      if (thumbnail.startsWith("/")) {
+        // Trường hợp /abc.jpg nhưng không đúng folder
+        thumbnail = `/uploads/services${thumbnail}`;
+      } else {
+        thumbnail = `/uploads/services/${thumbnail}`;
+      }
+    }
+    return {
+      ...row,
+      thumbnail,
+    };
+  });
 };
 
 export const getServiceById = async (id) => {
   const result = await pool.query(`SELECT * FROM services WHERE id = $1`, [id]);
-  return result.rows[0];
+  const row = result.rows[0];
+  if (!row) return null;
+  let thumbnail = row.thumbnail;
+  if (thumbnail && !thumbnail.startsWith("/uploads/services/")) {
+    if (thumbnail.startsWith("/")) {
+      thumbnail = `/uploads/services${thumbnail}`;
+    } else {
+      thumbnail = `/uploads/services/${thumbnail}`;
+    }
+  }
+  return {
+    ...row,
+    thumbnail,
+  };
 };
 
 export const createService = async (data) => {
@@ -17,39 +46,86 @@ export const createService = async (data) => {
     name,
     description,
     price,
-    is_included = false,
-    image_url = null,
     thumbnail = null,
-    note = null,
+    thumbnail_hash = null,
   } = data;
+
+  // Chỉ lưu tên file (không lưu cả đường dẫn)
+  let thumbnailName = thumbnail;
+  if (thumbnailName && thumbnailName.startsWith("/uploads/services/")) {
+    thumbnailName = thumbnailName.replace("/uploads/services/", "");
+  } else if (thumbnailName && thumbnailName.startsWith("/")) {
+    thumbnailName = thumbnailName.substring(thumbnailName.lastIndexOf("/") + 1);
+  }
+
   const result = await pool.query(
-    `INSERT INTO services (name, description, price, is_included, image_url, thumbnail, note) 
-     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-    [name, description, price, is_included, image_url, thumbnail, note]
+    `INSERT INTO services (name, description, price, thumbnail, thumbnail_hash) 
+     VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+    [name, description, price, thumbnailName, thumbnail_hash]
   );
   return result.rows[0];
 };
 
 export const updateService = async (id, data) => {
-  const { name, description, price, is_included, image_url, thumbnail, note } =
-    data;
+  console.log("[updateService] id:", id, "data:", data);
 
-  const result = await pool.query(
-    `UPDATE services 
-     SET name = $1, description = $2, price = $3, 
-         is_included = $4, image_url = $5, thumbnail = $6, note = $7, updated_at = CURRENT_TIMESTAMP
-     WHERE id = $8 RETURNING *`,
-    [name, description, price, is_included, image_url, thumbnail, note, id]
-  );
-  return result.rows[0];
+  // ✅ FIX: Lấy service hiện tại để merge với data mới
+  const current = await getServiceById(id);
+  if (!current) {
+    throw new Error("Service not found");
+  }
+
+  // ✅ Merge data: ưu tiên data mới, fallback về current
+  let {
+    name = current.name,
+    description = current.description,
+    price = current.price,
+    thumbnail = current.thumbnail,
+    thumbnail_hash = current.thumbnail_hash,
+  } = data;
+
+  // Chỉ lưu tên file (không lưu cả đường dẫn)
+  if (thumbnail && thumbnail.startsWith("/uploads/services/")) {
+    thumbnail = thumbnail.replace("/uploads/services/", "");
+  } else if (thumbnail && thumbnail.startsWith("/")) {
+    thumbnail = thumbnail.substring(thumbnail.lastIndexOf("/") + 1);
+  }
+
+  try {
+    const result = await pool.query(
+      `UPDATE services 
+       SET name = $1, 
+           description = $2, 
+           price = $3, 
+           thumbnail = $4, 
+           thumbnail_hash = $5, 
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $6 
+       RETURNING *`,
+      [name, description, price, thumbnail, thumbnail_hash, id]
+    );
+
+    console.log("[updateService] result:", result.rows);
+    return result.rows[0];
+  } catch (err) {
+    console.error("[updateService] ERROR:", err);
+    throw err;
+  }
 };
 
 export const deleteService = async (id) => {
-  const resuit = await pool.query(
-    "DELETE FROM services WHERE id = $1 RETURNING *",
-    [id]
-  );
-  return resuit.rows[0];
+  console.log("[deleteService] id:", id);
+  try {
+    const result = await pool.query(
+      "DELETE FROM services WHERE id = $1 RETURNING *",
+      [id]
+    );
+    console.log("[deleteService] result:", result.rows);
+    return result.rows[0];
+  } catch (err) {
+    console.error("[deleteService] ERROR:", err);
+    throw err;
+  }
 };
 
 export const existsServiceWithName = async (name, excludeId = null) => {
