@@ -10,6 +10,10 @@ const ServiceSchema = Joi.object({
 export const validateServiceCreate = (req, res, next) => {
   const { error } = ServiceSchema.validate(req.body);
   if (error) {
+    console.error(
+      "[validateServiceUpdate] Joi validation error:",
+      error.details
+    );
     return res
       .status(400)
       .json({ success: false, message: error.details[0].message });
@@ -18,6 +22,14 @@ export const validateServiceCreate = (req, res, next) => {
 };
 
 export const validateServiceUpdate = (req, res, next) => {
+  console.log(
+    "[validateServiceUpdate] id:",
+    req.params.id,
+    "body:",
+    req.body,
+    "files:",
+    req.files
+  );
   const { id } = req.params;
   if (!id || isNaN(Number(id))) {
     return res.status(400).json({ message: "Invalid ID" });

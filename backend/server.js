@@ -32,7 +32,6 @@ import roomTypesRouter from "./routers/roomstype.js";
 import roomTypeImagesRouter from "./routers/roomtypeimages.js";
 import roomTypeEquipmentsRouter from "./routers/room_type_equipments.js";
 import servicesRouter from "./routers/services.js";
-import serviceTypesRouter from "./routers/service_types.js";
 import statisticsRouter from "./routers/statistics.js";
 import stayStatusRouter from "./routers/stay_status.js";
 import usersRouter from "./routers/users.js";
@@ -103,7 +102,6 @@ app.use("/api/floors", floorsRouter);
 
 // Services
 app.use("/api/services", servicesRouter);
-app.use("/api/service-types", serviceTypesRouter);
 
 // Equipments & Devices
 app.use("/api/master-equipments", masterEquipmentsRouter);

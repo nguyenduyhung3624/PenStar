@@ -1,4 +1,5 @@
-import { EditOutlined, PlusOutlined } from "@ant-design/icons";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { EditOutlined, PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 import {
   Button,
   Card,
@@ -16,18 +17,29 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import type { Services } from "@/types/services";
 import { getServices, deleteService } from "@/services/servicesApi";
 
-const ServicesPage = () => {
+const Services = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const pageSize = 5;
+  const pageSize = 10;
   const [searchTerm, setSearchTerm] = useState<string>("");
 
-  const { data: services = [], isLoading } = useQuery({
+  // ✅ Query để lấy danh sách dịch vụ
+  const {
+    data: services = [],
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["services"],
     queryFn: getServices,
   });
 
+  // ✅ Log để debug
+  console.log("[Services] Data:", services);
+  console.log("[Services] Loading:", isLoading);
+  console.log("[Services] Error:", error);
+
+  // ✅ Filter services theo search term
   const filteredServices = services.filter((s: Services) => {
     const q = String(searchTerm ?? "")
       .trim()
@@ -38,50 +50,94 @@ const ServicesPage = () => {
       .includes(q);
   });
 
+  // ✅ Mutation để xóa dịch vụ
   const deleteMut = useMutation({
     mutationFn: (id: number | string) => deleteService(id),
     onSuccess: () => {
-      message.success("Xoá dịch vụ thành công");
+      message.success("Xóa dịch vụ thành công");
       queryClient.invalidateQueries({ queryKey: ["services"] });
     },
-    onError: () => message.error("Xoá dịch vụ thất bại"),
+    onError: (error: any) => {
+      console.error("Delete error:", error);
+      message.error(error?.response?.data?.message || "Xóa dịch vụ thất bại");
+    },
   });
 
+  // ✅ Format giá VND
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(price);
+  };
+
+  // ✅ Columns definition
   const columns: ColumnsType<Services> = [
     {
       title: "STT",
       key: "stt",
+      width: 60,
+      align: "center",
       render: (_v, _r, idx) => idx + 1 + (currentPage - 1) * pageSize,
-      width: 80,
     },
     {
       title: "Ảnh",
       key: "thumbnail",
       width: 80,
-      render: (_v, record) =>
-        record.thumbnail ? (
-          <Avatar shape="square" size={50} src={record.thumbnail} />
-        ) : null,
+      align: "center",
+      render: (_v, record) => {
+        // Nếu thumbnail là đường dẫn tương đối, prefix domain backend
+        let src = record.thumbnail;
+        if (src && src.startsWith("/")) {
+          // Ưu tiên biến môi trường, fallback localhost:5000
+          const apiUrl =
+            import.meta.env.VITE_API_URL || "http://localhost:5000";
+          src = apiUrl.replace(/\/$/, "") + src;
+        }
+        return src ? (
+          <Avatar
+            shape="square"
+            size={60}
+            src={src}
+            style={{ objectFit: "cover" }}
+          />
+        ) : (
+          <Avatar
+            shape="square"
+            size={60}
+            icon={<PlusOutlined />}
+            style={{ background: "#f0f0f0", color: "#999" }}
+          />
+        );
+      },
     },
-    { title: "Tên dịch vụ", dataIndex: "name", key: "name" },
+    {
+      title: "Tên dịch vụ",
+      dataIndex: "name",
+      key: "name",
+      width: 200,
+      render: (text) => <span className="font-medium">{text}</span>,
+    },
     {
       title: "Giá (VND)",
       dataIndex: "price",
       key: "price",
-      width: 120,
-      render: (p) =>
-        new Intl.NumberFormat("vi-VN", {
-          style: "currency",
-          currency: "VND",
-        }).format(p),
+      width: 140,
+      align: "right",
+      render: (price) => (
+        <span className="font-semibold text-emerald-600">
+          {formatPrice(price)}
+        </span>
+      ),
     },
     {
       title: "Mô tả",
       dataIndex: "description",
       key: "description",
+      ellipsis: true,
       render: (text: string) => (
         <div
-          className="max-w-[320px] whitespace-normal overflow-hidden"
+          className="max-w-[320px] line-clamp-2"
           dangerouslySetInnerHTML={{ __html: String(text ?? "") }}
         />
       ),
@@ -90,22 +146,34 @@ const ServicesPage = () => {
       title: "Thao tác",
       key: "action",
       fixed: "right",
-      width: 180,
+      width: 160,
+      align: "center",
       render: (_v, record) => (
-        <Space>
+        <Space size="small">
           <Button
             type="primary"
+            size="small"
             icon={<EditOutlined />}
             onClick={() => navigate(`/admin/services/${record.id}/edit`)}
           >
             Sửa
           </Button>
           <Popconfirm
-            title="Bạn có chắc muốn xoá?"
+            title="Xác nhận xóa"
+            description="Bạn có chắc muốn xóa dịch vụ này?"
             onConfirm={() => deleteMut.mutate(record.id)}
+            okText="Xóa"
+            cancelText="Hủy"
+            okButtonProps={{ danger: true }}
           >
-            <Button type="primary" danger>
-              Xoá
+            <Button
+              type="primary"
+              danger
+              size="small"
+              icon={<DeleteOutlined />}
+              loading={deleteMut.isPending}
+            >
+              Xóa
             </Button>
           </Popconfirm>
         </Space>
@@ -114,14 +182,23 @@ const ServicesPage = () => {
   ];
 
   return (
-    <div>
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">DANH SÁCH DỊCH VỤ</h1>
+    <div className="p-6">
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-800">
+            DANH SÁCH DỊCH VỤ
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">
+            Quản lý các dịch vụ bổ sung của khách sạn
+          </p>
+        </div>
+
         <div className="flex items-center gap-3">
           <Input.Search
             placeholder="Tìm theo tên dịch vụ"
             allowClear
-            style={{ width: 260 }}
+            style={{ width: 280 }}
+            value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
               setCurrentPage(1);
@@ -131,32 +208,39 @@ const ServicesPage = () => {
             type="primary"
             icon={<PlusOutlined />}
             onClick={() => navigate("/admin/services/new")}
+            size="large"
           >
             Thêm mới
           </Button>
         </div>
       </div>
+
       <Card>
         <Table
           columns={columns}
           dataSource={filteredServices}
           rowKey="id"
           loading={isLoading}
-          scroll={{ x: 1200 }}
+          scroll={{ x: 1400 }}
           pagination={{
             pageSize,
             current: currentPage,
+            total: filteredServices.length,
             showTotal: (total, range) =>
-              `${range[0]}-${range[1]} trong ${total}`,
+              `${range[0]}-${range[1]} trong ${total} dịch vụ`,
             showQuickJumper: true,
-            onChange: (p) => setCurrentPage(p),
+            showSizeChanger: false,
+            onChange: (page) => setCurrentPage(page),
+          }}
+          locale={{
+            emptyText: searchTerm
+              ? "Không tìm thấy dịch vụ nào"
+              : "Chưa có dịch vụ nào",
           }}
         />
       </Card>
-
-      {/* modal removed; use separate pages for create/edit */}
     </div>
   );
 };
 
-export default ServicesPage;
+export default Services;
