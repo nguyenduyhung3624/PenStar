@@ -42,7 +42,7 @@ const HomePage = () => {
         name: "QUẢNG NINH",
         images: [
           "https://images.unsplash.com/photo-1528127269322-539801943592?w=600",
-          "https://images.unsplash.com/photo-1598880940371-c756e015faf1?w=600",
+          "https://images.unsplash.com/photo-1694142941971-4d15ff0c2ab3?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8UXUlRTElQkElQTNuZyUyME5pbmh8ZW58MHx8MHx8fDA%3D",
         ],
         span: "double",
       },
@@ -69,7 +69,7 @@ const HomePage = () => {
       {
         name: "NHA TRANG",
         image:
-          "https://images.unsplash.com/photo-1568084680786-a84340b5e60d?w=600",
+          "https://images.unsplash.com/photo-1689326232193-d55f0b7965eb?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8bmhhJTIwdHJhbmd8ZW58MHx8MHx8fDA%3D",
         span: "single",
       },
       {
@@ -101,17 +101,20 @@ const HomePage = () => {
             alt="PenStar Banner"
             className="w-full h-full object-cover"
           />
+          {/* Lớp phủ nhẹ để tăng tương phản nếu cần */}
+          <div className="absolute inset-0 bg-black/5 pointer-events-none"></div>
         </div>
-        {/* Search Bar - Floating, shadow, overlap banner bottom, bo góc, full rộng, margin lớn hơn */}
+
+        {/* Search Bar Wrapper */}
         <div
           className="absolute left-1/2 bottom-0 w-full flex justify-center z-20"
-          style={{ transform: "translate(-50%, 70%)" }}
+          style={{ transform: "translate(-50%, 50%)" }}
         >
-          <div className="w-full max-w-6xl px-2 md:px-2">
-            <div className="bg-white shadow-2xl md:p-1">
+          <div className="w-full max-w-6xl px-4">
+            {/* Box trắng chứa SearchBar: Tăng padding và bo góc */}
+            <div>
               <RoomSearchBar
                 onSearch={(params: RoomSearchParams) => {
-                  // Đảm bảo không truyền num_rooms vào searchParams
                   // eslint-disable-next-line @typescript-eslint/no-unused-vars
                   const { num_rooms, ...rest } = params as RoomSearchParams & {
                     num_rooms?: number;
@@ -126,8 +129,8 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Features Section*/}
-      <section className="py-12 mt-20 bg-white">
+      {/* Features Section - Tăng margin-top (mt-32) để tránh bị Search Bar che */}
+      <section className="py-12 mt-32 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
             {/* Feature 1 */}

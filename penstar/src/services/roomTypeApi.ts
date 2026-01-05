@@ -50,7 +50,7 @@ export const updateRoomType = async (
   roomTypeData: {
     name: string;
     description: string;
-    // Đã loại bỏ free_amenities
+    free_amenities?: string[];
     paid_amenities?: string[];
     capacity?: number;
     base_adults?: number;

@@ -131,15 +131,10 @@ const RoomSearchResults = () => {
               <div className="flex items-center gap-2">
                 <CalendarOutlined className="text-blue-600" />
                 <span className="font-medium">
-                  {searchParams.check_in} - {searchParams.check_out}
+                  {dayjs(searchParams.check_in).format("DD/MM/YYYY")} -{" "}
+                  {dayjs(searchParams.check_out).format("DD/MM/YYYY")}
                 </span>
-                <span className="text-gray-600">
-                  ({numRooms} phòng, {searchParams.num_adults || 1} người lớn
-                  {searchParams.num_children
-                    ? `, ${searchParams.num_children} trẻ em`
-                    : ""}
-                  )
-                </span>
+                {/* Đã xóa hiển thị số phòng và số người lớn */}
               </div>
               {/* Promo code display removed: promo_code is not used in booking anymore */}
             </div>

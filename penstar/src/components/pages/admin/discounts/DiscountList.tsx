@@ -11,6 +11,7 @@ import {
   Popconfirm,
   message,
 } from "antd";
+import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import type { DiscountCode } from "@/types/discount";
@@ -67,7 +68,13 @@ const DiscountList: React.FC = () => {
         idx + 1 + (currentPage - 1) * pageSize,
     },
     { title: "Mã", dataIndex: "code", key: "code" },
-    { title: "Loại", dataIndex: "type", key: "type" },
+    {
+      title: "Loại",
+      dataIndex: "type",
+      key: "type",
+      render: (v: string) =>
+        v === "percent" ? "Phần trăm" : v === "fixed" ? "Số tiền cố định" : v,
+    },
     { title: "Giá trị", dataIndex: "value", key: "value" },
     { title: "Tối thiểu", dataIndex: "min_total", key: "min_total" },
     { title: "Tối đa lượt", dataIndex: "max_uses", key: "max_uses" },
@@ -82,12 +89,17 @@ const DiscountList: React.FC = () => {
       title: "Trạng thái",
       dataIndex: "status",
       key: "status",
-      render: (v: string) =>
-        v === "active" ? (
-          <Tag color="green">Đang hoạt động</Tag>
-        ) : (
-          <Tag color="red">Đã tắt</Tag>
-        ),
+      render: (_v: string, record: DiscountCode) => {
+        const now = dayjs();
+        const end = record.end_date ? dayjs(record.end_date) : null;
+        if (record.status === "active" && end && end.isBefore(now)) {
+          return <Tag color="red">Hết hạn</Tag>;
+        }
+        if (record.status === "active") {
+          return <Tag color="green">Đang hoạt động</Tag>;
+        }
+        return <Tag color="red">Đã tắt</Tag>;
+      },
     },
     { title: "Mô tả", dataIndex: "description", key: "description" },
     {

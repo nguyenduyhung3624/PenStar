@@ -117,7 +117,7 @@ const RoomTypeEdit = () => {
         name: values.name,
         description: values.description,
         // amenities: values.amenities,
-        // Đã loại bỏ free_amenities
+        free_amenities: values.free_amenities || [],
         paid_amenities: values.paid_amenities,
         capacity: values.capacity ? Number(values.capacity) : undefined,
         base_adults: values.base_adults
@@ -294,7 +294,13 @@ const RoomTypeEdit = () => {
                 />
               </Form.Item>
               */}
-              {/* Đã loại bỏ field free_amenities */}
+              <Form.Item name="free_amenities" label="Tiện nghi miễn phí">
+                <Select
+                  mode="tags"
+                  placeholder="Nhập tiện nghi miễn phí và nhấn Enter"
+                  style={{ width: "100%" }}
+                />
+              </Form.Item>
               <Form.Item name="paid_amenities" label="Tiện nghi tính phí">
                 <Select
                   mode="tags"
