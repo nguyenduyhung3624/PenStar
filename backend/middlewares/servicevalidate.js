@@ -5,6 +5,7 @@ const ServiceSchema = Joi.object({
   description: Joi.string().required(),
   // require strictly greater than 0
   price: Joi.number().greater(0).required(),
+  thumbnail: Joi.string().optional(),
 });
 
 export const validateServiceCreate = (req, res, next) => {
