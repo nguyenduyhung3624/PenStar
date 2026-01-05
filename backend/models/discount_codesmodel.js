@@ -93,6 +93,20 @@ export const DiscountCodesModel = {
     const res = await pool.query(
       `SELECT * FROM discount_codes ORDER BY start_date DESC`
     );
+    const now = new Date();
+    for (const code of res.rows) {
+      if (
+        code.end_date &&
+        new Date(code.end_date) < now &&
+        code.status === "active"
+      ) {
+        await pool.query(
+          `UPDATE discount_codes SET status = 'expired' WHERE id = $1`,
+          [code.id]
+        );
+        code.status = "expired";
+      }
+    }
     return res.rows;
   },
   async findByCode(code) {

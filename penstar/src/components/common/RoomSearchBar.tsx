@@ -1,12 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useAuth from "@/hooks/useAuth";
-import { DatePicker, Input, Button, message } from "antd";
-import {
-  SearchOutlined,
-  CalendarOutlined,
-  GiftOutlined,
-} from "@ant-design/icons";
+import { DatePicker, Button, message } from "antd";
+import { SearchOutlined, CalendarOutlined } from "@ant-design/icons";
 import type { RoomSearchParams } from "@/types/room";
 import { nowVN } from "@/utils/dayjs";
 import type { Dayjs } from "dayjs";
@@ -17,7 +13,7 @@ interface RoomSearchBarProps {
   onSearch: (params: RoomSearchParams) => void;
   loading?: boolean;
   variant?: "floating" | "inline"; // floating cho HomePage, inline cho Results
-  requireAuthForSearch?: boolean; // if true, redirect to signin when not authenticated
+  requireAuthForSearch?: boolean;
 }
 
 const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
@@ -29,10 +25,9 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
   const auth = useAuth();
   const navigate = useNavigate();
   const [dates, setDates] = useState<[Dayjs, Dayjs] | null>(null);
-  const [promoCode, setPromoCode] = useState("");
   const [dateError, setDateError] = useState<string | null>(null);
 
-  // Gom logic validate ngày vào một hàm
+  // --- LOGIC VALIDATE (GIỮ NGUYÊN 100%) ---
   const validateDates = (
     checkInDate: Dayjs,
     checkOutDate: Dayjs,
@@ -45,7 +40,6 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
       };
     }
 
-    // Check ngày check-in không phải quá khứ
     const todayStart = now.startOf("day");
     if (checkInDate.isBefore(todayStart)) {
       return {
@@ -54,7 +48,6 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
       };
     }
 
-    // Check-in ngày hôm nay: phải sau 14:00
     const isCheckInToday = checkInDate.isSame(now, "day");
     if (isCheckInToday && now.hour() < 14) {
       return {
@@ -63,7 +56,6 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
       };
     }
 
-    // Giới hạn đặt phòng cùng ngày: quá 21:00 thì không cho đặt check-in hôm nay
     if (isCheckInToday && now.hour() >= 21) {
       return {
         valid: false,
@@ -72,7 +64,6 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
       };
     }
 
-    // Check ngày check-out không phải quá khứ
     if (checkOutDate.isBefore(todayStart)) {
       return {
         valid: false,
@@ -80,7 +71,6 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
       };
     }
 
-    // Check-out ngày hôm nay: phải trước 14:00
     const isCheckOutToday = checkOutDate.isSame(now, "day");
     if (isCheckOutToday && now.hour() >= 14) {
       return {
@@ -89,7 +79,6 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
       };
     }
 
-    // Check-out phải sau check-in
     if (
       checkOutDate.isBefore(checkInDate) ||
       checkOutDate.isSame(checkInDate)
@@ -97,7 +86,6 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
       return { valid: false, error: "Ngày check-out phải sau ngày check-in." };
     }
 
-    // Giới hạn số đêm tối đa (30 đêm)
     const nights = checkOutDate.diff(checkInDate, "day");
     const MAX_NIGHTS = 30;
     if (nights > MAX_NIGHTS) {
@@ -107,7 +95,6 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
       };
     }
 
-    // Giới hạn đặt trước tối đa (365 ngày)
     const MAX_ADVANCE_DAYS = 365;
     const daysInAdvance = checkInDate.diff(todayStart, "day");
     if (daysInAdvance > MAX_ADVANCE_DAYS) {
@@ -141,100 +128,92 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
     const searchParams: RoomSearchParams = {
       check_in: checkInDate.format("YYYY-MM-DD"),
       check_out: checkOutDate.format("YYYY-MM-DD"),
-      promo_code: promoCode || undefined,
-      status: "available", // Chỉ tìm phòng trống
-      booking_statuses: [1, 2, 6], // Chỉ loại trừ các booking trạng thái reserved, checked_in, pending
+      status: "available",
+      booking_statuses: [1, 2, 6],
     };
     onSearch(searchParams);
   };
 
+  // --- STYLING MỚI ---
   const containerClass =
     variant === "floating"
-      ? "absolute left-1/2 -translate-x-1/2 bottom-0 translate-y-1/2 w-full max-w-6xl px-4 z-20"
-      : "w-full max-w-6xl mx-auto";
+      ? "absolute left-1/2 -translate-x-1/2 bottom-[-40px] md:bottom-[-50px] w-[95%] md:w-auto z-20"
+      : "w-full max-w-6xl mx-auto mb-8";
 
   return (
     <div className={containerClass}>
-      <div className="bg-white p-4">
-        <div className="flex flex-wrap gap-3 items-end">
-          {/* Dates */}
-          <div className="flex-1 min-w-[250px] relative">
-            <div className="text-xs font-semibold text-gray-700 mb-1">
-              Ngày nhận - trả phòng
+      {/* Box chính: Màu trắng, đổ bóng, bo góc */}
+      <div className="bg-white shadow-xl border border-gray-100 p-2 md:p-3 flex flex-col md:flex-row gap-2 items-center justify-between max-w-5xl mx-auto">
+        {/* Phần chọn ngày */}
+        <div className="flex-1 w-full md:w-auto relative group px-2">
+          <div className="flex items-center gap-3 h-14 md:h-16 px-4 bg-gray-50 rounded-lg border border-transparent group-hover:border-gray-200 transition-colors cursor-pointer">
+            <div className="text-yellow-600 bg-yellow-50 p-2">
+              <CalendarOutlined style={{ fontSize: "18px" }} />
             </div>
-            <RangePicker
-              size="middle"
-              format="DD/MM/YYYY"
-              placeholder={["Check-in", "Check-out"]}
-              suffixIcon={<CalendarOutlined />}
-              className="w-full border-0 bg-gray-50"
-              style={{ borderRadius: 0 }}
-              disabledDate={(current) => {
-                return current && current < nowVN().startOf("day");
-              }}
-              onChange={(values) => {
-                if (values && values[0] && values[1]) {
-                  setDates([values[0], values[1]]);
-                  const now = nowVN();
-                  const checkInDate = values[0];
-                  const checkOutDate = values[1];
-                  const { valid, error } = validateDates(
-                    checkInDate,
-                    checkOutDate,
-                    now
-                  );
-                  setDateError(valid ? null : error);
-                } else {
-                  setDates(null);
-                  setDateError(null);
+
+            <div className="flex-1 flex flex-col justify-center">
+              <span className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider mb-[2px]">
+                Ngày nhận - Trả phòng
+              </span>
+              {/* RangePicker được customize để ẩn border mặc định */}
+              <RangePicker
+                format="DD/MM/YYYY"
+                placeholder={["Nhận phòng", "Trả phòng"]}
+                suffixIcon={null} // Ẩn icon mặc định để dùng icon custom bên trái
+                variant="borderless"
+                className="p-0 w-full hover:bg-transparent"
+                style={{ background: "transparent" }}
+                inputReadOnly={true}
+                disabledDate={(current) =>
+                  current && current < nowVN().startOf("day")
                 }
-              }}
-            />
-            {/* Hiển thị lỗi validation ngày - position absolute để không đẩy layout */}
-            {dateError && (
-              <div className="absolute left-0 top-full mt-1 text-xs text-red-600 bg-red-50 p-1.5 rounded border border-red-200 whitespace-nowrap z-10">
-                ⚠️ {dateError}
-              </div>
-            )}
-          </div>
-
-          {/* Đã xóa phần chọn số lượng phòng. Số lượng phòng sẽ chọn ở từng loại phòng trong RoomSearchResults. */}
-
-          {/* Mã khuyến mãi */}
-          <div className="flex-1 min-w-[160px]">
-            <div className="text-xs font-semibold text-gray-700 mb-1">
-              Mã khuyến mãi
+                onChange={(values) => {
+                  if (values && values[0] && values[1]) {
+                    setDates([values[0], values[1]]);
+                    const { valid, error } = validateDates(
+                      values[0],
+                      values[1],
+                      nowVN()
+                    );
+                    setDateError(valid ? null : error);
+                  } else {
+                    setDates(null);
+                    setDateError(null);
+                  }
+                }}
+              />
             </div>
-            <Input
-              size="middle"
-              placeholder="Nhập mã (nếu có)"
-              prefix={<GiftOutlined className="text-orange-500" />}
-              value={promoCode}
-              onChange={(e) => setPromoCode(e.target.value)}
-              className="border-0 bg-gray-50"
-              style={{ borderRadius: 0 }}
-            />
           </div>
 
-          {/* Button */}
-          <div>
-            <Button
-              type="primary"
-              size="middle"
-              icon={<SearchOutlined />}
-              onClick={handleSearch}
-              loading={loading}
-              disabled={!!dateError}
-              className="h-[32px] px-6 font-bold"
-              style={{
-                background: "#fbbf24",
-                borderColor: "#fbbf24",
-                borderRadius: 0,
-              }}
-            >
-              TÌM KIẾM
-            </Button>
-          </div>
+          {/* Error Message hiển thị tinh tế hơn */}
+          {dateError && (
+            <div className="absolute top-full left-4 mt-2 z-10 animate-fade-in-down">
+              <div className="bg-red-50 text-red-600 text-xs px-3 py-1.5 rounded-md border border-red-100 shadow-sm flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                {dateError}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Nút tìm kiếm */}
+        <div className="w-full md:w-auto">
+          <Button
+            type="primary"
+            size="large"
+            onClick={handleSearch}
+            loading={loading}
+            disabled={!!dateError}
+            className="w-full md:w-auto h-14 md:h-16 px-8 md:px-12 rounded-lg text-base md:text-lg font-semibold shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5"
+            style={{
+              backgroundColor: "#d97706", // Màu vàng đậm sang trọng (Gold)
+              borderColor: "#d97706",
+              color: "#fff",
+            }}
+            icon={<SearchOutlined />}
+          >
+            TÌM PHÒNG
+          </Button>
         </div>
       </div>
     </div>
