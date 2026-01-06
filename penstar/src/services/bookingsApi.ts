@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Admin: Mark booking as Refunded
 // Admin: Mark booking as No Show
 
@@ -7,6 +8,69 @@ import type {
   BookingUpdatePayload,
   BookingShort,
 } from "@/types/bookings";
+
+export interface ChangeRoomRequest {
+  booking_item_id: number;
+  new_room_id: number;
+  reason?: string;
+}
+
+export interface ChangeRoomResponse {
+  success: boolean;
+  message: string;
+  data: {
+    booking: any;
+    oldRoomId: number;
+    newRoomId: number;
+    priceDifference: number;
+  };
+}
+
+export interface RoomChangeHistory {
+  id: number;
+  booking_id: number;
+  booking_item_id: number;
+  old_room_id: number;
+  new_room_id: number;
+  old_room_name: string;
+  new_room_name: string;
+  old_room_type_id: number;
+  new_room_type_id: number;
+  old_room_type_name: string;
+  new_room_type_name: string;
+  change_reason: string;
+  price_difference: number;
+  changed_by: number;
+  changed_by_email: string;
+  changed_at: string;
+  status: string;
+}
+
+/**
+ * Đổi phòng cho một booking item
+ */
+export const changeRoom = async (
+  bookingId: number,
+  data: ChangeRoomRequest
+): Promise<ChangeRoomResponse> => {
+  const response = await instance.post(
+    `/bookings/${bookingId}/change-room`,
+    data
+  );
+  return response.data;
+};
+
+/**
+ * Lấy lịch sử đổi phòng
+ */
+export const getRoomChangeHistory = async (
+  bookingId: number
+): Promise<RoomChangeHistory[]> => {
+  const response = await instance.get(
+    `/bookings/${bookingId}/room-change-history`
+  );
+  return response.data.data;
+};
 
 export const createBooking = async (bookingData: Booking): Promise<Booking> => {
   const { data } = await instance.post("/bookings", bookingData);

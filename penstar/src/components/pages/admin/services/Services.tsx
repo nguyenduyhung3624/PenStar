@@ -17,7 +17,7 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import type { Services } from "@/types/services";
 import { getServices, deleteService } from "@/services/servicesApi";
 
-const Services = () => {
+const ServiceList = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -243,4 +243,4 @@ const Services = () => {
   );
 };
 
-export default Services;
+export default ServiceList;
