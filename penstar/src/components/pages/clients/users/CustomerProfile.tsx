@@ -1,6 +1,22 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from "react";
-import { Card, Form, Input, Button, message, Space, Typography, Divider, Tag } from "antd";
-import { UserOutlined, MailOutlined, PhoneOutlined, SaveOutlined } from "@ant-design/icons";
+import {
+  Card,
+  Form,
+  Input,
+  Button,
+  message,
+  Space,
+  Typography,
+  Divider,
+  Tag,
+} from "antd";
+import {
+  UserOutlined,
+  MailOutlined,
+  PhoneOutlined,
+  SaveOutlined,
+} from "@ant-design/icons";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getCurrentUser, updateUser } from "@/services/usersApi";
 import useAuth from "@/hooks/useAuth";
@@ -44,7 +60,9 @@ const CustomerProfile: React.FC = () => {
       }
     },
     onError: (error: any) => {
-      message.error(error?.response?.data?.message || "Cập nhật thông tin thất bại");
+      message.error(
+        error?.response?.data?.message || "Cập nhật thông tin thất bại"
+      );
     },
   });
 
@@ -123,7 +141,11 @@ const CustomerProfile: React.FC = () => {
                 </div>
               </div>
               {!isEditing && (
-                <Button type="primary" icon={<SaveOutlined />} onClick={handleEdit}>
+                <Button
+                  type="primary"
+                  icon={<SaveOutlined />}
+                  onClick={handleEdit}
+                >
                   Chỉnh sửa
                 </Button>
               )}
@@ -157,10 +179,7 @@ const CustomerProfile: React.FC = () => {
                 />
               </Form.Item>
 
-              <Form.Item
-                label="Email"
-                name="email"
-              >
+              <Form.Item label="Email" name="email">
                 <Input
                   prefix={<MailOutlined />}
                   placeholder="Email"
@@ -213,7 +232,9 @@ const CustomerProfile: React.FC = () => {
                 <Text strong className="text-gray-600">
                   Họ và tên:
                 </Text>
-                <div className="mt-1 text-lg">{user.full_name || "Chưa cập nhật"}</div>
+                <div className="mt-1 text-lg">
+                  {user.full_name || "Chưa cập nhật"}
+                </div>
               </div>
               <Divider />
               <div>
@@ -241,7 +262,9 @@ const CustomerProfile: React.FC = () => {
                   Vai trò:
                 </Text>
                 <div className="mt-1">
-                  <Tag color="blue">{user.role_name || user.role || "Customer"}</Tag>
+                  <Tag color="blue">
+                    {user.role_name || user.role || "Customer"}
+                  </Tag>
                 </div>
               </div>
               {user.created_at && (
@@ -295,4 +318,3 @@ const CustomerProfile: React.FC = () => {
 };
 
 export default CustomerProfile;
-
