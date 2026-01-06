@@ -13,7 +13,6 @@ import RoomTypeEdit from "@/components/pages/admin/roomtypes/RoomTypeEdit";
 import FloorList from "@/components/pages/admin/floors/FloorList";
 import FloorAdd from "@/components/pages/admin/floors/FloorAdd";
 import FloorEdit from "@/components/pages/admin/floors/FloorEdit";
-import ServicesPage from "@/components/pages/admin/services/Services";
 import ServiceAdd from "@/components/pages/admin/services/ServiceAdd";
 import ServiceEdit from "@/components/pages/admin/services/ServiceEdit";
 import { Route, Routes } from "react-router-dom";
@@ -42,10 +41,10 @@ import EquipmentCreate from "@/components/pages/admin/equipments/EquipmentCreate
 import EquipmentImport from "@/components/pages/admin/equipments/EquipmentImport";
 import RoomDeviceEdit from "@/components/pages/admin/equipments/RoomDeviceEdit";
 import RoomDeviceCreate from "@/components/pages/admin/equipments/RoomDeviceCreate";
-import RoomDeviceTransfer from "@/components/pages/admin/equipments/RoomDeviceTransfer";
 import EquipmentLogHistory from "@/components/pages/admin/equipments/EquipmentLogHistory";
 import EditDiscount from "@/components/pages/admin/discounts/EditDiscount";
 import DeviceStandardAdmin from "@/components/pages/admin/equipments/DeviceStandardAdmin";
+import ServiceList from "@/components/pages/admin/services/Services";
 
 const AppRouter = () => {
   return (
@@ -105,7 +104,7 @@ const AppRouter = () => {
         <Route
           path="admin"
           element={
-            <RequireRole role="staff">
+            <RequireRole role="staff, admin">
               <LayoutAdmin />
             </RequireRole>
           }
@@ -129,7 +128,7 @@ const AppRouter = () => {
           <Route path="floors" element={<FloorList />} />
           <Route path="floors/new" element={<FloorAdd />} />
           <Route path="floors/:id/edit" element={<FloorEdit />} />
-          <Route path="services" element={<ServicesPage />} />
+          <Route path="services" element={<ServiceList />} />
           <Route path="services/new" element={<ServiceAdd />} />
           <Route path="services/:id/edit" element={<ServiceEdit />} />
           <Route path="equipments" element={<EquipmentListUnified />} />
@@ -160,10 +159,6 @@ const AppRouter = () => {
             }
           />
           <Route path="room-devices/:id/edit" element={<RoomDeviceEdit />} />
-          <Route
-            path="room-devices/:id/transfer"
-            element={<RoomDeviceTransfer />}
-          />
 
           {/* Discount codes management - Staff+ */}
           <Route path="discount-codes" element={<DiscountList />} />
