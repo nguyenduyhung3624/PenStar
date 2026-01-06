@@ -1,7 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { Button, Spin, Tag, message, Modal, Table } from "antd";
 import { cancelBooking, getBookingById } from "@/services/bookingsApi";
+import { getBookingIncidents } from "@/services/bookingIncidentsApi";
 import type { Booking, BookingService } from "@/types/bookings";
 import { getServiceById } from "@/services/servicesApi";
 import dayjs from "@/utils/dayjs";
@@ -25,17 +27,30 @@ const BookingSuccess: React.FC = () => {
   const [services, setServices] = React.useState<
     Record<number, { name: string; price: number }>
   >({});
+  // 2. Thêm state lưu sự cố
+  const [incidents, setIncidents] = React.useState<any[]>([]);
 
   const fetchBooking = React.useCallback(async () => {
     if (!id) return;
     setLoading(true);
     try {
-      const data = await getBookingById(Number(id));
-      setBooking(data);
-      if (Array.isArray(data.services) && data.services.length > 0) {
+      // Gọi song song cả thông tin booking và sự cố
+      const [bookingData, incidentsData] = await Promise.all([
+        getBookingById(Number(id)),
+        getBookingIncidents(Number(id)).catch(() => []), // Nếu lỗi lấy sự cố thì trả về mảng rỗng
+      ]);
+
+      setBooking(bookingData);
+      setIncidents(incidentsData);
+
+      // Xử lý lấy tên dịch vụ (giữ nguyên logic cũ)
+      if (
+        Array.isArray(bookingData.services) &&
+        bookingData.services.length > 0
+      ) {
         const serviceIds = Array.from(
           new Set(
-            data.services
+            bookingData.services
               .map((s: { service_id?: number }) => s.service_id)
               .filter((id): id is number => id != null)
           )
@@ -145,8 +160,9 @@ const BookingSuccess: React.FC = () => {
     ? booking!.items.reduce((sum, item) => sum + (item.num_children || 0), 0)
     : 0;
 
-  // Table data cho chi tiết phí
+  // 3. Cập nhật tableData để bao gồm cả incidents
   const tableData = [
+    // --- Tiền phòng ---
     ...(booking?.items?.map((item, idx) => ({
       key: `room-${idx}`,
       description: `Phòng ${idx + 1}${item.room_type_name ? ` - ${item.room_type_name}` : ""}`,
@@ -154,12 +170,14 @@ const BookingSuccess: React.FC = () => {
       quantity: nights,
       amount: item.room_type_price || item.room_price || 0,
     })) || []),
+
+    // --- Phụ phí người lớn/trẻ em ---
     ...(booking?.items?.flatMap((item, idx) => {
       const extras = [];
       if ((item.extra_adult_fees ?? 0) > 0) {
         extras.push({
           key: `extra-adult-${idx}`,
-          description: `  ↳ Phụ phí người lớn (${item.extra_adults_count || 0} người)`,
+          description: `  ↳ Phụ phí người lớn (${item.num_adults || 0} người)`,
           unitCost: null,
           quantity: null,
           amount: item.extra_adult_fees || 0,
@@ -168,7 +186,7 @@ const BookingSuccess: React.FC = () => {
       if ((item.extra_child_fees ?? 0) > 0) {
         extras.push({
           key: `extra-child-${idx}`,
-          description: `  ↳ Phụ phí trẻ em (${item.extra_children_count || 0} trẻ)`,
+          description: `  ↳ Phụ phí trẻ em (${item.num_children || 0} trẻ)`,
           unitCost: null,
           quantity: null,
           amount: item.extra_child_fees || 0,
@@ -176,12 +194,24 @@ const BookingSuccess: React.FC = () => {
       }
       return extras;
     }) || []),
+
+    // --- Dịch vụ ---
     ...(booking?.services?.map((s: BookingService, idx: number) => ({
       key: `service-${idx}`,
       description: services[s.service_id]?.name || `Dịch vụ #${s.service_id}`,
       unitCost: services[s.service_id]?.price || 0,
       quantity: s.quantity,
       amount: s.total_service_price,
+    })) || []),
+
+    // --- SỰ CỐ / ĐỀN BÙ (MỚI THÊM) ---
+    ...(incidents.map((inc, idx) => ({
+      key: `incident-${idx}`,
+      description: `⚠️ Đền bù: ${inc.equipment_name} (${inc.room_name || "Phòng " + inc.room_id})`,
+      unitCost: inc.compensation_price || 0,
+      quantity: inc.quantity,
+      amount: inc.amount,
+      isIncident: true, // Flag để style màu đỏ
     })) || []),
   ];
 
@@ -191,6 +221,11 @@ const BookingSuccess: React.FC = () => {
       dataIndex: "description",
       key: "description",
       className: "text-left",
+      render: (text: string, record: any) => (
+        <span className={record.isIncident ? "text-red-600 font-medium" : ""}>
+          {text}
+        </span>
+      ),
     },
     {
       title: "ĐƠN GIÁ",
@@ -198,15 +233,14 @@ const BookingSuccess: React.FC = () => {
       key: "unitCost",
       width: 120,
       className: "text-right",
-      render: (v: number | null) => (v != null ? `${fmtPrice(v)} ₫` : ""),
-    },
-    {
-      title: "SỐ LƯỢNG",
-      dataIndex: "quantity",
-      key: "quantity",
-      width: 100,
-      className: "text-center",
-      render: (v: number | null) => v ?? "",
+      render: (v: number | null, record: any) =>
+        v != null ? (
+          <span className={record.isIncident ? "text-red-600" : ""}>
+            {fmtPrice(v)} ₫
+          </span>
+        ) : (
+          ""
+        ),
     },
     {
       title: "THÀNH TIỀN",
@@ -214,7 +248,11 @@ const BookingSuccess: React.FC = () => {
       key: "amount",
       width: 140,
       className: "text-right font-medium",
-      render: (v: number) => `${fmtPrice(v)} ₫`,
+      render: (v: number, record: any) => (
+        <span className={record.isIncident ? "text-red-600" : ""}>
+          {fmtPrice(v)} ₫
+        </span>
+      ),
     },
   ];
 
@@ -388,9 +426,6 @@ const BookingSuccess: React.FC = () => {
               pagination={false}
               size="small"
               className="border rounded-lg overflow-hidden mb-6"
-              rowClassName={(record) =>
-                record.key.startsWith("extra") ? "bg-gray-50 text-sm" : ""
-              }
             />
 
             {/* Totals */}
@@ -469,7 +504,7 @@ const BookingSuccess: React.FC = () => {
           {/* Footer Actions */}
           <div className="bg-gray-50 px-8 py-4 flex justify-between items-center border-t">
             <div className="text-xs text-gray-400">
-              Check-in: 14:00 • Check-out: 12:00
+              Check-in: 14:00 • Check-out: 14:00
             </div>
             <div className="flex gap-3">
               {canCancel && (

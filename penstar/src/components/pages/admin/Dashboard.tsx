@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery } from "@tanstack/react-query";
 import { getStatistics } from "@/services/statisticsApi";
-import { Spin, DatePicker } from "antd"; // Chỉ giữ lại DatePicker vì xử lý lịch khá phức tạp
+import { Spin, DatePicker } from "antd";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import {
@@ -25,7 +25,7 @@ import {
   FaUserClock,
   FaArrowUp,
   FaConciergeBell,
-} from "react-icons/fa"; // Cài thêm: npm install react-icons
+} from "react-icons/fa";
 
 const { RangePicker } = DatePicker;
 
@@ -47,6 +47,9 @@ const Dashboard = () => {
         dateRange[0].format("YYYY-MM-DD"),
         dateRange[1].format("YYYY-MM-DD")
       ),
+    // ✅ FIX: Tự động refetch khi quay lại trang này
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   const formatVND = (value: number) =>
@@ -66,7 +69,10 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6 font-sans text-gray-800">
-      {/* --- HEADER --- */}
+      {/* ... (Phần Header và KPI Stats giữ nguyên) ... */}
+
+      {/* Chỉ cần copy đè đoạn useQuery ở trên là được, phần giao diện bên dưới giữ nguyên */}
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
@@ -90,7 +96,6 @@ const Dashboard = () => {
 
       {/* --- KPI STATS GRID --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* Doanh thu */}
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
           <div>
             <p className="text-gray-500 text-sm font-medium mb-1">
@@ -105,7 +110,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Booking */}
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
           <div>
             <p className="text-gray-500 text-sm font-medium mb-1">
@@ -120,7 +124,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Lấp đầy */}
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
           <div>
             <p className="text-gray-500 text-sm font-medium mb-1">
@@ -135,7 +138,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Chờ duyệt */}
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
           <div>
             <p className="text-gray-500 text-sm font-medium mb-1">
@@ -153,7 +155,6 @@ const Dashboard = () => {
 
       {/* --- STATUS & CHARTS SECTION --- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Cột trái: Trạng thái phòng (Realtime) */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
             <FaConciergeBell className="text-gray-400" /> Trạng thái phòng hiện
@@ -195,7 +196,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Cột phải: Biểu đồ doanh thu (Chiếm 2/3) */}
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
             <FaArrowUp className="text-emerald-500 rotate-45" /> Xu hướng doanh
@@ -261,7 +261,6 @@ const Dashboard = () => {
 
       {/* --- TABLES SECTION --- */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Booking Table (Chiếm 2/3) */}
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="p-5 border-b border-gray-100">
             <h3 className="font-bold text-gray-800">Booking mới nhất</h3>
@@ -326,9 +325,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Damage Table / Payment Pie Chart */}
         <div className="flex flex-col gap-6">
-          {/* Biểu đồ tròn nhỏ */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
             <h3 className="font-bold text-gray-800 mb-4 text-sm">
               Phương thức thanh toán
@@ -374,7 +371,6 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Sự cố thiết bị */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex-1">
             <div className="p-4 border-b border-gray-100 bg-red-50">
               <h3 className="font-bold text-red-700 text-sm">
@@ -394,6 +390,15 @@ const Dashboard = () => {
                       </td>
                     </tr>
                   ))}
+                  {/* Handle empty case if needed */}
+                  {(!stats?.recentDamage ||
+                    stats.recentDamage.length === 0) && (
+                    <tr>
+                      <td colSpan={2} className="p-4 text-center text-gray-400">
+                        Không có sự cố nào
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -404,7 +409,6 @@ const Dashboard = () => {
   );
 };
 
-// Component con để hiển thị thanh trạng thái
 const StatusItem = ({
   label,
   count,

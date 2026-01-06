@@ -246,15 +246,6 @@ const EquipmentListUnified = () => {
           >
             Sửa tồn kho
           </Button>
-          <Button
-            size="small"
-            style={{ minWidth: 90 }}
-            onClick={() =>
-              navigate(`/admin/room-devices/${record.id}/transfer`)
-            }
-          >
-            Điều chuyển
-          </Button>
           {record.is_broken && (
             <Button
               size="small"

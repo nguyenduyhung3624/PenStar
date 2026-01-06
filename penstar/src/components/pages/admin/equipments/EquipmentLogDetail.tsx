@@ -107,9 +107,9 @@ const EquipmentLogDetail = () => {
       ["create_master", "import", "create"].includes(log?.action),
   });
 
-  // Nếu là thêm vào phòng thì lấy thêm thông tin phòng
+  // Luôn cố gắng lấy roomId từ log.note nếu có định dạng ID: xxx
   let roomId: number | null = null;
-  if (log?.action === "create" && log?.note) {
+  if (log?.note) {
     const match = log.note.match(/ID: (\d+)/);
     roomId = match ? Number(match[1]) : null;
   }
@@ -143,7 +143,7 @@ const EquipmentLogDetail = () => {
         typeof masterEquipment === "object"
           ? renderMasterTable(masterEquipment as Record<string, any>)
           : null}
-        {log.action === "create" && room && typeof room === "object"
+        {room && typeof room === "object"
           ? renderRoomTable(
               room as Record<string, any>,
               roomTypes.find((rt: any) => rt.id === room.type_id)?.name ||
