@@ -38,6 +38,7 @@ import usersRouter from "./routers/users.js";
 
 // Constants
 import { ERROR_MESSAGES } from "./utils/constants.js";
+import { corsOptions } from "./utils/cors.js";
 
 // __dirname for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -51,12 +52,7 @@ const PORT = process.env.PORT || 3001;
 // ============================================================================
 
 // CORS
-app.use(
-  cors({
-    origin: [process.env.CORS_ORIGIN, "http://localhost:5173"],
-    credentials: true,
-  })
-);
+app.use(cors(corsOptions));
 
 // Body parsers
 app.use(express.json({ limit: "10mb" }));
