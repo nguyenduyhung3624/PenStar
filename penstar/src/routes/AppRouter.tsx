@@ -104,7 +104,7 @@ const AppRouter = () => {
         <Route
           path="admin"
           element={
-            <RequireRole role="staff, admin">
+            <RequireRole role="staff">
               <LayoutAdmin />
             </RequireRole>
           }
