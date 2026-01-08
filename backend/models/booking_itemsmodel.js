@@ -63,3 +63,61 @@ export const deleteBookingItem = async (id) => {
   );
   return res.rows[0];
 };
+
+/**
+ * Get all booking items for a booking
+ */
+export const getByBookingId = async (bookingId) => {
+  const res = await pool.query(
+    `SELECT bi.*,
+            r.name as room_name,
+            rt.name as room_type_name,
+            rt.price as room_type_price_base
+     FROM booking_items bi
+     LEFT JOIN rooms r ON bi.room_id = r.id
+     LEFT JOIN room_types rt ON bi.room_type_id = rt.id
+     WHERE bi.booking_id = $1
+     ORDER BY bi.id`,
+    [bookingId]
+  );
+  return res.rows;
+};
+
+/**
+ * Cancel a booking item (room)
+ */
+export const cancelBookingItem = async (id, cancelReason = null) => {
+  const res = await pool.query(
+    `UPDATE booking_items
+     SET status = 'cancelled',
+         cancelled_at = NOW(),
+         cancel_reason = $2
+     WHERE id = $1
+     RETURNING *`,
+    [id, cancelReason]
+  );
+  return res.rows[0];
+};
+
+/**
+ * Update booking item status
+ */
+export const updateItemStatus = async (id, status) => {
+  const res = await pool.query(
+    `UPDATE booking_items SET status = $2 WHERE id = $1 RETURNING *`,
+    [id, status]
+  );
+  return res.rows[0];
+};
+
+/**
+ * Check if booking has any active items
+ */
+export const hasActiveItems = async (bookingId) => {
+  const res = await pool.query(
+    `SELECT COUNT(*) as count FROM booking_items
+     WHERE booking_id = $1 AND status = 'active'`,
+    [bookingId]
+  );
+  return parseInt(res.rows[0].count) > 0;
+};
