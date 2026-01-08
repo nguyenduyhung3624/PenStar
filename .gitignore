@@ -9,3 +9,4 @@ sql/
 /.hintrc
 GEMINI.md
 *.md
+*.sh

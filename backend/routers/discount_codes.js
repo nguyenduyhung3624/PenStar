@@ -8,6 +8,9 @@ const router = express.Router();
 router.post("/check", optionalAuth, DiscountCodesController.checkCode);
 router.get("/suggest", optionalAuth, DiscountCodesController.suggestForBooking);
 
+// Apply code (requires login to track usage)
+router.post("/apply", requireAuth, DiscountCodesController.applyCode);
+
 // Protected routes - yêu cầu manager trở lên
 router.post(
   "/add",
@@ -26,6 +29,12 @@ router.get(
   requireAuth,
   requireRole("staff"),
   DiscountCodesController.findById
+);
+router.get(
+  "/id/:id/usage-history",
+  requireAuth,
+  requireRole("staff"),
+  DiscountCodesController.getUsageHistory
 );
 router.put(
   "/:id",
