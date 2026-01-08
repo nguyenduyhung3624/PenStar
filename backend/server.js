@@ -35,6 +35,7 @@ import servicesRouter from "./routers/services.js";
 import statisticsRouter from "./routers/statistics.js";
 import stayStatusRouter from "./routers/stay_status.js";
 import usersRouter from "./routers/users.js";
+import voucherRouter from "./routers/voucher.js";
 
 // Constants
 import { ERROR_MESSAGES } from "./utils/constants.js";
@@ -104,8 +105,9 @@ app.use("/api/master-equipments", masterEquipmentsRouter);
 app.use("/api/room-devices", roomDevicesRouter);
 app.use("/api/equipment-stock-logs", equipmentStockLogsRouter);
 
-// Discount Codes
+// Discount Codes & Vouchers
 app.use("/api/discount-codes", discountCodesRouter);
+app.use("/api/voucher", voucherRouter);
 
 // Payment
 app.use("/api/payment", paymentRouter);

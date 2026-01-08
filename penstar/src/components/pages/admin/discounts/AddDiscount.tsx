@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   Form,
   Input,
@@ -10,134 +10,418 @@ import {
   Card,
   Row,
   Col,
+  Radio,
+  Switch,
 } from "antd";
 import { useNavigate } from "react-router-dom";
-import { addDiscountCode } from "@/services/discountApi";
+import { useMutation } from "@tanstack/react-query";
+import {
+  createVoucher,
+  type VoucherCreatePayload,
+} from "@/services/voucherApi";
+import { genCode } from "@/utils/genCode";
+import dayjs from "dayjs";
+
+enum DiscountType {
+  Percentage = "percent",
+  Fixed = "fixed",
+}
 
 const AddDiscount: React.FC = () => {
   const [form] = Form.useForm();
   const navigate = useNavigate();
+  const [discountType, setDiscountType] = useState<DiscountType>(
+    DiscountType.Percentage
+  );
 
-  const onFinish = async (values: any) => {
-    try {
-      const payload = {
-        code: values.code,
-        type: values.type || "percent", // mặc định là percent
-        value: values.discount_percent, // map đúng trường backend
-        min_total: values.min_total || 0,
-        max_uses: values.max_uses || 1,
-        max_uses_per_user: values.max_uses_per_user || 1,
-        start_date: values.start_date
-          ? values.start_date.format("YYYY-MM-DD")
-          : null,
-        end_date: values.end_date ? values.end_date.format("YYYY-MM-DD") : null,
-        status: "active",
-        description: values.description || "",
-      };
-      await addDiscountCode(payload);
-      message.success("Thêm mã giảm giá thành công!");
+  // Auto-generate voucher code on mount
+  useEffect(() => {
+    const code = genCode("VC");
+    form.setFieldsValue({ code });
+  }, [form]);
+
+  const mutation = useMutation({
+    mutationFn: createVoucher,
+    onSuccess: () => {
+      message.success("Thêm voucher thành công!");
       navigate("/admin/discount-codes");
-    } catch (error: any) {
+    },
+    onError: (error: any) => {
       message.error(error?.response?.data?.message || "Có lỗi xảy ra!");
+    },
+  });
+
+  const handleDiscountTypeChange = (e: any) => {
+    setDiscountType(e.target.value);
+    // Reset related fields when type changes
+    if (e.target.value === DiscountType.Fixed) {
+      form.setFieldsValue({ max_discount_amount: 0 });
     }
+  };
+
+  const onFinish = (values: any) => {
+    const payload: VoucherCreatePayload = {
+      code: values.code?.toUpperCase(),
+      name: values.name,
+      type: values.type || DiscountType.Percentage,
+      value: values.value,
+      min_total: values.min_total || 0,
+      max_uses: values.max_uses || 1,
+      max_uses_per_user: values.max_uses_per_user || 1,
+      max_discount_amount:
+        values.type === DiscountType.Percentage
+          ? values.max_discount_amount || 0
+          : 0,
+      start_date: values.start_date?.format("YYYY-MM-DD") || null,
+      end_date: values.end_date?.format("YYYY-MM-DD") || null,
+      status: values.status ? "active" : "inactive",
+      description: values.description || "",
+    };
+    mutation.mutate(payload);
   };
 
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold mb-4">THÊM MÃ GIẢM GIÁ</h2>
+        <h2 className="text-2xl font-bold">TẠO VOUCHER MỚI</h2>
         <Button onClick={() => navigate("/admin/discount-codes")}>
           Quay lại
         </Button>
       </div>
-      <Card style={{ maxWidth: 600, margin: "0 auto" }}>
-        <Form form={form} layout="vertical" onFinish={onFinish}>
+
+      <Form
+        form={form}
+        layout="vertical"
+        onFinish={onFinish}
+        initialValues={{
+          type: DiscountType.Percentage,
+          status: true,
+          max_discount_amount: 0,
+        }}
+        className="flex flex-col gap-4"
+      >
+        {/* Thông tin voucher */}
+        <Card title="Thông tin voucher">
           <Row gutter={24}>
-            <Col span={24}>
+            <Col span={12}>
+              <Form.Item
+                name="name"
+                label="Tên Voucher"
+                rules={[
+                  { required: true, message: "Vui lòng nhập tên voucher!" },
+                ]}
+              >
+                <Input size="large" placeholder="VD: Giảm giá mùa hè" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
               <Form.Item
                 name="code"
-                label="Mã giảm giá"
-                rules={[{ required: true, message: "Nhập mã giảm giá" }]}
+                label="Mã Voucher (tự động)"
+                rules={[
+                  { required: true, message: "Vui lòng nhập mã voucher!" },
+                ]}
               >
-                <Input placeholder="Nhập mã giảm giá" />
+                <Input
+                  size="large"
+                  disabled
+                  style={{
+                    textTransform: "uppercase",
+                    backgroundColor: "#f5f5f5",
+                  }}
+                />
               </Form.Item>
             </Col>
             <Col span={24}>
               <Form.Item name="description" label="Mô tả">
-                <Input placeholder="Mô tả ngắn về mã giảm giá" />
+                <Input.TextArea rows={2} placeholder="Mô tả ngắn về voucher" />
               </Form.Item>
             </Col>
+            <Col span={24}>
+              <Form.Item
+                name="type"
+                label="Loại giảm giá"
+                rules={[
+                  { required: true, message: "Vui lòng chọn loại giảm giá!" },
+                ]}
+              >
+                <Radio.Group onChange={handleDiscountTypeChange}>
+                  <Radio value={DiscountType.Percentage}>
+                    Giảm giá theo phần trăm
+                  </Radio>
+                  <Radio value={DiscountType.Fixed}>Giảm giá cố định</Radio>
+                </Radio.Group>
+              </Form.Item>
+            </Col>
+
+            {discountType === DiscountType.Percentage ? (
+              <Col span={12}>
+                <Form.Item
+                  name="value"
+                  label="Phần trăm giảm giá (%)"
+                  rules={[
+                    {
+                      required: true,
+                      message: "Vui lòng nhập giá trị giảm giá!",
+                    },
+                    {
+                      type: "number",
+                      min: 1,
+                      max: 100,
+                      message: "Phần trăm phải từ 1-100!",
+                    },
+                  ]}
+                >
+                  <InputNumber
+                    size="large"
+                    style={{ width: "100%" }}
+                    placeholder="Nhập % giảm giá"
+                    min={1}
+                    max={100}
+                  />
+                </Form.Item>
+              </Col>
+            ) : (
+              <Col span={12}>
+                <Form.Item
+                  name="value"
+                  label="Giá trị giảm giá (VND)"
+                  rules={[
+                    {
+                      required: true,
+                      message: "Vui lòng nhập giá trị giảm giá!",
+                    },
+                  ]}
+                >
+                  <InputNumber
+                    size="large"
+                    style={{ width: "100%" }}
+                    placeholder="Nhập giá trị giảm giá"
+                    min={1000}
+                    formatter={(value) =>
+                      `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                    }
+                    parser={(value) =>
+                      value!.replace(/\$\s?|(,*)/g, "") as unknown as number
+                    }
+                  />
+                </Form.Item>
+              </Col>
+            )}
+
+            {discountType === DiscountType.Percentage && (
+              <Col span={12}>
+                <Form.Item
+                  name="max_discount_amount"
+                  label="Giảm giá tối đa (VND)"
+                  rules={[
+                    {
+                      required: true,
+                      message: "Vui lòng nhập giá trị giảm giá tối đa!",
+                    },
+                  ]}
+                >
+                  <InputNumber
+                    size="large"
+                    style={{ width: "100%" }}
+                    placeholder="Nhập giá trị giảm giá tối đa"
+                    min={0}
+                    formatter={(value) =>
+                      `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                    }
+                    parser={(value) =>
+                      value!.replace(/\$\s?|(,*)/g, "") as unknown as number
+                    }
+                  />
+                </Form.Item>
+              </Col>
+            )}
+
             <Col span={12}>
               <Form.Item
-                name="discount_percent"
-                label="Phần trăm giảm (%)"
-                rules={[{ required: true, message: "Nhập phần trăm giảm" }]}
+                name="min_total"
+                label="Giá trị đơn hàng tối thiểu"
+                rules={[
+                  {
+                    required: true,
+                    message: "Vui lòng nhập giá trị đơn hàng tối thiểu!",
+                  },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      if (
+                        !value ||
+                        discountType === DiscountType.Percentage ||
+                        value > getFieldValue("value")
+                      ) {
+                        return Promise.resolve();
+                      }
+                      return Promise.reject(
+                        "Giá trị đơn hàng tối thiểu phải lớn hơn giá trị giảm giá"
+                      );
+                    },
+                  }),
+                ]}
               >
                 <InputNumber
-                  min={1}
-                  max={100}
+                  size="large"
                   style={{ width: "100%" }}
-                  placeholder="% giảm"
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="min_total" label="Giá trị tối thiểu đơn hàng">
-                <InputNumber
+                  placeholder="Nhập giá trị đơn hàng tối thiểu"
                   min={0}
-                  style={{ width: "100%" }}
-                  placeholder="Tối thiểu (VND)"
+                  formatter={(value) =>
+                    `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                  }
+                  parser={(value) =>
+                    value!.replace(/\$\s?|(,*)/g, "") as unknown as number
+                  }
                 />
               </Form.Item>
             </Col>
+
             <Col span={12}>
-              <Form.Item name="max_uses" label="Số lần sử dụng tối đa">
+              <Form.Item
+                name="max_uses"
+                label="Số lượng voucher"
+                rules={[
+                  {
+                    required: true,
+                    message: "Vui lòng nhập tổng số lượng voucher!",
+                  },
+                ]}
+              >
                 <InputNumber
-                  min={1}
+                  size="large"
                   style={{ width: "100%" }}
-                  placeholder="Tối đa lượt dùng"
+                  placeholder="Nhập số lượng cho voucher này"
+                  min={1}
+                  formatter={(value) =>
+                    `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                  }
+                  parser={(value) =>
+                    value!.replace(/\$\s?|(,*)/g, "") as unknown as number
+                  }
                 />
               </Form.Item>
             </Col>
+
             <Col span={12}>
-              <Form.Item name="max_uses_per_user" label="Tối đa/user">
+              <Form.Item
+                name="max_uses_per_user"
+                label="Số lượng dùng trên mỗi người"
+                rules={[
+                  {
+                    required: true,
+                    message: "Số lượng sử dụng tối thiểu là 1!",
+                  },
+                ]}
+              >
                 <InputNumber
+                  size="large"
+                  style={{ width: "100%" }}
+                  placeholder="Nhập số lượng tối đa mỗi người được dùng"
                   min={1}
-                  style={{ width: "100%" }}
-                  placeholder="Tối đa/user"
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="start_date" label="Ngày bắt đầu">
-                <DatePicker
-                  style={{ width: "100%" }}
-                  placeholder="Chọn ngày bắt đầu"
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="end_date" label="Ngày kết thúc">
-                <DatePicker
-                  style={{ width: "100%" }}
-                  placeholder="Chọn ngày kết thúc"
+                  formatter={(value) =>
+                    `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                  }
+                  parser={(value) =>
+                    value!.replace(/\$\s?|(,*)/g, "") as unknown as number
+                  }
                 />
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item style={{ textAlign: "right" }}>
-            <Button type="primary" htmlType="submit">
-              Thêm
-            </Button>
-            <Button
-              style={{ marginLeft: 8 }}
-              onClick={() => navigate("/admin/discount-codes")}
-            >
-              Huỷ
-            </Button>
+        </Card>
+
+        {/* Thời gian áp dụng */}
+        <Card title="Thời gian áp dụng">
+          <Row gutter={24}>
+            <Col span={12}>
+              <Form.Item
+                name="start_date"
+                label="Ngày bắt đầu"
+                rules={[
+                  { required: true, message: "Vui lòng chọn ngày bắt đầu!" },
+                  {
+                    validator: (_, value) => {
+                      if (value && value.isBefore(dayjs().startOf("day"))) {
+                        return Promise.reject(
+                          "Ngày bắt đầu phải lớn hơn hoặc bằng ngày hiện tại"
+                        );
+                      }
+                      return Promise.resolve();
+                    },
+                  },
+                ]}
+              >
+                <DatePicker
+                  size="large"
+                  style={{ width: "100%" }}
+                  placeholder="Chọn ngày bắt đầu"
+                  disabledDate={(current) =>
+                    current && current < dayjs().startOf("day")
+                  }
+                />
+              </Form.Item>
+            </Col>
+
+            <Col span={12}>
+              <Form.Item
+                name="end_date"
+                label="Ngày kết thúc"
+                rules={[
+                  { required: true, message: "Vui lòng chọn ngày kết thúc!" },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      if (
+                        !value ||
+                        value.isAfter(getFieldValue("start_date"))
+                      ) {
+                        return Promise.resolve();
+                      }
+                      return Promise.reject(
+                        "Ngày kết thúc phải lớn hơn ngày bắt đầu"
+                      );
+                    },
+                  }),
+                ]}
+              >
+                <DatePicker
+                  size="large"
+                  style={{ width: "100%" }}
+                  placeholder="Chọn ngày kết thúc"
+                  disabledDate={(current) =>
+                    current && current < dayjs().startOf("day")
+                  }
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Card>
+
+        {/* Cài đặt voucher */}
+        <Card title="Cài đặt voucher">
+          <Form.Item name="status" label="Công khai" valuePropName="checked">
+            <Switch />
           </Form.Item>
-        </Form>
-      </Card>
+        </Card>
+
+        {/* Submit buttons */}
+        <div className="flex gap-2">
+          <Button
+            type="primary"
+            htmlType="submit"
+            loading={mutation.isPending}
+            size="large"
+          >
+            Tạo mới
+          </Button>
+          <Button
+            size="large"
+            onClick={() => navigate("/admin/discount-codes")}
+          >
+            Huỷ
+          </Button>
+        </div>
+      </Form>
     </div>
   );
 };
