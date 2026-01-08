@@ -10,4 +10,5 @@ sql/
 GEMINI.md
 *.md
 *.sh
+*.DS_Store
 .DS_Store
