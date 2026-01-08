@@ -10,7 +10,7 @@ export const confirmCheckin = async (id, userId) => {
 
     // 1. Lấy tất cả items để kiểm tra từng phòng
     const itemsRes = await client.query(
-      `SELECT bi.room_id, bi.check_in 
+      `SELECT bi.room_id, bi.check_in
        FROM booking_items bi
        WHERE bi.booking_id = $1`,
       [id]
@@ -104,7 +104,7 @@ export const confirmCheckout = async (id, userId) => {
        FROM bookings b
        JOIN booking_items bi ON bi.booking_id = b.id
        WHERE b.id = $1
-       ORDER BY bi.check_out DESC 
+       ORDER BY bi.check_out DESC
        LIMIT 1`,
       [id]
     );
@@ -168,7 +168,7 @@ export const confirmCheckout = async (id, userId) => {
 
 export const getBookings = async () => {
   const resuit = await pool.query(
-    `SELECT b.*, ss.name as stay_status_name, u.email, u.phone, 
+    `SELECT b.*, ss.name as stay_status_name, u.email, u.phone,
             checked_in_user.email as checked_in_by_email, checked_out_user.email as checked_out_by_email
      FROM bookings b
      LEFT JOIN stay_status ss ON ss.id = b.stay_status_id
@@ -182,7 +182,7 @@ export const getBookings = async () => {
 
 export const getBookingById = async (id) => {
   const resuit = await pool.query(
-    `SELECT b.*, ss.name as stay_status_name, u.email, u.phone, 
+    `SELECT b.*, ss.name as stay_status_name, u.email, u.phone,
             checked_in_user.email as checked_in_by_email, checked_out_user.email as checked_out_by_email
      FROM bookings b
      LEFT JOIN stay_status ss ON ss.id = b.stay_status_id
@@ -308,7 +308,7 @@ export const createBooking = async (data) => {
            WHERE bi.room_id = $1
              AND b.stay_status_id IN (1, 2, 6)
              AND NOT (
-               bi.check_out::date <= $2::date 
+               bi.check_out::date <= $2::date
                OR bi.check_in::date >= $3::date
              )
            FOR UPDATE`,
@@ -509,7 +509,7 @@ export const cancelBooking = async (
     await client.query("BEGIN");
 
     const bookingRes = await client.query(
-      `SELECT b.*, bi.check_in 
+      `SELECT b.*, bi.check_in
        FROM bookings b
        LEFT JOIN booking_items bi ON bi.booking_id = b.id
        WHERE b.id = $1
@@ -529,8 +529,13 @@ export const cancelBooking = async (
     const hoursUntilCheckIn = (checkInDate - now) / (1000 * 60 * 60);
 
     if (!isAdmin) {
-      if (currentStatus === 1) {
-      } else if (currentStatus === 0) {
+      // User can only cancel PENDING bookings (status 6)
+      if (currentStatus === 6) {
+        // OK - Pending booking can be cancelled
+      } else if (currentStatus === 1) {
+        throw new Error(
+          "Không thể hủy booking đã được xác nhận. Vui lòng liên hệ admin."
+        );
       } else if (currentStatus === 2) {
         throw new Error(
           "Không thể hủy khi đã check-in. Vui lòng liên hệ admin."
@@ -545,11 +550,15 @@ export const cancelBooking = async (
         throw new Error("Bạn không có quyền hủy booking này");
       }
     } else {
-      if (currentStatus === 0) {
-      } else if (currentStatus === 1) {
+      // Admin can cancel pending (6) and confirmed (1) bookings
+      if (currentStatus === 6 || currentStatus === 1) {
+        // OK - Admin can cancel
       } else if (currentStatus === 2) {
+        throw new Error("Không thể hủy booking đã check-in");
       } else if ([3, 4].includes(currentStatus)) {
         throw new Error("Booking đã hoàn tất hoặc đã bị hủy trước đó");
+      } else {
+        throw new Error("Không thể hủy booking ở trạng thái này");
       }
     }
 
@@ -597,7 +606,7 @@ export const cancelBooking = async (
     }
 
     await client.query(
-      `UPDATE bookings 
+      `UPDATE bookings
          SET stay_status_id = 4,
              cancel_reason = $2,
              canceled_by = $3,
@@ -618,7 +627,7 @@ export const cancelBooking = async (
     await client.query("COMMIT");
 
     const result = await client.query(
-      `SELECT b.*, ss.name as stay_status_name 
+      `SELECT b.*, ss.name as stay_status_name
        FROM bookings b
        LEFT JOIN stay_status ss ON ss.id = b.stay_status_id
        WHERE b.id = $1`,
