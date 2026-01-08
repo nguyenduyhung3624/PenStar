@@ -306,12 +306,24 @@ const AddDiscount: React.FC = () => {
             <Col span={12}>
               <Form.Item
                 name="max_uses_per_user"
-                label="Số lượng dùng trên mỗi người"
+                label="Số lượng dùng trên mỗi tài khoản"
+                dependencies={["max_uses"]}
                 rules={[
                   {
                     required: true,
                     message: "Số lượng sử dụng tối thiểu là 1!",
                   },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const maxUses = getFieldValue("max_uses");
+                      if (!value || !maxUses || value <= maxUses) {
+                        return Promise.resolve();
+                      }
+                      return Promise.reject(
+                        "Số lượng dùng trên mỗi tài khoản phải nhỏ hơn hoặc bằng số lượng voucher"
+                      );
+                    },
+                  }),
                 ]}
               >
                 <InputNumber
