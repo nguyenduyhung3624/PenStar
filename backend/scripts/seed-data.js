@@ -24,8 +24,8 @@ const CONFIG = {
   ROOMS_PER_TYPE: 5,
   SERVICES: 15,
   MASTER_EQUIPMENTS: 20,
-  BOOKINGS: 0,
-  BOOKING_SERVICES_PER_BOOKING: 0,
+  BOOKINGS: 20,
+  BOOKING_SERVICES_PER_BOOKING: 3,
   DISCOUNT_CODES: 10,
   FLOORS: 5,
 
@@ -573,6 +573,57 @@ async function seedRooms(roomTypeIds) {
   return roomIds;
 }
 
+async function seedRoomDevices(roomIds) {
+  console.log("🔌 Seeding room devices...");
+
+  // Get master equipment IDs
+  const equipmentResult = await pool.query(
+    "SELECT id, name, type FROM master_equipments ORDER BY id"
+  );
+  const equipments = equipmentResult.rows;
+
+  if (equipments.length === 0) {
+    console.log("⚠️  No master equipments found, skipping room devices");
+    return;
+  }
+
+  let deviceCount = 0;
+
+  for (const roomId of roomIds) {
+    // Each room gets 3-6 random devices
+    const numDevices = getRandomNumber(3, 6);
+    const selectedEquipments = faker.helpers.arrayElements(
+      equipments,
+      Math.min(numDevices, equipments.length)
+    );
+
+    for (const eq of selectedEquipments) {
+      await pool.query(
+        `INSERT INTO room_devices (master_equipment_id, device_name, device_type, status, room_id, quantity, note)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          eq.id,
+          `${eq.name} - Room ${roomId}`,
+          eq.type || "general",
+          getRandomElement([
+            "working",
+            "working",
+            "working",
+            "working",
+            "maintenance",
+          ]),
+          roomId,
+          getRandomNumber(1, 3),
+          faker.datatype.boolean() ? faker.lorem.sentence() : null,
+        ]
+      );
+      deviceCount++;
+    }
+  }
+
+  console.log(`✅ Created ${deviceCount} room devices`);
+}
+
 async function seedDiscountCodes() {
   console.log("🎫 Seeding discount codes...");
 
@@ -816,6 +867,7 @@ async function main() {
     await seedServices();
     const roomTypeIds = await seedRoomTypes();
     const roomIds = await seedRooms(roomTypeIds);
+    await seedRoomDevices(roomIds);
     await seedDiscountCodes();
     await seedBookings(roomIds);
 
