@@ -22,10 +22,10 @@ router.post(
   uploadImageForRoomType
 );
 
-// Public routes
+// Public routes - IMPORTANT: Specific routes must come before parameterized routes
 router.get("/", getAllRoomTypeImages);
+router.get("/roomtype/:roomTypeId", getImagesByRoomType); // Must be before /:id
 router.get("/:id", getRoomTypeImage);
-router.get("/roomtype/:roomTypeId", getImagesByRoomType);
 
 // Protected routes
 router.post("/", requireAuth, requireRole("staff"), createImage);
