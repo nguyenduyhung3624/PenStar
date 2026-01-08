@@ -584,7 +584,6 @@ async function seedDiscountCodes() {
       type: "percent",
       value: 20,
       max_discount_amount: 500000,
-      is_only_for_new_user: true,
       min_total: 1000000,
       max_uses: 1000,
       max_uses_per_user: 1,
@@ -595,7 +594,6 @@ async function seedDiscountCodes() {
       type: "percent",
       value: 30,
       max_discount_amount: 1000000,
-      is_only_for_new_user: false,
       min_total: 2000000,
       max_uses: 500,
       max_uses_per_user: 1,
@@ -606,7 +604,6 @@ async function seedDiscountCodes() {
       type: "fixed",
       value: 500000,
       max_discount_amount: 0,
-      is_only_for_new_user: false,
       min_total: 2000000,
       max_uses: 200,
       max_uses_per_user: 2,
@@ -617,7 +614,6 @@ async function seedDiscountCodes() {
       type: "percent",
       value: 15,
       max_discount_amount: 800000,
-      is_only_for_new_user: false,
       min_total: 500000,
       max_uses: 9999,
       max_uses_per_user: 10,
@@ -628,7 +624,6 @@ async function seedDiscountCodes() {
       type: "percent",
       value: 25,
       max_discount_amount: 600000,
-      is_only_for_new_user: false,
       min_total: 1500000,
       max_uses: 50,
       max_uses_per_user: 1,
@@ -640,8 +635,8 @@ async function seedDiscountCodes() {
     await pool.query(
       `INSERT INTO discount_codes (
         name, code, type, value, min_total, max_uses, max_uses_per_user,
-        max_discount_amount, is_only_for_new_user, start_date, end_date, status, description
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+        max_discount_amount, start_date, end_date, status, description
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
       [
         v.name,
         v.code,
@@ -651,7 +646,6 @@ async function seedDiscountCodes() {
         v.max_uses,
         v.max_uses_per_user,
         v.max_discount_amount,
-        v.is_only_for_new_user,
         faker.date.past(),
         faker.date.future({ years: 1 }),
         "active",
@@ -674,8 +668,8 @@ async function seedDiscountCodes() {
     await pool.query(
       `INSERT INTO discount_codes (
         name, code, type, value, min_total, max_uses, max_uses_per_user,
-        max_discount_amount, is_only_for_new_user, start_date, end_date, status, description
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+        max_discount_amount, start_date, end_date, status, description
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
       [
         `Voucher ${faker.string.alphanumeric(4).toUpperCase()}`,
         faker.string.alphanumeric(8).toUpperCase(),
@@ -685,7 +679,6 @@ async function seedDiscountCodes() {
         getRandomNumber(10, 100),
         getRandomNumber(1, 3),
         maxDiscountAmount,
-        getRandomElement([false, false, false, true]), // 25% chance for new user only
         faker.date.past(),
         faker.date.future(),
         getRandomElement(["active", "active", "inactive"]),

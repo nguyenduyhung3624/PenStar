@@ -13,7 +13,6 @@ export const DiscountCodesModel = {
     max_uses,
     max_uses_per_user,
     max_discount_amount,
-    is_only_for_new_user,
     start_date,
     end_date,
     status,
@@ -22,8 +21,8 @@ export const DiscountCodesModel = {
     const res = await pool.query(
       `INSERT INTO discount_codes (
         code, name, type, value, min_total, max_uses, max_uses_per_user,
-        max_discount_amount, is_only_for_new_user, start_date, end_date, status, description
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING *`,
+        max_discount_amount, start_date, end_date, status, description
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
       [
         code,
         name || code, // Default name to code if not provided
@@ -33,7 +32,6 @@ export const DiscountCodesModel = {
         max_uses || 1,
         max_uses_per_user || 1,
         max_discount_amount || 0,
-        is_only_for_new_user || false,
         start_date,
         end_date,
         status || "active",
@@ -78,7 +76,6 @@ export const DiscountCodesModel = {
       max_uses,
       max_uses_per_user,
       max_discount_amount,
-      is_only_for_new_user,
       start_date,
       end_date,
       status,
@@ -95,11 +92,10 @@ export const DiscountCodesModel = {
         max_uses = $7,
         max_uses_per_user = $8,
         max_discount_amount = $9,
-        is_only_for_new_user = $10,
-        start_date = $11,
-        end_date = $12,
-        status = $13,
-        description = $14,
+        start_date = $10,
+        end_date = $11,
+        status = $12,
+        description = $13,
         updated_at = NOW()
       WHERE id = $1 RETURNING *`,
       [
@@ -112,7 +108,6 @@ export const DiscountCodesModel = {
         max_uses,
         max_uses_per_user,
         max_discount_amount,
-        is_only_for_new_user,
         start_date,
         end_date,
         status,
@@ -207,27 +202,6 @@ export const DiscountCodesModel = {
        DO UPDATE SET usage_count = discount_code_usages.usage_count + 1, used_at = NOW()`,
       [codeId, userId, bookingId]
     );
-  },
-
-  // =============================================
-  // USER CHECK METHODS
-  // =============================================
-
-  /**
-   * Check if user is a new user (has no completed bookings)
-   * @param {number} userId - User ID
-   * @returns {boolean} - True if user is new
-   */
-  async isNewUser(userId) {
-    if (!userId) return false;
-
-    const res = await pool.query(
-      `SELECT COUNT(*) as count FROM bookings
-       WHERE user_id = $1
-       AND stay_status_id IN (SELECT id FROM stay_status WHERE name IN ('checked_out', 'checked_in'))`,
-      [userId]
-    );
-    return parseInt(res.rows[0]?.count || 0) === 0;
   },
 
   /**

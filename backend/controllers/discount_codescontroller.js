@@ -8,7 +8,7 @@ import {
 export const DiscountCodesController = {
   /**
    * Check discount code validity and calculate discount amount
-   * Enhanced with: is_only_for_new_user, max_discount_amount, usage tracking
+   * Enhanced with: max_discount_amount, usage tracking
    */
   async checkCode(req, res) {
     try {
@@ -47,18 +47,6 @@ export const DiscountCodesController = {
           null,
           400
         );
-      }
-
-      // Check is_only_for_new_user
-      if (found.is_only_for_new_user && userId) {
-        const isNew = await DiscountCodesModel.isNewUser(userId);
-        if (!isNew) {
-          return res.error(
-            "Mã giảm giá này chỉ dành cho khách hàng mới",
-            null,
-            400
-          );
-        }
       }
 
       // Check max_uses (total usage limit)
@@ -214,12 +202,6 @@ export const DiscountCodesController = {
             userId
           );
           if (userUsage >= code.max_uses_per_user) continue;
-        }
-
-        // Check new user requirement
-        if (code.is_only_for_new_user && userId) {
-          const isNew = await DiscountCodesModel.isNewUser(userId);
-          if (!isNew) continue;
         }
 
         // Calculate potential discount
