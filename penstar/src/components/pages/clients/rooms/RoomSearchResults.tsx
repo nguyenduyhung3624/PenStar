@@ -300,7 +300,9 @@ const RoomSearchResults = () => {
                             room_type_id: booking.roomTypeId,
                             room_type_name: booking.roomTypeName,
                             // Sử dụng cfg.price (đã bao gồm phụ phí) thay vì booking.roomPrice (chỉ giá base)
-                            room_type_price: cfg.price || booking.roomPrice,
+                            room_type_price: Number(
+                              cfg.price || booking.roomPrice || 0
+                            ),
                           }))
                       );
 
@@ -321,18 +323,18 @@ const RoomSearchResults = () => {
                       // Chuẩn hóa cho backend: tạo mảng items
                       const items = allRoomsConfig.map((cfg) => ({
                         room_id: cfg.room_id,
-                        num_adults: cfg.num_adults,
-                        num_children: cfg.num_children,
-                        num_babies: cfg.num_babies,
+                        num_adults: cfg.num_adults ?? 1,
+                        num_children: cfg.num_children ?? 0,
+                        num_babies: cfg.num_babies ?? 0,
                         room_type_id: cfg.room_type_id,
                         room_type_name: cfg.room_type_name,
-                        room_type_price: cfg.room_type_price, // Giá đã bao gồm phụ phí
-                        base_price: cfg.base_price, // Giá gốc
-                        extra_fees: cfg.extra_fees, // Tổng phụ phí
-                        extra_adult_fees: cfg.extra_adult_fees, // Phụ phí người lớn
-                        extra_child_fees: cfg.extra_child_fees, // Phụ phí trẻ em
-                        extra_adults_count: cfg.extra_adults_count, // Số người lớn thêm
-                        extra_children_count: cfg.extra_children_count, // Số trẻ em thêm
+                        room_type_price: Number(cfg.room_type_price || 0), // Giá đã bao gồm phụ phí
+                        base_price: Number(cfg.base_price || cfg.price || 0), // Giá gốc
+                        extra_fees: Number(cfg.extra_fees || 0), // Tổng phụ phí
+                        extra_adult_fees: Number(cfg.extra_adult_fees || 0), // Phụ phí người lớn
+                        extra_child_fees: Number(cfg.extra_child_fees || 0), // Phụ phí trẻ em
+                        extra_adults_count: cfg.extra_adults_count ?? 0, // Số người lớn thêm
+                        extra_children_count: cfg.extra_children_count ?? 0, // Số trẻ em thêm
                         check_in: searchParams.check_in,
                         check_out: searchParams.check_out,
                       }));

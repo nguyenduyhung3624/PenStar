@@ -3,11 +3,17 @@ import { cancelBooking, getMyBookings } from "@/services/bookingsApi";
 import useAuth from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import type { BookingShort } from "@/types/bookings";
+import RefundRequestModal from "./RefundRequestModal";
 
 const MyBookings: React.FC = () => {
   const [data, setData] = React.useState<BookingShort[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [updating, setUpdating] = React.useState(false);
+
+  // Refund modal state
+  const [refundModalOpen, setRefundModalOpen] = React.useState(false);
+  const [selectedBookingForRefund, setSelectedBookingForRefund] =
+    React.useState<BookingShort | null>(null);
 
   // --- State phân trang ---
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -117,7 +123,7 @@ const MyBookings: React.FC = () => {
       setUpdating(true);
       try {
         await cancelBooking(bookingId);
-        alert("Đã hủy booking thành công!");
+        alert("Đã hủy booking thành công! Bạn có thể yêu cầu hoàn tiền.");
         fetchBookings();
       } catch (error) {
         console.error("Cancel booking error:", error);
@@ -129,11 +135,26 @@ const MyBookings: React.FC = () => {
     }
   };
 
+  const handleOpenRefundModal = (booking: BookingShort) => {
+    setSelectedBookingForRefund(booking);
+    setRefundModalOpen(true);
+  };
+
   const formatPrice = (price?: number) => {
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
       currency: "VND",
     }).format(price || 0);
+  };
+
+  // Check if booking can request refund
+  const canRequestRefund = (b: BookingShort) => {
+    // Cancelled (4) or No-show (5) and paid but not refunded
+    const isCancelledOrNoShow =
+      b.stay_status_id === 4 || b.stay_status_id === 5;
+    const isPaid = b.payment_status === "paid";
+    const notRefunded = !b.is_refunded;
+    return isCancelledOrNoShow && isPaid && notRefunded;
   };
 
   return (
@@ -169,6 +190,7 @@ const MyBookings: React.FC = () => {
                 currentItems.map((b) => {
                   const canCancel =
                     b.stay_status_id === 6 || b.stay_status_id === 1;
+                  const showRefundBtn = canRequestRefund(b);
                   return (
                     <tr
                       key={b.id}
@@ -193,7 +215,7 @@ const MyBookings: React.FC = () => {
                         {renderPaymentBadge(b.payment_status, b.is_refunded)}
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <div className="flex justify-center gap-2">
+                        <div className="flex justify-center gap-2 flex-wrap">
                           <button
                             className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded shadow-sm transition-colors"
                             onClick={() => nav(`/bookings/success/${b.id}`)}
@@ -211,6 +233,14 @@ const MyBookings: React.FC = () => {
                               disabled={updating}
                             >
                               {updating ? "..." : "Hủy"}
+                            </button>
+                          )}
+                          {showRefundBtn && (
+                            <button
+                              className="px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-xs font-medium rounded shadow-sm transition-colors"
+                              onClick={() => handleOpenRefundModal(b)}
+                            >
+                              Yêu cầu hoàn tiền
                             </button>
                           )}
                         </div>
@@ -293,6 +323,20 @@ const MyBookings: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Refund Request Modal */}
+      <RefundRequestModal
+        open={refundModalOpen}
+        bookingId={selectedBookingForRefund?.id}
+        refundAmount={selectedBookingForRefund?.total_price || 0}
+        onClose={() => {
+          setRefundModalOpen(false);
+          setSelectedBookingForRefund(null);
+        }}
+        onSuccess={() => {
+          fetchBookings();
+        }}
+      />
     </div>
   );
 };

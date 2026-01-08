@@ -3,7 +3,10 @@ import {
   getBookingItemById as modelGetBookingItemById,
   createBookingItem as modelCreateBookingItem,
   deleteBookingItem as modelDeleteBookingItem,
+  cancelBookingItem as modelCancelBookingItem,
+  getByBookingId as modelGetByBookingId,
 } from "../models/booking_itemsmodel.js";
+import pool from "../db.js";
 import { ERROR_MESSAGES } from "../utils/constants.js";
 
 export const getBookingItems = async (req, res) => {
@@ -54,6 +57,93 @@ export const deleteBookingItem = async (req, res) => {
     res.success(deleted, "Xóa booking item thành công");
   } catch (error) {
     console.error("booking_items.deleteBookingItem error:", error);
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
+  }
+};
+
+/**
+ * Cancel a single booking item (room) within a booking
+ * Only allowed when booking status is pending
+ */
+export const cancelBookingItemController = async (req, res) => {
+  const { id } = req.params;
+  const { cancel_reason } = req.body;
+  const userId = req.user?.id;
+
+  try {
+    // Get the booking item
+    const item = await modelGetBookingItemById(id);
+    if (!item) {
+      return res.error("Không tìm thấy phòng trong đơn đặt", null, 404);
+    }
+
+    // Check if item is already cancelled
+    if (item.status === "cancelled") {
+      return res.error("Phòng này đã bị huỷ trước đó", null, 400);
+    }
+
+    // Get booking to check status
+    const bookingResult = await pool.query(
+      "SELECT * FROM bookings WHERE id = $1",
+      [item.booking_id]
+    );
+    const booking = bookingResult.rows[0];
+
+    if (!booking) {
+      return res.error("Không tìm thấy đơn đặt phòng", null, 404);
+    }
+
+    // Check if user owns this booking (or is staff)
+    const userRole = req.user?.role_id;
+    if (booking.user_id !== userId && userRole >= 3) {
+      return res.error("Bạn không có quyền huỷ phòng này", null, 403);
+    }
+
+    // Only allow cancel when booking is pending (stay_status_id = 1)
+    if (booking.stay_status_id !== 1) {
+      return res.error(
+        "Chỉ có thể huỷ phòng khi đơn đang ở trạng thái chờ xác nhận",
+        null,
+        400
+      );
+    }
+
+    // Cancel the item
+    const cancelled = await modelCancelBookingItem(id, cancel_reason);
+
+    // Calculate refund amount for this item
+    const itemTotal =
+      (Number(item.room_type_price) || 0) +
+      (Number(item.extra_adult_fees) || 0) +
+      (Number(item.extra_child_fees) || 0) +
+      (Number(item.extra_fees) || 0);
+
+    // Update the item refund_amount
+    await pool.query(
+      "UPDATE booking_items SET refund_amount = $2 WHERE id = $1",
+      [id, itemTotal]
+    );
+
+    res.success(
+      { ...cancelled, refund_amount: itemTotal },
+      "Đã huỷ phòng thành công. Bạn có thể yêu cầu hoàn tiền."
+    );
+  } catch (error) {
+    console.error("cancelBookingItemController error:", error);
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
+  }
+};
+
+/**
+ * Get all items for a specific booking
+ */
+export const getItemsByBookingId = async (req, res) => {
+  const { bookingId } = req.params;
+  try {
+    const items = await modelGetByBookingId(bookingId);
+    res.success(items, "Lấy danh sách phòng trong đơn thành công");
+  } catch (error) {
+    console.error("getItemsByBookingId error:", error);
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };

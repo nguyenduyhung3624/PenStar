@@ -13,6 +13,7 @@ import {
   Row,
   Col,
   Divider,
+  Modal,
 } from "antd";
 import {
   UserOutlined,
@@ -67,6 +68,7 @@ const BookingConfirm = () => {
   const [notes, setNotes] = useState("");
   const [agreePolicy, setAgreePolicy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("vnpay");
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
 
   // Auto-fill user info
   useEffect(() => {
@@ -347,13 +349,17 @@ const BookingConfirm = () => {
 
     items.forEach((item: any) => {
       const key = `${item.room_type_id}-${item.num_adults}-${item.num_children}`;
+      // Parse base price - use base_price or room_type_price, ensure it's a number
+      const basePrice =
+        Number(item.base_price) || Number(item.room_type_price) || 0;
+
       if (!roomsConfigMap[key]) {
         roomsConfigMap[key] = {
           room_type_id: item.room_type_id,
           quantity: 0,
           check_in: searchParams.check_in,
           check_out: searchParams.check_out,
-          room_type_price: Number(item.room_type_price) * nights,
+          room_type_price: Math.round(basePrice * nights),
           num_adults: item.num_adults,
           num_children: item.num_children,
           // Khởi tạo các trường phụ phí
@@ -374,9 +380,9 @@ const BookingConfirm = () => {
     // Lấy trung bình phụ phí trên mỗi phòng (nếu cần)
     Object.values(roomsConfigMap).forEach((cfg: any) => {
       if (cfg.quantity > 0) {
-        cfg.extra_fees = cfg.extra_fees / cfg.quantity;
-        cfg.extra_adult_fees = cfg.extra_adult_fees / cfg.quantity;
-        cfg.extra_child_fees = cfg.extra_child_fees / cfg.quantity;
+        cfg.extra_fees = Math.round(cfg.extra_fees / cfg.quantity);
+        cfg.extra_adult_fees = Math.round(cfg.extra_adult_fees / cfg.quantity);
+        cfg.extra_child_fees = Math.round(cfg.extra_child_fees / cfg.quantity);
       }
     });
 
@@ -384,13 +390,21 @@ const BookingConfirm = () => {
     const itemsWithFees = items.map((item: any) => {
       const key = `${item.room_type_id}-${item.num_adults}-${item.num_children}`;
       const config = roomsConfigMap[key];
-      // Xóa hẳn trường num_babies nếu có
-      const newItem = { ...item };
+      const basePrice =
+        Number(item.base_price) || Number(item.room_type_price) || 0;
+
       return {
-        ...newItem,
-        extra_fees: config?.extra_fees ?? 0,
-        extra_adult_fees: config?.extra_adult_fees ?? 0,
-        extra_child_fees: config?.extra_child_fees ?? 0,
+        room_id: item.room_id,
+        room_type_id: item.room_type_id,
+        check_in: searchParams.check_in,
+        check_out: searchParams.check_out,
+        room_type_price: Math.round(basePrice * nights),
+        num_adults: item.num_adults ?? 1,
+        num_children: item.num_children ?? 0,
+        num_babies: item.num_babies ?? 0,
+        extra_fees: Math.round(config?.extra_fees ?? 0),
+        extra_adult_fees: Math.round(config?.extra_adult_fees ?? 0),
+        extra_child_fees: Math.round(config?.extra_child_fees ?? 0),
       };
     });
 
@@ -761,8 +775,17 @@ const BookingConfirm = () => {
                   checked={agreePolicy}
                   onChange={(e) => setAgreePolicy(e.target.checked)}
                 >
-                  Vui lòng đọc kỹ và đồng ý với điều khoản đặt phòng của khách
-                  sạn, vào ô bên cạnh để xác nhận đặt phòng.
+                  Tôi đã đọc và đồng ý với{" "}
+                  <span
+                    className="text-blue-600 underline cursor-pointer hover:text-blue-800"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setTermsModalOpen(true);
+                    }}
+                  >
+                    điều khoản đặt phòng
+                  </span>{" "}
+                  của khách sạn.
                 </Checkbox>
 
                 {/* Nút thực hiện */}
@@ -789,6 +812,103 @@ const BookingConfirm = () => {
           </Col>
         </Row>
       </div>
+
+      {/* Terms Modal */}
+      <Modal
+        title="Điều khoản đặt phòng"
+        open={termsModalOpen}
+        onCancel={() => setTermsModalOpen(false)}
+        footer={
+          <Button type="primary" onClick={() => setTermsModalOpen(false)}>
+            Đã hiểu
+          </Button>
+        }
+        width={700}
+      >
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+          <section>
+            <h3 className="font-bold text-lg text-gray-800 mb-2">
+              1. Chính sách đặt phòng
+            </h3>
+            <ul className="list-disc pl-5 space-y-1 text-gray-600">
+              <li>
+                Quý khách cần cung cấp đầy đủ thông tin chính xác khi đặt phòng.
+              </li>
+              <li>
+                Phòng được giữ đến 18:00 ngày nhận phòng trừ khi có thông báo
+                trước.
+              </li>
+              <li>Thời gian nhận phòng: 14:00 - Trả phòng: 12:00.</li>
+              <li>
+                Nhận phòng sớm hoặc trả phòng muộn có thể phát sinh phí bổ sung.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h3 className="font-bold text-lg text-gray-800 mb-2">
+              2. Chính sách thanh toán
+            </h3>
+            <ul className="list-disc pl-5 space-y-1 text-gray-600">
+              <li>
+                Thanh toán trực tuyến qua VNPay, MoMo hoặc tiền mặt khi nhận
+                phòng.
+              </li>
+              <li>
+                Thanh toán online được xử lý an toàn qua cổng thanh toán uy tín.
+              </li>
+              <li>Giá đã bao gồm thuế VAT và phí dịch vụ.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h3 className="font-bold text-lg text-gray-800 mb-2">
+              3. Chính sách hủy phòng & hoàn tiền
+            </h3>
+            <ul className="list-disc pl-5 space-y-1 text-gray-600">
+              <li>
+                Hủy trước 24 giờ so với ngày nhận phòng: Hoàn 100% tiền phòng.
+              </li>
+              <li>
+                Hủy trong vòng 24 giờ trước ngày nhận phòng: Không hoàn tiền.
+              </li>
+              <li>Không đến (No-show): Không hoàn tiền.</li>
+              <li>Yêu cầu hoàn tiền sẽ được xử lý trong 3-5 ngày làm việc.</li>
+            </ul>
+          </section>
+
+          <section>
+            <h3 className="font-bold text-lg text-gray-800 mb-2">
+              4. Quy định khác
+            </h3>
+            <ul className="list-disc pl-5 space-y-1 text-gray-600">
+              <li>Cấm hút thuốc trong phòng. Vi phạm sẽ bị phạt 500,000đ.</li>
+              <li>
+                Không mang vật nuôi vào khách sạn (trừ trường hợp đặc biệt).
+              </li>
+              <li>Khách phải xuất trình CMND/CCCD/Hộ chiếu khi nhận phòng.</li>
+              <li>
+                Khách sạn không chịu trách nhiệm về tài sản cá nhân không gửi
+                tại két an toàn.
+              </li>
+              <li>
+                Mọi hư hỏng do khách gây ra sẽ được tính phí sửa chữa/bồi
+                thường.
+              </li>
+            </ul>
+          </section>
+
+          <section>
+            <h3 className="font-bold text-lg text-gray-800 mb-2">5. Liên hệ</h3>
+            <p className="text-gray-600">
+              Mọi thắc mắc xin liên hệ: <br />
+              📧 Email: info@penstar.example <br />
+              📞 Hotline: 0123 456 789 <br />
+              🏨 Địa chỉ: Số 1, Đường Chính, Quận Trung tâm
+            </p>
+          </section>
+        </div>
+      </Modal>
     </div>
   );
 };

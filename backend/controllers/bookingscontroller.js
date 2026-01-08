@@ -1,6 +1,10 @@
 import pool from "../db.js";
 import { sendEmailWithRetry } from "../utils/emailWithRetry.js";
 import {
+  sendBookingStatusEmail,
+  sendAdminCancellationEmail,
+} from "../utils/mailer.js";
+import {
   getBookings as modelGetBookings,
   getBookingById as modelGetBookingById,
   createBooking as modelCreateBooking,
@@ -37,7 +41,7 @@ export const getBookingById = async (req, res) => {
     }
 
     const itemsRes = await pool.query(
-      `SELECT bi.*, 
+      `SELECT bi.*,
               rp.refundable, rp.refund_percent, rp.refund_deadline_hours, rp.non_refundable, rp.notes as refund_notes
        FROM booking_items bi
        LEFT JOIN room_types rt ON bi.room_type_id = rt.id
@@ -313,6 +317,28 @@ export const setBookingStatus = async (req, res) => {
       }
     }
 
+    // Send status update email if stay_status_id changed
+    if (
+      fields.stay_status_id &&
+      fields.stay_status_id !== STAY_STATUS.PENDING
+    ) {
+      const bookingRes = await pool.query(
+        "SELECT user_id FROM bookings WHERE id = $1",
+        [id]
+      );
+      const bookingData = bookingRes.rows[0];
+      if (bookingData?.user_id) {
+        const userRes = await pool.query(
+          "SELECT email FROM users WHERE id = $1",
+          [bookingData.user_id]
+        );
+        const userEmail = userRes.rows[0]?.email;
+        if (userEmail) {
+          sendBookingStatusEmail(userEmail, id, fields.stay_status_id);
+        }
+      }
+    }
+
     res.success(updated, "Cập nhật trạng thái booking thành công");
   } catch (err) {
     console.error("setBookingStatus error:", err);
@@ -405,6 +431,17 @@ export const confirmCheckin = async (req, res) => {
       return res.error(ERROR_MESSAGES.UNAUTHORIZED, null, 401);
     }
     const result = await modelConfirmCheckin(id, userId);
+
+    // Send check-in notification email
+    const bookingRes = await pool.query(
+      "SELECT b.user_id, u.email FROM bookings b LEFT JOIN users u ON b.user_id = u.id WHERE b.id = $1",
+      [id]
+    );
+    const userEmail = bookingRes.rows[0]?.email;
+    if (userEmail) {
+      sendBookingStatusEmail(userEmail, id, STAY_STATUS.CHECKED_IN);
+    }
+
     res.success(result, SUCCESS_MESSAGES.CHECKIN_SUCCESS);
   } catch (err) {
     console.error("confirmCheckin error:", err);
@@ -416,14 +453,23 @@ export const confirmCheckout = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user?.id;
-    // Bỏ dòng lấy clientTimestamp
 
     if (!userId) {
       return res.error(ERROR_MESSAGES.UNAUTHORIZED, null, 401);
     }
 
-    // Gọi model, không truyền timestamp nữa
     const updated = await modelConfirmCheckout(id, userId);
+
+    // Send check-out notification email
+    const bookingRes = await pool.query(
+      "SELECT b.user_id, u.email FROM bookings b LEFT JOIN users u ON b.user_id = u.id WHERE b.id = $1",
+      [id]
+    );
+    const userEmail = bookingRes.rows[0]?.email;
+    if (userEmail) {
+      sendBookingStatusEmail(userEmail, id, STAY_STATUS.CHECKED_OUT);
+    }
+
     res.success(updated, SUCCESS_MESSAGES.CHECKOUT_SUCCESS);
   } catch (err) {
     console.error("confirmCheckout error:", err);
@@ -450,6 +496,19 @@ export const cancelBooking = async (req, res) => {
       isStaffOrAbove,
       cancel_reason
     );
+
+    // Send cancellation notification email
+    const bookingRes = await pool.query(
+      "SELECT b.user_id, u.email FROM bookings b LEFT JOIN users u ON b.user_id = u.id WHERE b.id = $1",
+      [id]
+    );
+    const userEmail = bookingRes.rows[0]?.email;
+    if (userEmail) {
+      sendBookingStatusEmail(userEmail, id, STAY_STATUS.CANCELLED);
+    }
+
+    // Send admin notification email for cancellation
+    sendAdminCancellationEmail(id);
 
     const refundMsg =
       result.refund_amount > 0

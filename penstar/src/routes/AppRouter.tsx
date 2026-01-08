@@ -45,6 +45,7 @@ import EquipmentLogHistory from "@/components/pages/admin/equipments/EquipmentLo
 import EditDiscount from "@/components/pages/admin/discounts/EditDiscount";
 import DeviceStandardAdmin from "@/components/pages/admin/equipments/DeviceStandardAdmin";
 import ServiceList from "@/components/pages/admin/services/Services";
+import RefundRequestList from "@/components/pages/admin/refunds/RefundRequestList";
 
 const AppRouter = () => {
   return (
@@ -171,6 +172,9 @@ const AppRouter = () => {
               </RequireRole>
             }
           />
+
+          {/* Refund requests management - Staff+ */}
+          <Route path="refund-requests" element={<RefundRequestList />} />
           {/* Users management - Manager+ */}
           <Route
             path="users"

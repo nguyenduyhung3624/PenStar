@@ -36,6 +36,7 @@ import statisticsRouter from "./routers/statistics.js";
 import stayStatusRouter from "./routers/stay_status.js";
 import usersRouter from "./routers/users.js";
 import voucherRouter from "./routers/voucher.js";
+import refundRequestsRouter from "./routers/refund_requests.js";
 
 // Constants
 import { ERROR_MESSAGES } from "./utils/constants.js";
@@ -118,6 +119,9 @@ app.use("/api/stay-status", stayStatusRouter);
 
 // Statistics
 app.use("/api/statistics", statisticsRouter);
+
+// Refund Requests
+app.use("/api/refund-requests", refundRequestsRouter);
 
 // ============================================================================
 // HEALTH CHECK
