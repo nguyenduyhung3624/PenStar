@@ -8,10 +8,12 @@ import {
   Space,
   Card,
   Input,
-  Popconfirm,
   message,
   Switch,
   Tooltip,
+  Drawer,
+  Descriptions,
+  Divider,
 } from "antd";
 import dayjs from "dayjs";
 import { useNavigate } from "react-router-dom";
@@ -30,12 +32,16 @@ const DiscountList: React.FC = () => {
   const pageSize = 10;
   const [searchTerm, setSearchTerm] = useState<string>("");
 
+  // Drawer state
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
+
   const {
     data: vouchers = [],
     isLoading,
     refetch,
   } = useQuery<Voucher[]>({
-    queryKey: ["vouchers-admin-all"],
+    queryKey: ["vouchers", "vouchers-admin-all"],
     queryFn: fetchAllVouchers,
   });
 
@@ -50,7 +56,9 @@ const DiscountList: React.FC = () => {
     }) => updateVoucherStatus(id, status),
     onSuccess: () => {
       message.success("Cập nhật trạng thái thành công");
-      queryClient.invalidateQueries({ queryKey: ["vouchers-admin-all"] });
+      queryClient.invalidateQueries({
+        queryKey: ["vouchers", "vouchers-admin-all"],
+      });
     },
     onError: () => {
       message.error("Cập nhật trạng thái thất bại");
@@ -85,6 +93,27 @@ const DiscountList: React.FC = () => {
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("vi-VN").format(value) + "đ";
+  };
+
+  const openDrawer = (voucher: Voucher) => {
+    setSelectedVoucher(voucher);
+    setDrawerOpen(true);
+  };
+
+  const closeDrawer = () => {
+    setDrawerOpen(false);
+    setSelectedVoucher(null);
+  };
+
+  const getVoucherStatus = (voucher: Voucher) => {
+    const now = dayjs();
+    const end = voucher.end_date ? dayjs(voucher.end_date) : null;
+    const isExpired = end && end.isBefore(now);
+
+    if (isExpired) return { label: "Hết hạn", color: "red" };
+    if (voucher.status === "active")
+      return { label: "Hoạt động", color: "green" };
+    return { label: "Tắt", color: "default" };
   };
 
   const columns = [
@@ -213,7 +242,7 @@ const DiscountList: React.FC = () => {
             <Button
               icon={<EyeOutlined />}
               size="small"
-              onClick={() => navigate(`/admin/discount-codes/${record.id}`)}
+              onClick={() => openDrawer(record)}
             />
           </Tooltip>
           <Tooltip title="Sửa">
@@ -272,6 +301,125 @@ const DiscountList: React.FC = () => {
           }}
         />
       </Card>
+
+      {/* Drawer xem chi tiết voucher */}
+      <Drawer
+        title="Chi tiết Voucher"
+        placement="right"
+        width={480}
+        onClose={closeDrawer}
+        open={drawerOpen}
+        extra={
+          selectedVoucher && (
+            <Button
+              type="primary"
+              icon={<EditOutlined />}
+              onClick={() => {
+                closeDrawer();
+                navigate(`/admin/discount-codes/${selectedVoucher.id}/edit`);
+              }}
+            >
+              Chỉnh sửa
+            </Button>
+          )
+        }
+      >
+        {selectedVoucher && (
+          <>
+            <Descriptions column={1} bordered size="small">
+              <Descriptions.Item label="Tên voucher">
+                {selectedVoucher.name || "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Mã voucher">
+                <Tag color="blue">{selectedVoucher.code}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Loại giảm giá">
+                <Tag
+                  color={selectedVoucher.type === "percent" ? "blue" : "green"}
+                >
+                  {selectedVoucher.type === "percent"
+                    ? "Phần trăm"
+                    : "Số tiền cố định"}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Giá trị giảm">
+                <span className="font-semibold text-red-500">
+                  {selectedVoucher.type === "percent"
+                    ? `${selectedVoucher.value}%`
+                    : formatCurrency(selectedVoucher.value)}
+                </span>
+              </Descriptions.Item>
+              {selectedVoucher.type === "percent" &&
+              selectedVoucher.max_discount_amount ? (
+                <Descriptions.Item label="Giảm tối đa">
+                  {formatCurrency(selectedVoucher.max_discount_amount)}
+                </Descriptions.Item>
+              ) : null}
+              <Descriptions.Item label="Đơn tối thiểu">
+                {selectedVoucher.min_total
+                  ? formatCurrency(selectedVoucher.min_total)
+                  : "Không giới hạn"}
+              </Descriptions.Item>
+            </Descriptions>
+
+            <Divider />
+
+            <Descriptions
+              column={1}
+              bordered
+              size="small"
+              title="Giới hạn sử dụng"
+            >
+              <Descriptions.Item label="Tổng số lượng">
+                {selectedVoucher.max_uses || "Không giới hạn"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Đã sử dụng">
+                <span className="font-semibold">
+                  {selectedVoucher.total_usage || 0}
+                </span>
+              </Descriptions.Item>
+              <Descriptions.Item label="Tối đa/tài khoản">
+                {selectedVoucher.max_uses_per_user || 1}
+              </Descriptions.Item>
+            </Descriptions>
+
+            <Divider />
+
+            <Descriptions
+              column={1}
+              bordered
+              size="small"
+              title="Thời gian áp dụng"
+            >
+              <Descriptions.Item label="Ngày bắt đầu">
+                {selectedVoucher.start_date
+                  ? dayjs(selectedVoucher.start_date).format("DD/MM/YYYY")
+                  : "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Ngày kết thúc">
+                {selectedVoucher.end_date
+                  ? dayjs(selectedVoucher.end_date).format("DD/MM/YYYY")
+                  : "-"}
+              </Descriptions.Item>
+              <Descriptions.Item label="Trạng thái">
+                <Tag color={getVoucherStatus(selectedVoucher).color}>
+                  {getVoucherStatus(selectedVoucher).label}
+                </Tag>
+              </Descriptions.Item>
+            </Descriptions>
+
+            {selectedVoucher.description && (
+              <>
+                <Divider />
+                <div>
+                  <h4 className="font-semibold mb-2">Mô tả</h4>
+                  <p className="text-gray-600">{selectedVoucher.description}</p>
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </Drawer>
     </div>
   );
 };
