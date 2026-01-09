@@ -216,3 +216,90 @@ export const searchRooms = async (req, res) => {
     res.error("Lỗi tìm kiếm phòng", error.message, 500);
   }
 };
+
+/**
+ * Search ALL rooms with availability status
+ */
+export const searchAllRooms = async (req, res) => {
+  try {
+    const {
+      check_in,
+      check_out,
+      room_type_id,
+      floor_id,
+      num_adults,
+      num_children,
+    } = req.query;
+
+    if (!check_in || !check_out) {
+      return res.error("Vui lòng nhập ngày check-in và check-out", null, 400);
+    }
+
+    const { searchAllRoomsWithAvailability } = await import(
+      "../models/roomsmodel.js"
+    );
+
+    const rooms = await searchAllRoomsWithAvailability({
+      check_in,
+      check_out,
+      room_type_id: room_type_id ? Number(room_type_id) : null,
+      floor_id: floor_id ? Number(floor_id) : null,
+      num_adults: num_adults ? Number(num_adults) : 1,
+      num_children: num_children ? Number(num_children) : 0,
+    });
+
+    const available = rooms.filter((r) => r.is_available).length;
+    res.success(rooms, `Tìm thấy ${rooms.length} phòng (${available} trống)`);
+  } catch (error) {
+    console.error("searchAllRooms error:", error);
+    res.error("Lỗi tìm kiếm phòng", error.message, 500);
+  }
+};
+
+/**
+ * Get occupied rooms (admin)
+ */
+export const getOccupiedRoomsController = async (req, res) => {
+  try {
+    const { getOccupiedRooms } = await import("../models/roomsmodel.js");
+    const rooms = await getOccupiedRooms();
+    res.success(rooms, `Có ${rooms.length} phòng đang có khách`);
+  } catch (error) {
+    console.error("getOccupiedRoomsController error:", error);
+    res.error("Lỗi lấy danh sách phòng có khách", error.message, 500);
+  }
+};
+
+/**
+ * Get room booking history (admin)
+ */
+export const getRoomBookingHistoryController = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { limit } = req.query;
+
+    const { getRoomBookingHistory } = await import("../models/roomsmodel.js");
+    const bookings = await getRoomBookingHistory(
+      Number(id),
+      limit ? Number(limit) : 20
+    );
+    res.success(bookings, `Lấy ${bookings.length} lịch sử đặt phòng`);
+  } catch (error) {
+    console.error("getRoomBookingHistoryController error:", error);
+    res.error("Lỗi lấy lịch sử đặt phòng", error.message, 500);
+  }
+};
+
+/**
+ * Get room statistics (admin)
+ */
+export const getRoomStatsController = async (req, res) => {
+  try {
+    const { getRoomStats } = await import("../models/roomsmodel.js");
+    const stats = await getRoomStats();
+    res.success(stats, "Lấy thống kê phòng thành công");
+  } catch (error) {
+    console.error("getRoomStatsController error:", error);
+    res.error("Lỗi lấy thống kê phòng", error.message, 500);
+  }
+};
