@@ -98,6 +98,8 @@ const Rooms = () => {
           occupied: { label: "Đang ở", color: "orange" },
           cleaning: { label: "Đang dọn", color: "cyan" },
           unavailable: { label: "Không khả dụng", color: "red" },
+          pending: { label: "Chờ xử lý", color: "blue" },
+          maintenance: { label: "Bảo trì", color: "purple" },
         };
         const m = meta[String(status)] || {
           label: String(status).toUpperCase(),

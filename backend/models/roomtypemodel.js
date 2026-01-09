@@ -4,7 +4,7 @@ export const getRoomTypes = async () => {
   let result;
   try {
     result = await pool.query(`
-      SELECT 
+      SELECT
         rt.id,
         rt.name,
         rt.description,
@@ -117,7 +117,7 @@ export const createRoomType = async (data) => {
     `INSERT INTO room_types (
       name, description, capacity, base_adults, base_children, extra_adult_fee, extra_child_fee, child_age_limit, thumbnail, price, bed_type, view_direction, free_amenities, paid_amenities, room_size, policies
     ) VALUES (
-      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18
+      $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16
     ) RETURNING *`,
     [
       name,
@@ -143,7 +143,7 @@ export const createRoomType = async (data) => {
 
 export const getRoomTypeById = async (id) => {
   const result = await pool.query(
-    `SELECT 
+    `SELECT
       rt.id,
       rt.name,
       rt.description,
