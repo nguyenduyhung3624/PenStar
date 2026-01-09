@@ -206,7 +206,7 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
             disabled={!!dateError}
             className="w-full md:w-auto h-14 md:h-16 px-8 md:px-12 rounded-lg text-base md:text-lg font-semibold shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5"
             style={{
-              backgroundColor: "#d97706", // Màu vàng đậm sang trọng (Gold)
+              backgroundColor: "#d97706",
               borderColor: "#d97706",
               color: "#fff",
             }}
