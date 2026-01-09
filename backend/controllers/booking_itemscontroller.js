@@ -5,6 +5,7 @@ import {
   deleteBookingItem as modelDeleteBookingItem,
   cancelBookingItem as modelCancelBookingItem,
   getByBookingId as modelGetByBookingId,
+  getItemsWithRefundInfo as modelGetItemsWithRefundInfo,
 } from "../models/booking_itemsmodel.js";
 import pool from "../db.js";
 import { ERROR_MESSAGES } from "../utils/constants.js";
@@ -99,8 +100,8 @@ export const cancelBookingItemController = async (req, res) => {
       return res.error("Bạn không có quyền huỷ phòng này", null, 403);
     }
 
-    // Only allow cancel when booking is pending (stay_status_id = 1)
-    if (booking.stay_status_id !== 1) {
+    // Only allow cancel when booking is pending (stay_status_id = 6)
+    if (booking.stay_status_id !== 6) {
       return res.error(
         "Chỉ có thể huỷ phòng khi đơn đang ở trạng thái chờ xác nhận",
         null,
@@ -144,6 +145,23 @@ export const getItemsByBookingId = async (req, res) => {
     res.success(items, "Lấy danh sách phòng trong đơn thành công");
   } catch (error) {
     console.error("getItemsByBookingId error:", error);
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
+  }
+};
+
+/**
+ * Get all items for a booking WITH refund request info
+ */
+export const getItemsWithRefundInfoController = async (req, res) => {
+  const { bookingId } = req.params;
+  try {
+    const items = await modelGetItemsWithRefundInfo(bookingId);
+    res.success(
+      items,
+      "Lấy danh sách phòng với thông tin hoàn tiền thành công"
+    );
+  } catch (error) {
+    console.error("getItemsWithRefundInfoController error:", error);
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
