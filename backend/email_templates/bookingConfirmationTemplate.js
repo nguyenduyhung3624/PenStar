@@ -38,7 +38,7 @@ export const bookingConfirmationTemplate = (booking) => {
           </div>
         </td>
         <td style="padding: 12px 0; border-bottom: 1px solid #ddd; text-align: right; font-weight: 600; font-size: 13px;">
-          ${formatPrice(i.room_type_price || i.base_price)} ₫
+          ${formatPrice(Number(i.room_type_price || i.base_price))} ₫
         </td>
       </tr>`
     )
@@ -78,7 +78,7 @@ export const bookingConfirmationTemplate = (booking) => {
 <body style="margin: 0; padding: 0; background-color: #ffffff; font-family: 'Times New Roman', Times, serif; line-height: 1.6; color: #333;">
 
   <div style="max-width: 700px; margin: 0 auto; padding: 40px 30px;">
-    
+
     <!-- Header with Logo and Contact -->
     <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 30px; border-bottom: 2px solid #b8860b; padding-bottom: 20px;">
       <div>
@@ -195,7 +195,7 @@ export const bookingConfirmationTemplate = (booking) => {
           <td style="padding: 10px 0; text-align: right; font-weight: bold;">
             ${formatPrice(
               (booking.items || []).reduce(
-                (sum, i) => sum + (i.room_type_price || 0),
+                (sum, i) => sum + (Number(i.room_type_price) || 0),
                 0
               )
             )} ₫

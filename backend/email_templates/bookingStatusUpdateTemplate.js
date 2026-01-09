@@ -1,8 +1,3 @@
-/**
- * Email template for booking status updates
- * Used when booking status changes: confirmed, checked-in, checked-out, cancelled
- */
-
 const STATUS_CONFIG = {
   1: {
     name: "Đã xác nhận",
@@ -47,11 +42,9 @@ const STATUS_CONFIG = {
     actionText: "Chúng tôi sẽ xác nhận sớm nhất có thể.",
   },
 };
-
 export const bookingStatusUpdateTemplate = (booking, newStatusId) => {
   const formatPrice = (price) =>
-    new Intl.NumberFormat("vi-VN").format(Math.round(price || 0));
-
+    new Intl.NumberFormat("vi-VN").format(Math.round(Number(price) || 0));
   const formatDate = (dateStr) => {
     if (!dateStr) return "";
     const date = new Date(dateStr);
@@ -62,11 +55,9 @@ export const bookingStatusUpdateTemplate = (booking, newStatusId) => {
       year: "numeric",
     });
   };
-
   const status = STATUS_CONFIG[newStatusId] || STATUS_CONFIG[6];
   const checkIn = booking.items?.[0]?.check_in;
   const checkOut = booking.items?.[0]?.check_out;
-
   const refundInfo =
     newStatusId === 4 && booking.refund_amount > 0
       ? `
@@ -79,7 +70,6 @@ export const bookingStatusUpdateTemplate = (booking, newStatusId) => {
       </div>
     `
       : "";
-
   return `
 <!DOCTYPE html>
 <html lang="vi">
@@ -89,15 +79,12 @@ export const bookingStatusUpdateTemplate = (booking, newStatusId) => {
   <title>Cập nhật đặt phòng - PenStar Hotel</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-
   <div style="max-width: 600px; margin: 0 auto; background: #fff; padding: 0;">
-
     <!-- Header -->
     <div style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 30px; text-align: center;">
       <div style="font-size: 28px; font-weight: bold; color: #b8860b; margin-bottom: 5px;">PENSTAR</div>
       <div style="font-size: 12px; color: #94a3b8; letter-spacing: 2px;">HOTEL & RESORT</div>
     </div>
-
     <!-- Status Banner -->
     <div style="background: ${
       status.color
@@ -107,22 +94,17 @@ export const bookingStatusUpdateTemplate = (booking, newStatusId) => {
         status.name
       }</div>
     </div>
-
     <!-- Content -->
     <div style="padding: 30px;">
-
       <p style="font-size: 15px; color: #374151; margin: 0 0 20px 0;">
         Kính gửi <strong>${booking.customer_name || "Quý khách"}</strong>,
       </p>
-
       <p style="font-size: 15px; color: #374151; margin: 0 0 20px 0;">
         ${status.message}
       </p>
-
       <!-- Booking Details Card -->
       <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">
         <div style="font-weight: bold; color: #1e293b; margin-bottom: 12px; font-size: 14px;">📋 Chi tiết đặt phòng</div>
-
         <table width="100%" style="font-size: 14px; color: #475569;">
           <tr>
             <td style="padding: 8px 0; border-bottom: 1px solid #e2e8f0;">Mã đặt phòng:</td>
@@ -150,13 +132,10 @@ export const bookingStatusUpdateTemplate = (booking, newStatusId) => {
           </tr>
         </table>
       </div>
-
       ${refundInfo}
-
       <p style="font-size: 14px; color: #6b7280; margin: 20px 0;">
         ${status.actionText}
       </p>
-
       <!-- Contact Info -->
       <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 16px; margin: 20px 0;">
         <div style="font-weight: bold; color: #166534; margin-bottom: 8px;">📞 Liên hệ hỗ trợ</div>
@@ -165,14 +144,11 @@ export const bookingStatusUpdateTemplate = (booking, newStatusId) => {
           Email: <strong>info@penstar.example</strong>
         </div>
       </div>
-
       <p style="font-size: 14px; color: #374151; margin: 20px 0 0 0;">
         Trân trọng,<br>
         <strong>Đội ngũ PenStar Hotel</strong>
       </p>
-
     </div>
-
     <!-- Footer -->
     <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
       <div style="font-size: 11px; color: #9ca3af;">
@@ -180,11 +156,8 @@ export const bookingStatusUpdateTemplate = (booking, newStatusId) => {
         Số 1, Đường Chính, Quận Trung tâm
       </div>
     </div>
-
   </div>
-
 </body>
 </html>`;
 };
-
 export default bookingStatusUpdateTemplate;

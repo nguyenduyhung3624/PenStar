@@ -1,8 +1,3 @@
-/**
- * Email template for refund notifications
- * Used when refund status changes: approved, completed
- */
-
 const REFUND_STATUS_CONFIG = {
   pending: {
     name: "Chờ xử lý",
@@ -30,14 +25,11 @@ const REFUND_STATUS_CONFIG = {
     message: "Yêu cầu hoàn tiền của bạn đã bị từ chối.",
   },
 };
-
 export const refundNotificationTemplate = (refundRequest, booking = {}) => {
   const formatPrice = (price) =>
-    new Intl.NumberFormat("vi-VN").format(Math.round(price || 0));
-
+    new Intl.NumberFormat("vi-VN").format(Math.round(Number(price) || 0));
   const statusConfig =
     REFUND_STATUS_CONFIG[refundRequest.status] || REFUND_STATUS_CONFIG.pending;
-
   const receiptSection =
     refundRequest.status === "completed" && refundRequest.receipt_image
       ? `
@@ -54,7 +46,6 @@ export const refundNotificationTemplate = (refundRequest, booking = {}) => {
       </div>
     `
       : "";
-
   const adminNotesSection = refundRequest.admin_notes
     ? `
       <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 16px; margin: 20px 0;">
@@ -63,7 +54,6 @@ export const refundNotificationTemplate = (refundRequest, booking = {}) => {
       </div>
     `
     : "";
-
   return `
 <!DOCTYPE html>
 <html lang="vi">
@@ -73,15 +63,12 @@ export const refundNotificationTemplate = (refundRequest, booking = {}) => {
   <title>Thông báo hoàn tiền - PenStar Hotel</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-
   <div style="max-width: 600px; margin: 0 auto; background: #fff; padding: 0;">
-
     <!-- Header -->
     <div style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 30px; text-align: center;">
       <div style="font-size: 28px; font-weight: bold; color: #b8860b; margin-bottom: 5px;">PENSTAR</div>
       <div style="font-size: 12px; color: #94a3b8; letter-spacing: 2px;">HOTEL & RESORT</div>
     </div>
-
     <!-- Status Banner -->
     <div style="background: ${
       statusConfig.color
@@ -93,24 +80,19 @@ export const refundNotificationTemplate = (refundRequest, booking = {}) => {
         statusConfig.name
       }</div>
     </div>
-
     <!-- Content -->
     <div style="padding: 30px;">
-
       <p style="font-size: 15px; color: #374151; margin: 0 0 20px 0;">
         Kính gửi <strong>${
           refundRequest.user_name || booking.customer_name || "Quý khách"
         }</strong>,
       </p>
-
       <p style="font-size: 15px; color: #374151; margin: 0 0 20px 0;">
         ${statusConfig.message}
       </p>
-
       <!-- Refund Details Card -->
       <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">
         <div style="font-weight: bold; color: #1e293b; margin-bottom: 12px; font-size: 14px;">💳 Chi tiết hoàn tiền</div>
-
         <table width="100%" style="font-size: 14px; color: #475569;">
           <tr>
             <td style="padding: 8px 0; border-bottom: 1px solid #e2e8f0;">Mã yêu cầu:</td>
@@ -150,10 +132,8 @@ export const refundNotificationTemplate = (refundRequest, booking = {}) => {
           </tr>
         </table>
       </div>
-
       ${receiptSection}
       ${adminNotesSection}
-
       <!-- Contact Info -->
       <div style="background: #eff6ff; border: 1px solid #93c5fd; border-radius: 8px; padding: 16px; margin: 20px 0;">
         <div style="font-weight: bold; color: #1e40af; margin-bottom: 8px;">📞 Cần hỗ trợ?</div>
@@ -162,14 +142,11 @@ export const refundNotificationTemplate = (refundRequest, booking = {}) => {
           Email: <strong>info@penstar.example</strong>
         </div>
       </div>
-
       <p style="font-size: 14px; color: #374151; margin: 20px 0 0 0;">
         Trân trọng,<br>
         <strong>Đội ngũ PenStar Hotel</strong>
       </p>
-
     </div>
-
     <!-- Footer -->
     <div style="background: #f8fafc; padding: 20px; text-align: center; border-top: 1px solid #e2e8f0;">
       <div style="font-size: 11px; color: #9ca3af;">
@@ -177,11 +154,8 @@ export const refundNotificationTemplate = (refundRequest, booking = {}) => {
         Số 1, Đường Chính, Quận Trung tâm
       </div>
     </div>
-
   </div>
-
 </body>
 </html>`;
 };
-
 export default refundNotificationTemplate;

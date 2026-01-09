@@ -7,31 +7,24 @@ import {
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { ERROR_MESSAGES } from "../utils/constants.js";
-
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
-
 export const register = async (req, res) => {
   try {
     const { full_name, email, password, phone } = req.body;
     if (!email || !password) {
       return res.error("Email và mật khẩu là bắt buộc", null, 400);
     }
-
     const existing = await getUserByEmail(email);
     if (existing) {
       return res.error("Email đã được sử dụng", null, 409);
     }
-
     const hashed = await bcrypt.hash(password, 10);
-    // Do not allow client to set role_id on registration. createUser will assign default.
     const user = await createUser({
       full_name,
       email,
       password: hashed,
       phone,
     });
-
-    // Do not return password
     delete user.password;
     return res.success({ user }, "Đăng ký thành công", 201);
   } catch (err) {
@@ -39,25 +32,20 @@ export const register = async (req, res) => {
     return res.error(ERROR_MESSAGES.INTERNAL_ERROR, err.message, 500);
   }
 };
-
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
     if (!email || !password) {
       return res.error("Email và mật khẩu là bắt buộc", null, 400);
     }
-
     const user = await getUserByEmail(email);
     if (!user) {
       return res.error("Thông tin đăng nhập không hợp lệ", null, 401);
     }
-
     const ok = await bcrypt.compare(password, user.password);
     if (!ok) {
       return res.error("Thông tin đăng nhập không hợp lệ", null, 401);
     }
-
-    // role_name column is returned by model (via LEFT JOIN) as user.role_name
     const token = jwt.sign(
       {
         id: user.id,
@@ -77,11 +65,9 @@ export const login = async (req, res) => {
     return res.error(ERROR_MESSAGES.INTERNAL_ERROR, err.message, 500);
   }
 };
-
 export const listUsers = async (req, res) => {
   try {
     const users = await getUsers();
-    // strip passwords
     const safe = users.map((u) => {
       const { password, ...rest } = u;
       return rest;
@@ -92,7 +78,6 @@ export const listUsers = async (req, res) => {
     return res.error(ERROR_MESSAGES.INTERNAL_ERROR, err.message, 500);
   }
 };
-
 export const getCurrentUser = async (req, res) => {
   try {
     console.log("[backend] getCurrentUser headers:", req.headers.authorization);
@@ -111,27 +96,19 @@ export const getCurrentUser = async (req, res) => {
     return res.error(ERROR_MESSAGES.INTERNAL_ERROR, err.message, 500);
   }
 };
-
 export const updateUserController = async (req, res) => {
   const { id } = req.params;
   const userId = String(id);
   const currentUserId = String(req.user?.id);
-
-  // Prevent users from changing their own role
   if (userId === currentUserId && req.body.role_id !== undefined) {
     return res.error("Bạn không thể thay đổi quyền của chính mình", null, 403);
   }
-
-  // Only admin can change roles (role_id in request body) or status (ban/unban)
   if (req.body.role_id !== undefined || req.body.status !== undefined) {
     const userRole = (req.user.role || req.user.role_name || "")
       .toString()
       .toLowerCase();
-    // Fetch the target user to check their current role
     const targetUser = await getUserById(userId);
     const targetRole = (targetUser?.role_name || "").toLowerCase();
-
-    // Nếu cả 2 đều là admin thì không cho phép đổi role hoặc ban/bỏ chặn
     if (userRole === "admin" && targetRole === "admin") {
       return res.error(
         "Admin không thể thay đổi quyền hoặc chặn admin khác",
@@ -139,8 +116,6 @@ export const updateUserController = async (req, res) => {
         403
       );
     }
-
-    // Chỉ admin mới được đổi role hoặc ban/bỏ chặn
     if (userRole !== "admin") {
       return res.error(
         "Chỉ admin mới có thể thay đổi quyền hoặc chặn người dùng",
@@ -149,7 +124,6 @@ export const updateUserController = async (req, res) => {
       );
     }
   }
-
   try {
     const { updateUser } = await import("../models/usersmodel.js");
     const updated = await updateUser(id, req.body);

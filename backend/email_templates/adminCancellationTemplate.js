@@ -1,14 +1,9 @@
-/**
- * Email template for admin notification when user cancels booking
- */
-
 export const adminCancellationNotificationTemplate = (
   booking,
   refundRequest = null
 ) => {
   const formatPrice = (price) =>
     new Intl.NumberFormat("vi-VN").format(Math.round(price || 0));
-
   const formatDate = (dateStr) => {
     if (!dateStr) return "";
     const date = new Date(dateStr);
@@ -18,7 +13,6 @@ export const adminCancellationNotificationTemplate = (
       year: "numeric",
     });
   };
-
   const refundSection = refundRequest
     ? `
       <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 16px; margin: 20px 0;">
@@ -50,10 +44,8 @@ export const adminCancellationNotificationTemplate = (
       </div>
     `
     : "";
-
   const checkIn = booking.items?.[0]?.check_in || booking.check_in;
   const checkOut = booking.items?.[0]?.check_out || booking.check_out;
-
   return `
 <!DOCTYPE html>
 <html lang="vi">
@@ -63,25 +55,19 @@ export const adminCancellationNotificationTemplate = (
   <title>Thông báo hủy phòng - PenStar Admin</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-
   <div style="max-width: 600px; margin: 0 auto; background: #fff; padding: 0;">
-
     <!-- Header -->
     <div style="background: #dc2626; padding: 20px; text-align: center;">
       <div style="font-size: 24px; font-weight: bold; color: #fff;">⚠️ THÔNG BÁO HỦY PHÒNG</div>
     </div>
-
     <!-- Content -->
     <div style="padding: 30px;">
-
       <p style="font-size: 15px; color: #374151; margin: 0 0 20px 0;">
         Khách hàng <strong>${booking.customer_name}</strong> vừa hủy đặt phòng.
       </p>
-
       <!-- Booking Details Card -->
       <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 20px; margin: 20px 0;">
         <div style="font-weight: bold; color: #1e293b; margin-bottom: 12px; font-size: 14px;">📋 Chi tiết đặt phòng đã hủy</div>
-
         <table width="100%" style="font-size: 14px; color: #475569;">
           <tr>
             <td style="padding: 8px 0; border-bottom: 1px solid #e2e8f0;">Mã đặt phòng:</td>
@@ -127,9 +113,7 @@ export const adminCancellationNotificationTemplate = (
           </tr>
         </table>
       </div>
-
       ${refundSection}
-
       <div style="background: #eff6ff; border: 1px solid #93c5fd; border-radius: 8px; padding: 16px; margin: 20px 0;">
         <div style="font-weight: bold; color: #1e40af; margin-bottom: 8px;">👉 Hành động cần làm</div>
         <div style="color: #1d4ed8; font-size: 13px;">
@@ -140,17 +124,12 @@ export const adminCancellationNotificationTemplate = (
           }
         </div>
       </div>
-
       <p style="font-size: 12px; color: #9ca3af; margin: 20px 0 0 0;">
         Email tự động từ hệ thống PenStar Hotel
       </p>
-
     </div>
-
   </div>
-
 </body>
 </html>`;
 };
-
 export default adminCancellationNotificationTemplate;

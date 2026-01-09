@@ -1,12 +1,9 @@
 import pool from "../db.js";
-
 export const getStatistics = async (req, res) => {
   try {
     const { startDate: qStart, endDate: qEnd } = req.query;
     console.log(`--- Lấy thống kê từ ${qStart} đến ${qEnd} ---`);
-
     let startDate, endDate;
-
     if (qStart && qEnd) {
       startDate = new Date(qStart);
       endDate = new Date(qEnd);
@@ -15,12 +12,9 @@ export const getStatistics = async (req, res) => {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     }
-
     startDate.setHours(0, 0, 0, 0);
     endDate.setHours(23, 59, 59, 999);
-
     const params = [startDate, endDate];
-
     const safeQuery = async (query, queryParams, defaultValue) => {
       try {
         const result = await pool.query(query, queryParams);
@@ -30,23 +24,18 @@ export const getStatistics = async (req, res) => {
         return { rows: defaultValue };
       }
     };
-
-    // --- KPIs ---
-
     const usersRes = await safeQuery(
       `SELECT COUNT(*) as count FROM users`,
       [],
       [{ count: 0 }]
     );
     const totalUsers = parseInt(usersRes.rows[0].count);
-
     const bookingsRes = await safeQuery(
       `SELECT COUNT(*) as count FROM bookings b WHERE b.created_at >= $1 AND b.created_at <= $2`,
       params,
       [{ count: 0 }]
     );
     const totalBookings = parseInt(bookingsRes.rows[0].count);
-
     const revenueRes = await safeQuery(
       `SELECT COALESCE(SUM(total_price), 0) as total 
        FROM bookings b
@@ -56,42 +45,32 @@ export const getStatistics = async (req, res) => {
       [{ total: 0 }]
     );
     const totalRevenue = parseFloat(revenueRes.rows[0].total) || 0;
-
     const pendingBookingsRes = await safeQuery(
       `SELECT COUNT(*) as count FROM bookings WHERE stay_status_id = 6`,
       [],
       [{ count: 0 }]
     );
     const pendingBookings = parseInt(pendingBookingsRes.rows[0].count) || 0;
-
-    // ✅ FIX 1: Logic Check-in / Check-out chặt chẽ hơn
-    // Check-in: Đếm số lượng booking có ngày check-in trong khoảng thời gian VÀ (Đã đặt hoặc Đã/Đang ở)
     const checkinsRes = await safeQuery(
       `SELECT COUNT(DISTINCT b.id) as count
        FROM bookings b
        JOIN booking_items bi ON bi.booking_id = b.id
        WHERE bi.check_in >= $1 AND bi.check_in <= $2
-       AND b.stay_status_id IN (1, 2, 3)`, // Tính cả 3 (đã checkout) vì họ đã từng checkin trong quá khứ gần
+       AND b.stay_status_id IN (1, 2, 3)`, 
       params,
       [{ count: 0 }]
     );
     const countCheckins = parseInt(checkinsRes.rows[0].count) || 0;
-
-    // Check-out: CHỈ ĐẾM STATUS = 3 (Đã trả phòng) để số liệu thực tế
-    // Nếu bạn muốn đếm cả "Dự kiến checkout", hãy thêm status 2 vào lại
     const checkoutsRes = await safeQuery(
       `SELECT COUNT(DISTINCT b.id) as count
        FROM bookings b
        JOIN booking_items bi ON bi.booking_id = b.id
        WHERE bi.check_out >= $1 AND bi.check_out <= $2
-       AND b.stay_status_id = 3`, // ✅ Chỉ đếm đã checkout xong
+       AND b.stay_status_id = 3`, 
       params,
       [{ count: 0 }]
     );
     const countCheckouts = parseInt(checkoutsRes.rows[0].count) || 0;
-
-    // --- CHART & LIST ---
-
     const revenueByTimeRes = await safeQuery(
       `SELECT 
         DATE(created_at) as date,
@@ -104,7 +83,6 @@ export const getStatistics = async (req, res) => {
       params,
       []
     );
-
     const bookingByPaymentMethodRes = await safeQuery(
       `SELECT 
         COALESCE(payment_method, 'unknown') as payment_method,
@@ -116,7 +94,6 @@ export const getStatistics = async (req, res) => {
       params,
       []
     );
-
     const recentBookingsRes = await safeQuery(
       `SELECT 
         b.id,
@@ -132,7 +109,6 @@ export const getStatistics = async (req, res) => {
       [],
       []
     );
-
     const roomStatusCountRes = await safeQuery(
       `SELECT 
         SUM(CASE WHEN r.status = 'available' THEN 1 ELSE 0 END) as available,
@@ -143,7 +119,6 @@ export const getStatistics = async (req, res) => {
       [],
       [{ available: 0, occupied: 0, reserved: 0, maintenance: 0 }]
     );
-
     const totalRoomsRes = await safeQuery(
       "SELECT COUNT(*) as count FROM rooms",
       [],
@@ -153,9 +128,6 @@ export const getStatistics = async (req, res) => {
     const occupiedRooms = parseInt(roomStatusCountRes.rows[0].occupied) || 0;
     const occupancyRate =
       totalRooms > 0 ? ((occupiedRooms / totalRooms) * 100).toFixed(2) : 0;
-
-    // ✅ FIX 2: Sửa query lấy sự cố thiết bị
-    // Dùng LEFT JOIN để nếu lỡ xóa thiết bị gốc hoặc ID sai thì vẫn hiện record
     const deviceDamageRes = await safeQuery(
       `SELECT 
         COUNT(*) as total_damage_cases,
@@ -165,7 +137,6 @@ export const getStatistics = async (req, res) => {
       params,
       [{ total_damage_cases: 0, total_damage_amount: 0 }]
     );
-
     const deviceDamageDetailsRes = await safeQuery(
       `SELECT 
         bi.id, bi.booking_id, bi.amount, 
@@ -179,19 +150,16 @@ export const getStatistics = async (req, res) => {
       [],
       []
     );
-
     const formattedPaymentMethods = bookingByPaymentMethodRes.rows.map((r) => ({
       name: r.payment_method,
       value: parseInt(r.count),
     }));
-
     const formattedRecentDamage = deviceDamageDetailsRes.rows.map((d) => ({
       id: d.id,
       room: d.room_name,
       item: d.equipment_name,
       amount: parseFloat(d.amount),
     }));
-
     res.success(
       {
         totalUsers,
