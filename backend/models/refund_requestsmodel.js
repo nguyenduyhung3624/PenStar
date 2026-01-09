@@ -87,14 +87,7 @@ export const RefundRequestsModel = {
       params.push(status);
     }
 
-    query += ` ORDER BY
-      CASE rr.status
-        WHEN 'pending' THEN 1
-        WHEN 'approved' THEN 2
-        WHEN 'completed' THEN 3
-        WHEN 'rejected' THEN 4
-      END,
-      rr.created_at DESC`;
+    query += ` ORDER BY rr.created_at DESC`;
 
     const result = await pool.query(query, params);
     return result.rows;
