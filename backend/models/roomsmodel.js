@@ -1,8 +1,5 @@
 import pool from "../db.js";
-
-// Độ tuổi quy chuẩn để tính là trẻ em
-export const CHILD_AGE_LIMIT = 8; // Trẻ em: < 8 tuổi, Người lớn: >= 8 tuổi
-
+export const CHILD_AGE_LIMIT = 8; 
 export const getRooms = async () => {
   const resuit = await pool.query(`
     SELECT r.*,
@@ -15,7 +12,6 @@ export const getRooms = async () => {
   `);
   return resuit.rows;
 };
-
 export const getRoomID = async (id) => {
   const resuit = await pool.query(
     `
@@ -32,7 +28,6 @@ export const getRoomID = async (id) => {
   console.log(resuit);
   return resuit.rows[0];
 };
-
 export const createRoom = async (data) => {
   const { name, type_id, short_desc, long_desc, status, thumbnail, floor_id } =
     data;
@@ -44,7 +39,6 @@ export const createRoom = async (data) => {
   console.log(resuit);
   return resuit.rows[0];
 };
-
 export const updateRoom = async (id, data) => {
   const { name, type_id, short_desc, long_desc, status, thumbnail, floor_id } =
     data;
@@ -56,10 +50,6 @@ export const updateRoom = async (id, data) => {
   console.log(result);
   return result.rows[0];
 };
-
-// Check if room has active bookings (đang được book)
-// Active = reserved (1) hoặc checked_in (2)
-// KHÔNG bao gồm checked_out (3) vì đã trả phòng
 export const hasActiveBookings = async (roomId) => {
   const result = await pool.query(
     `SELECT COUNT(*) as count
@@ -71,7 +61,6 @@ export const hasActiveBookings = async (roomId) => {
   );
   return parseInt(result.rows[0].count) > 0;
 };
-
 export const deleteRoom = async (id) => {
   const resuit = await pool.query(
     "DELETE FROM rooms WHERE id = $1 RETURNING *",
@@ -79,16 +68,12 @@ export const deleteRoom = async (id) => {
   );
   return resuit.rows[0];
 };
-
-// Backwards-compatible wrappers (camelCase) kept, but internal helpers accept snake_case keys
 export const countRoomsByTypeId = async (typeId) => {
   return countRoomsBy_type_id(typeId);
 };
-
 export const countRoomsByFloorId = async (floorId) => {
   return countRoomsBy_floor_id(floorId);
 };
-
 export const countRoomsBy_type_id = async (type_id) => {
   const resuit = await pool.query(
     "SELECT COUNT(*)::int AS count FROM rooms WHERE type_id = $1",
@@ -96,7 +81,6 @@ export const countRoomsBy_type_id = async (type_id) => {
   );
   return resuit.rows[0]?.count ?? 0;
 };
-
 export const countRoomsBy_floor_id = async (floor_id) => {
   const resuit = await pool.query(
     "SELECT COUNT(*)::int AS count FROM rooms WHERE floor_id = $1",
@@ -104,7 +88,6 @@ export const countRoomsBy_floor_id = async (floor_id) => {
   );
   return resuit.rows[0]?.count ?? 0;
 };
-
 export const existsRoomWithNameAndType = async (
   name,
   type_id,
@@ -123,8 +106,6 @@ export const existsRoomWithNameAndType = async (
   );
   return res.rowCount > 0;
 };
-
-// Check trùng tên phòng tuyệt đối (không phụ thuộc type_id)
 export const existsRoomWithName = async (name, excludeId = null) => {
   if (excludeId) {
     const res = await pool.query(
@@ -139,8 +120,6 @@ export const existsRoomWithName = async (name, excludeId = null) => {
   );
   return res.rowCount > 0;
 };
-
-// Tìm kiếm phòng trống theo thời gian và yêu cầu
 export const searchAvailableRooms = async ({
   check_in,
   check_out,
@@ -158,17 +137,12 @@ export const searchAvailableRooms = async ({
     num_adults,
     num_children,
   });
-
   const totalGuests = num_adults + num_children;
-
-  // Cho phép truyền vào trạng thái phòng cần kiểm tra (mặc định là 'available')
   const statusList = Array.isArray(status)
     ? status
     : status
     ? [status]
     : ["available"];
-
-  // Debug: log các phòng bị loại do booking overlap
   try {
     const conflictQuery = `
       SELECT DISTINCT r.id as room_id, r.name as room_name, bi.check_in, bi.check_out, b.stay_status_id
@@ -197,7 +171,6 @@ export const searchAvailableRooms = async ({
   } catch (err) {
     console.error("[DEBUG] Lỗi khi log conflictQuery:", err);
   }
-
   let query = `
     SELECT DISTINCT r.*, rt.name as type_name, rt.capacity
     FROM rooms r
@@ -213,29 +186,19 @@ export const searchAvailableRooms = async ({
         WHERE rd.room_id = r.id AND rd.status != 'working'
       )
   `;
-
   const params = [statusList, totalGuests];
   console.log("📦 Initial params:", params);
   let paramIndex = 3;
-
-  // Filter theo loại phòng nếu có
   if (room_type_id) {
     query += ` AND r.type_id = $${paramIndex}`;
     params.push(room_type_id);
     paramIndex++;
   }
-
-  // Filter theo tầng nếu có
   if (floor_id) {
     query += ` AND r.floor_id = $${paramIndex}`;
     params.push(floor_id);
     paramIndex++;
   }
-
-  // Loại trừ phòng đã có booking conflict
-  // Logic: Conflict xảy ra khi khoảng thời gian CHỒNG LẤN
-  // Không conflict khi: check_out_cũ <= check_in_mới HOẶC check_in_cũ >= check_out_mới
-  // => Conflict khi: NOT (check_out_cũ <= check_in_mới OR check_in_cũ >= check_out_mới)
   query += `
     AND NOT EXISTS (
       SELECT 1 FROM booking_items bi
@@ -249,23 +212,13 @@ export const searchAvailableRooms = async ({
     )
   `;
   params.push(check_in, check_out);
-
-  // Sắp xếp theo tầng (floor_id) và tên phòng (name) tăng dần
   query += ` ORDER BY r.floor_id ASC, r.name ASC`;
-
   console.log("📝 Final query:", query);
   console.log("📦 Final params:", params);
-
   const result = await pool.query(query, params);
   console.log(`✅ Found ${result.rows.length} rooms`);
-
   return result.rows;
 };
-
-/**
- * Search ALL rooms and return availability status for given dates
- * Returns all rooms with is_available flag
- */
 export const searchAllRoomsWithAvailability = async ({
   check_in,
   check_out,
@@ -280,9 +233,7 @@ export const searchAllRoomsWithAvailability = async ({
     room_type_id,
     floor_id,
   });
-
   const totalGuests = num_adults + num_children;
-
   let query = `
     SELECT
       r.*,
@@ -327,37 +278,27 @@ export const searchAllRoomsWithAvailability = async ({
     LEFT JOIN floors f ON r.floor_id = f.id
     WHERE 1=1
   `;
-
   const params = [totalGuests, check_in, check_out];
   let paramIndex = 4;
-
   if (room_type_id) {
     query += ` AND r.type_id = $${paramIndex}`;
     params.push(room_type_id);
     paramIndex++;
   }
-
   if (floor_id) {
     query += ` AND r.floor_id = $${paramIndex}`;
     params.push(floor_id);
     paramIndex++;
   }
-
   query += ` ORDER BY r.floor_id ASC, r.name ASC`;
-
   const result = await pool.query(query, params);
   console.log(
     `✅ Found ${result.rows.length} rooms total, ${
       result.rows.filter((r) => r.is_available).length
     } available`
   );
-
   return result.rows;
 };
-
-/**
- * Get rooms that are currently occupied (have active bookings)
- */
 export const getOccupiedRooms = async () => {
   const query = `
     SELECT
@@ -383,14 +324,9 @@ export const getOccupiedRooms = async () => {
       AND bi.check_out::date >= CURRENT_DATE
     ORDER BY r.floor_id ASC, r.name ASC
   `;
-
   const result = await pool.query(query);
   return result.rows;
 };
-
-/**
- * Get booking history for a specific room
- */
 export const getRoomBookingHistory = async (roomId, limit = 20) => {
   const query = `
     SELECT
@@ -411,14 +347,9 @@ export const getRoomBookingHistory = async (roomId, limit = 20) => {
     ORDER BY bi.check_in DESC
     LIMIT $2
   `;
-
   const result = await pool.query(query, [roomId, limit]);
   return result.rows;
 };
-
-/**
- * Get room statistics (for admin dashboard)
- */
 export const getRoomStats = async () => {
   const query = `
     SELECT
@@ -437,7 +368,6 @@ export const getRoomStats = async () => {
       ) as occupied_rooms
     FROM rooms
   `;
-
   const result = await pool.query(query);
   return result.rows[0];
 };

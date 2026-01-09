@@ -1,8 +1,4 @@
-// Thêm hoặc cập nhật tiêu chuẩn thiết bị cho loại phòng
-
 import pool from "../db.js";
-
-// Lấy min/max số lượng tiêu chuẩn của thiết bị theo loại phòng
 export const getStandardQuantity = async (
   room_type_id,
   master_equipment_id
@@ -19,7 +15,6 @@ export const upsertStandard = async (
   min_quantity,
   max_quantity
 ) => {
-  // Nếu đã có thì update, chưa có thì insert
   await pool.query(
     `INSERT INTO room_type_equipments (room_type_id, equipment_type_id, min_quantity, max_quantity)
      VALUES ($1, $2, $3, $4)
@@ -28,16 +23,12 @@ export const upsertStandard = async (
     [room_type_id, master_equipment_id, min_quantity, max_quantity]
   );
 };
-
-// Lấy tất cả tiêu chuẩn thiết bị theo loại phòng
 export const getAllStandards = async () => {
   const result = await pool.query(
     `SELECT room_type_id, equipment_type_id as master_equipment_id, min_quantity, max_quantity FROM room_type_equipments`
   );
   return result.rows;
 };
-
-// Lấy danh sách thiết bị chuẩn của một loại phòng kèm tên thiết bị
 export const getEquipmentsByRoomType = async (room_type_id) => {
   const result = await pool.query(
     `SELECT 

@@ -1,6 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { instance } from "./api";
-
 export const getIncidentsByRoom = async (room_id: number) => {
   try {
     const res = await instance.get("/booking-incidents/room", {
@@ -12,7 +10,6 @@ export const getIncidentsByRoom = async (room_id: number) => {
     return [];
   }
 };
-
 export const getBookingIncidents = async (
   booking_id: number,
   showDeleted: boolean = false
@@ -27,7 +24,6 @@ export const getBookingIncidents = async (
     return [];
   }
 };
-
 export const createBookingIncident = async (data: any) => {
   try {
     const res = await instance.post("/booking-incidents", data);
@@ -37,7 +33,6 @@ export const createBookingIncident = async (data: any) => {
     throw error;
   }
 };
-
 export const deleteBookingIncident = async (
   id: number,
   deleted_by?: number,

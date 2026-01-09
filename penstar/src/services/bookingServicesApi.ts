@@ -1,11 +1,9 @@
 import instance from "./api";
 import type { BookingService } from "@/types/bookingService";
-
 export const getBookingServices = async (): Promise<BookingService[]> => {
   const response = await instance.get("/booking-services");
   return response.data.data;
 };
-
 export const getServicesByBooking = async (
   booking_id: number
 ): Promise<BookingService[]> => {
@@ -14,7 +12,6 @@ export const getServicesByBooking = async (
   );
   return response.data.data;
 };
-
 export const getServicesByBookingItem = async (
   booking_item_id: number
 ): Promise<BookingService[]> => {
@@ -23,8 +20,6 @@ export const getServicesByBookingItem = async (
   );
   return response.data.data;
 };
-
-// Accepts note as part of data
 export const createBookingService = async (
   data: Omit<
     BookingService,

@@ -1,5 +1,4 @@
 import pool from "../db.js";
-
 export const getRoomTypes = async () => {
   let result;
   try {
@@ -36,15 +35,11 @@ export const getRoomTypes = async () => {
     console.error("Lỗi truy vấn room_types:", err);
     throw err;
   }
-
-  // Get all room type images
   const imagesResult = await pool.query(`
     SELECT room_type_id, image_url, is_thumbnail
     FROM room_type_images
     ORDER BY room_type_id, is_thumbnail DESC, id ASC
   `);
-
-  // Group images by room_type_id
   const imagesByRoomType = {};
   for (const img of imagesResult.rows) {
     if (!imagesByRoomType[img.room_type_id]) {
@@ -52,8 +47,6 @@ export const getRoomTypes = async () => {
     }
     imagesByRoomType[img.room_type_id].push(img.image_url);
   }
-
-  // Lấy devices qua bảng room_type_devices
   const roomTypes = {};
   for (const row of result.rows) {
     if (!roomTypes[row.id]) {
@@ -87,14 +80,11 @@ export const getRoomTypes = async () => {
                 notes: row.refund_notes,
               }
             : null,
-        // devices: [],
       };
     }
   }
-
   return Object.values(roomTypes);
 };
-
 export const createRoomType = async (data) => {
   const {
     name,
@@ -141,7 +131,6 @@ export const createRoomType = async (data) => {
   );
   return result.rows[0];
 };
-
 export const getRoomTypeById = async (id) => {
   const result = await pool.query(
     `SELECT
@@ -190,7 +179,6 @@ export const getRoomTypeById = async (id) => {
   }
   return row;
 };
-
 export const updateRoomType = async (id, data) => {
   let {
     name,
@@ -205,14 +193,11 @@ export const updateRoomType = async (id, data) => {
     price,
     bed_type,
     view_direction,
-
     free_amenities,
     paid_amenities,
     room_size,
     policies,
   } = data;
-
-  // Nếu thumbnail không được gửi lên, lấy lại từ DB
   if (typeof thumbnail === "undefined") {
     const old = await pool.query(
       "SELECT thumbnail FROM room_types WHERE id = $1",
@@ -220,7 +205,6 @@ export const updateRoomType = async (id, data) => {
     );
     thumbnail = old.rows[0]?.thumbnail || null;
   }
-
   const result = await pool.query(
     `UPDATE room_types SET
       name = $1,
@@ -262,7 +246,6 @@ export const updateRoomType = async (id, data) => {
   );
   return result.rows[0];
 };
-
 export const deleteRoomType = async (id) => {
   const resuit = await pool.query(
     "DELETE FROM room_types WHERE id = $1 RETURNING *",
@@ -270,7 +253,6 @@ export const deleteRoomType = async (id) => {
   );
   return resuit.rows[0];
 };
-
 export const existsRoomTypeWithName = async (name, excludeId = null) => {
   if (excludeId) {
     const res = await pool.query(
