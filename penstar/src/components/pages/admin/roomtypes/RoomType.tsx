@@ -30,15 +30,17 @@ const RoomTypesPage = () => {
     queryFn: getRoomTypes,
   });
 
-  const filteredTypes = types.filter((t: RoomTypeItem) => {
-    const q = String(searchTerm ?? "")
-      .trim()
-      .toLowerCase();
-    if (!q) return true;
-    return String(t.name ?? "")
-      .toLowerCase()
-      .includes(q);
-  });
+  const filteredTypes = types
+    .filter((t: RoomTypeItem) => {
+      const q = String(searchTerm ?? "")
+        .trim()
+        .toLowerCase();
+      if (!q) return true;
+      return String(t.name ?? "")
+        .toLowerCase()
+        .includes(q);
+    })
+    .sort((a: RoomTypeItem, b: RoomTypeItem) => Number(b.id) - Number(a.id));
 
   const deleteMut = useMutation({
     mutationFn: (id: number | string) => deleteRoomType(id),
@@ -67,7 +69,11 @@ const RoomTypesPage = () => {
       key: "thumbnail",
       width: 100,
       render: (thumbnail: string) => {
-        const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:3001";
+        // VITE_BASE_URL thường là http://localhost:5001/api -> cần lấy http://localhost:5001
+        const apiBase =
+          import.meta.env.VITE_BASE_URL || "http://localhost:5001/api";
+        const baseUrl = apiBase.replace(/\/api\/?$/, "");
+
         const imageUrl = thumbnail
           ? thumbnail.startsWith("http")
             ? thumbnail

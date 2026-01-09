@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // services used: roomsApi wrapper functions
 import { EditOutlined, PlusOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -56,22 +55,24 @@ const Rooms = () => {
   if (isLoading) return <div>Đang tải...</div>;
   if (isError) return <div>Lỗi</div>;
 
-  const filteredRooms = rooms?.filter((r) => {
-    if (filterTypeId && String(r.type_id) !== String(filterTypeId))
-      return false;
-    if (filterFloorId && String(r.floor_id) !== String(filterFloorId))
-      return false;
-    const q = String(searchTerm ?? "")
-      .trim()
-      .toLowerCase();
-    if (q) {
-      const name = String(
-        (r as unknown as Record<string, unknown>).name ?? ""
-      ).toLowerCase();
-      if (!name.includes(q)) return false;
-    }
-    return true;
-  });
+  const filteredRooms = rooms
+    ?.filter((r) => {
+      if (filterTypeId && String(r.type_id) !== String(filterTypeId))
+        return false;
+      if (filterFloorId && String(r.floor_id) !== String(filterFloorId))
+        return false;
+      const q = String(searchTerm ?? "")
+        .trim()
+        .toLowerCase();
+      if (q) {
+        const name = String(
+          (r as unknown as Record<string, unknown>).name ?? ""
+        ).toLowerCase();
+        if (!name.includes(q)) return false;
+      }
+      return true;
+    })
+    ?.sort((a, b) => Number(b.id) - Number(a.id));
 
   const columns: ColumnsType<Room> = [
     {
