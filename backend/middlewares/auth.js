@@ -1,6 +1,5 @@
 import jwt from "jsonwebtoken";
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
-
 export const requireAuth = (req, res, next) => {
   const auth = req.headers.authorization;
   if (!auth) return res.status(401).json({ message: "Missing Authorization" });
@@ -10,19 +9,16 @@ export const requireAuth = (req, res, next) => {
   const token = parts[1];
   try {
     const payload = jwt.verify(token, JWT_SECRET);
-    // payload should contain at least { id, role || role_id }
     req.user = payload;
     next();
   } catch (err) {
     return res.status(401).json({ message: "Invalid token" });
   }
 };
-
-// Optional auth: Try to authenticate, but allow request through if no token
 export const optionalAuth = (req, res, next) => {
   const auth = req.headers.authorization;
   if (!auth) {
-    req.user = null; // No user, but allow through
+    req.user = null; 
     return next();
   }
   const parts = auth.split(" ");
@@ -36,17 +32,10 @@ export const optionalAuth = (req, res, next) => {
     req.user = payload;
     next();
   } catch (err) {
-    req.user = null; // Invalid token, but allow through
+    req.user = null; 
     next();
   }
 };
-
-// role hierarchy: customer < staff < manager < admin
-// Database roles table:
-//   id=1 -> admin
-//   id=2 -> manager
-//   id=3 -> receptionist (staff)
-//   id=4 -> user (customer)
 const ROLE_LEVEL = {
   customer: 0,
   user: 0,
@@ -55,45 +44,34 @@ const ROLE_LEVEL = {
   manager: 2,
   admin: 3,
 };
-
-// Map role_id to level based on actual database roles
 const roleIdToLevel = (roleId) => {
   switch (roleId) {
     case 1:
-      return 3; // admin
+      return 3; 
     case 2:
-      return 2; // manager
+      return 2; 
     case 3:
-      return 1; // receptionist/staff
+      return 1; 
     case 4:
-      return 0; // user/customer
+      return 0; 
     default:
       return -1;
   }
 };
-
-// requireRole accepts one or more allowed roles and permits access if user's role level
-// is >= the minimum allowed role level. It supports passing role names like 'staff', 'manager', 'admin'.
 export const requireRole = (...allowedRoles) => {
-  // compute minimum required level
   const levels = allowedRoles
     .map((r) => String(r || "").toLowerCase())
     .map((name) =>
       typeof ROLE_LEVEL[name] === "number" ? ROLE_LEVEL[name] : -1
     );
   const minLevel = levels.length ? Math.min(...levels) : 0;
-
   return (req, res, next) => {
     const user = req.user;
     if (!user) return res.status(401).json({ message: "Not authenticated" });
-
-    // Try to get user level from role_id first (more reliable)
     let userLevel = -1;
     if (user.role_id !== undefined && user.role_id !== null) {
       userLevel = roleIdToLevel(user.role_id);
     }
-
-    // Fallback to role name if role_id not available or invalid
     if (userLevel === -1) {
       const userRoleName = (user.role || user.role_name || user.role_type || "")
         .toString()
@@ -103,21 +81,7 @@ export const requireRole = (...allowedRoles) => {
           ? ROLE_LEVEL[userRoleName]
           : -1;
     }
-
     if (userLevel >= minLevel) return next();
     return res.status(403).json({ message: "Forbidden: insufficient role" });
   };
 };
-
-/*
-  Notes:
-  - The JWT payload set by your login controller should include either `role` (string) or
-    `role_name` so the middleware can determine permission level. Example payload:
-      { id: 12, email: 'a@b.com', role: 'manager' }
-
-  - For quick testing you can generate tokens using Node REPL or a small script:
-      import jwt from 'jsonwebtoken';
-      const token = jwt.sign({ id:1, email:'a@b', role: 'admin' }, process.env.JWT_SECRET || 'dev-secret');
-
-  - The role hierarchy is: customer < staff < manager < admin.
-*/
