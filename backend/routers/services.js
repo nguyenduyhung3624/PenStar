@@ -11,13 +11,11 @@ import {
   validateServiceUpdate,
 } from "../middlewares/servicevalidate.js";
 import multer from "multer";
-const upload = multer({ dest: "uploads/services/" });
+import path from "path";
+const upload = multer({ dest: path.join(process.cwd(), "uploads/services") });
 import { requireAuth, requireRole } from "../middlewares/auth.js";
 const serviceRouter = express.Router();
-
-// Public: list and read services
 serviceRouter.get("/", getServices);
-// Check if a service name exists (query: name, excludeId)
 serviceRouter.get("/check-name", async (req, res) => {
   try {
     const { name, excludeId } = req.query;
@@ -59,5 +57,4 @@ serviceRouter.put(
   updateService
 );
 serviceRouter.delete("/:id", requireAuth, requireRole("staff"), deleteService);
-
 export default serviceRouter;

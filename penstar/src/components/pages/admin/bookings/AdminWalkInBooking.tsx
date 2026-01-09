@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -35,10 +34,8 @@ import { getRooms } from "@/services/roomsApi";
 import { createBooking } from "@/services/bookingsApi";
 import type { RoomType } from "@/types/roomtypes";
 import dayjs from "@/utils/dayjs";
-
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
-
 interface Room {
   id: number;
   name: string;
@@ -47,14 +44,12 @@ interface Room {
   floor_id?: number;
   floor_name?: string;
 }
-
 interface SelectedRoom {
-  id: string; // unique key for the row
+  id: string; 
   roomId: number | null;
   roomTypeId: number;
   numAdults: number;
   numChildren: number;
-  // Calculated
   basePrice: number;
   extraAdultFees: number;
   extraChildFees: number;
@@ -62,7 +57,6 @@ interface SelectedRoom {
   extraAdultsCount: number;
   extraChildrenCount: number;
 }
-
 const AdminWalkInBooking = () => {
   const navigate = useNavigate();
   const [form] = Form.useForm();
@@ -73,41 +67,29 @@ const AdminWalkInBooking = () => {
   const [paymentMethod, setPaymentMethod] = useState<string>("cash");
   const [immediateCheckin, setImmediateCheckin] = useState(false);
   const [selectedRooms, setSelectedRooms] = useState<SelectedRoom[]>([]);
-
-  // Load room types
   const { data: roomTypes = [], isLoading: loadingTypes } = useQuery<
     RoomType[]
   >({
     queryKey: ["roomTypes"],
     queryFn: getRoomTypes,
   });
-
-  // Load all rooms
   const { data: allRooms = [], isLoading: loadingRooms } = useQuery<Room[]>({
     queryKey: ["rooms"],
     queryFn: getRooms,
   });
-
-  // Calculate nights
   const nights = useMemo(() => {
     if (!dateRange) return 0;
     return dateRange[1].diff(dateRange[0], "day");
   }, [dateRange]);
-
-  // Check if check-in date is today (can only check-in immediately if today)
   const isCheckInToday = useMemo(() => {
     if (!dateRange) return false;
     return dateRange[0].isSame(dayjs(), "day");
   }, [dateRange]);
-
-  // Auto-disable immediate checkin if not today
   useMemo(() => {
     if (!isCheckInToday && immediateCheckin) {
       setImmediateCheckin(false);
     }
   }, [isCheckInToday, immediateCheckin]);
-
-  // Get available rooms by room type (excluding already selected)
   const getAvailableRooms = useCallback(
     (roomTypeId: number, excludeRoomId?: number) => {
       const selectedRoomIds = selectedRooms
@@ -122,8 +104,6 @@ const AdminWalkInBooking = () => {
     },
     [allRooms, selectedRooms]
   );
-
-  // Calculate extra fees for a room
   const calculateExtraFees = useCallback(
     (
       roomTypeId: number,
@@ -148,20 +128,16 @@ const AdminWalkInBooking = () => {
           extraChildrenCount: 0,
         };
       }
-
       const basePrice = roomType.price || 0;
       const baseAdults = roomType.base_adults || 2;
       const baseChildren = roomType.base_children || 0;
       const extraAdultFee = Number(roomType.extra_adult_fee) || 0;
       const extraChildFee = Number(roomType.extra_child_fee) || 0;
-
       const extraAdultsCount = Math.max(0, numAdults - baseAdults);
       const extraChildrenCount = Math.max(0, numChildren - baseChildren);
-
       const extraAdultFees = extraAdultsCount * extraAdultFee;
       const extraChildFees = extraChildrenCount * extraChildFee;
       const totalPrice = basePrice + extraAdultFees + extraChildFees;
-
       return {
         basePrice,
         extraAdultFees,
@@ -173,8 +149,6 @@ const AdminWalkInBooking = () => {
     },
     [roomTypes]
   );
-
-  // Add new room
   const handleAddRoom = () => {
     if (roomTypes.length === 0) {
       message.warning("Chưa có loại phòng nào");
@@ -194,13 +168,9 @@ const AdminWalkInBooking = () => {
       },
     ]);
   };
-
-  // Remove room
   const handleRemoveRoom = (id: string) => {
     setSelectedRooms((prev) => prev.filter((r) => r.id !== id));
   };
-
-  // Update room
   const handleUpdateRoom = (
     id: string,
     field: keyof SelectedRoom,
@@ -209,10 +179,7 @@ const AdminWalkInBooking = () => {
     setSelectedRooms((prev) =>
       prev.map((room) => {
         if (room.id !== id) return room;
-
         const updated = { ...room, [field]: value };
-
-        // Recalculate fees when room type or guests change
         if (
           field === "roomTypeId" ||
           field === "numAdults" ||
@@ -222,79 +189,61 @@ const AdminWalkInBooking = () => {
           const newAdults = field === "numAdults" ? value : room.numAdults;
           const newChildren =
             field === "numChildren" ? value : room.numChildren;
-
-          // Reset room selection if type changes
           if (field === "roomTypeId") {
             updated.roomId = null;
           }
-
           const fees = calculateExtraFees(newTypeId, newAdults, newChildren);
           return { ...updated, ...fees };
         }
-
         return updated;
       })
     );
   };
-
-  // Calculate total
   const totalPrice = useMemo(() => {
     return selectedRooms.reduce(
       (sum, room) => sum + room.totalPrice * nights,
       0
     );
   }, [selectedRooms, nights]);
-
   const totalExtraFees = useMemo(() => {
     return selectedRooms.reduce(
       (sum, room) => sum + (room.extraAdultFees + room.extraChildFees) * nights,
       0
     );
   }, [selectedRooms, nights]);
-
   const handleSubmit = async () => {
     try {
       await form.validateFields();
       const values = form.getFieldsValue();
-
       if (!dateRange) {
         message.error("Vui lòng chọn ngày nhận và trả phòng");
         return;
       }
-
       if (selectedRooms.length === 0) {
         message.error("Vui lòng thêm ít nhất 1 phòng");
         return;
       }
-
-      // Check all rooms have been selected
       const unselectedRooms = selectedRooms.filter((r) => !r.roomId);
       if (unselectedRooms.length > 0) {
         message.error("Vui lòng chọn phòng cụ thể cho tất cả các mục");
         return;
       }
-
       if (nights > 30) {
         message.error("Không thể đặt phòng quá 30 đêm");
         return;
       }
-
       setLoading(true);
-
       const checkIn = dateRange[0].format("YYYY-MM-DD");
       const checkOut = dateRange[1].format("YYYY-MM-DD");
-
       const bookingData = {
         customer_name: values.customer_name,
         customer_email: values.customer_email || null,
         customer_phone: values.customer_phone,
         notes: values.notes || null,
         total_price: totalPrice,
-        // Check-in ngay = đã thanh toán, không thì = chờ thanh toán
         payment_status: immediateCheckin ? "paid" : "pending",
         payment_method: paymentMethod,
         booking_method: "offline",
-        // Check-in ngay = checked_in (2), không thì = reserved (1) - hold phòng
         stay_status_id: immediateCheckin ? 2 : 1,
         items: selectedRooms.map((room) => ({
           room_id: room.roomId,
@@ -312,7 +261,6 @@ const AdminWalkInBooking = () => {
           num_children: room.numChildren,
         })),
       };
-
       const booking = await createBooking(bookingData as any);
       message.success(
         immediateCheckin
@@ -329,8 +277,6 @@ const AdminWalkInBooking = () => {
       setLoading(false);
     }
   };
-
-  // Table columns for rooms
   const columns = [
     {
       title: "Loại phòng",
@@ -448,7 +394,6 @@ const AdminWalkInBooking = () => {
       ),
     },
   ];
-
   return (
     <div className="bg-gray-50 py-6 min-h-screen">
       <div className="max-w-5xl mx-auto px-4">
@@ -457,9 +402,8 @@ const AdminWalkInBooking = () => {
             <CalendarOutlined className="mr-2" />
             Đặt phòng trực tiếp
           </Title>
-
           <Form form={form} layout="vertical">
-            {/* Date Range */}
+            {}
             <Card size="small" className="mb-4" title="1. Chọn ngày">
               <Form.Item
                 name="dateRange"
@@ -488,8 +432,7 @@ const AdminWalkInBooking = () => {
                 </Text>
               )}
             </Card>
-
-            {/* Room Selection */}
+            {}
             <Card
               size="small"
               className="mb-4"
@@ -522,8 +465,7 @@ const AdminWalkInBooking = () => {
                     pagination={false}
                     size="small"
                   />
-
-                  {/* Extra fees info */}
+                  {}
                   {totalExtraFees > 0 && (
                     <Alert
                       type="warning"
@@ -542,8 +484,7 @@ const AdminWalkInBooking = () => {
                 </>
               )}
             </Card>
-
-            {/* Customer Info */}
+            {}
             <Card size="small" className="mb-4" title="3. Thông tin khách hàng">
               <Row gutter={16}>
                 <Col span={12}>
@@ -584,8 +525,7 @@ const AdminWalkInBooking = () => {
                 <Input.TextArea rows={2} placeholder="Ghi chú (tùy chọn)" />
               </Form.Item>
             </Card>
-
-            {/* Payment & Confirm */}
+            {}
             <Card
               size="small"
               className="mb-4"
@@ -602,7 +542,6 @@ const AdminWalkInBooking = () => {
                   <Radio.Button value="transfer">Chuyển khoản</Radio.Button>
                 </Radio.Group>
               </Form.Item>
-
               <Form.Item>
                 <label
                   className={`flex items-center gap-2 ${isCheckInToday ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}
@@ -631,10 +570,8 @@ const AdminWalkInBooking = () => {
                   )}
                 </div>
               </Form.Item>
-
               <Divider />
-
-              {/* Summary */}
+              {}
               {selectedRooms.length > 0 && dateRange && (
                 <div className="bg-gray-50 p-4 rounded mb-4">
                   <Row justify="space-between" className="mb-2">
@@ -680,7 +617,6 @@ const AdminWalkInBooking = () => {
                   </Row>
                 </div>
               )}
-
               <Space direction="vertical" style={{ width: "100%" }}>
                 <Button
                   type="primary"
@@ -706,5 +642,4 @@ const AdminWalkInBooking = () => {
     </div>
   );
 };
-
 export default AdminWalkInBooking;

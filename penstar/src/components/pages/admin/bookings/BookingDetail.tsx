@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   cancelBooking,
   confirmCheckin,
@@ -54,13 +52,10 @@ import {
   createBookingIncident,
   getBookingIncidents,
 } from "@/services/bookingIncidentsApi";
-
 import { generateBillHTML } from "@/utils/generateBillHTML";
 import { toZonedTime } from "date-fns-tz";
-
 const { Title, Text } = Typography;
 const { TextArea } = Input;
-
 const BookingDetail = () => {
   const [roomDevicesMap, setRoomDevicesMap] = useState<Record<number, any[]>>(
     {}
@@ -76,21 +71,16 @@ const BookingDetail = () => {
     }>
   >([{ roomId: null, deviceId: null, quantity: 1, status: "" }]);
   const [brokenLoading, setBrokenLoading] = useState(false);
-
-  // --- STATE MODAL THÊM DỊCH VỤ ---
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
   const [serviceNote, setServiceNote] = useState("");
-  // Lưu trạng thái đang thêm dịch vụ nào
   const [pendingService, setPendingService] = useState<{
     bookingItemId: number;
     serviceId: number;
     quantity: number;
     serviceName: string;
   } | null>(null);
-
   const { id } = useParams();
   const navigate = useNavigate();
-
   const [noShowLoading, setNoShowLoading] = useState(false);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [services, setServices] = useState<Services[]>([]);
@@ -99,11 +89,9 @@ const BookingDetail = () => {
   const [updating, setUpdating] = useState(false);
   const [checkoutConfirmed, setCheckoutConfirmed] = useState(false);
   const [addingService, setAddingService] = useState<number | null>(null);
-
   const [incidents, setIncidents] = useState<any[]>([]);
   const [incidentsLoading, setIncidentsLoading] = useState(false);
   const [refundLoading, setRefundLoading] = useState(false);
-
   const {
     data: booking,
     isLoading,
@@ -115,7 +103,6 @@ const BookingDetail = () => {
     enabled: !!id,
     retry: false,
   });
-
   const timeZone = "Asia/Ho_Chi_Minh";
   const invalidStatusForNoShow = new Set([2, 3, 4, 5]);
   let canMarkNoShow = false;
@@ -131,7 +118,6 @@ const BookingDetail = () => {
       canMarkNoShow = true;
     }
   }
-
   const handleMarkRefunded = async () => {
     if (!booking || !booking.id) return;
     Modal.confirm({
@@ -158,7 +144,6 @@ const BookingDetail = () => {
       },
     });
   };
-
   const handleNoShow = async () => {
     if (!booking || !booking.id) return;
     Modal.confirm({
@@ -182,17 +167,14 @@ const BookingDetail = () => {
       },
     });
   };
-
   useEffect(() => {
     let mounted = true;
     const loadExtras = async () => {
       if (!booking) return;
       setLoadingExtras(true);
-
       try {
         const roomIds: string[] = [];
         const serviceIds: string[] = [];
-
         if (Array.isArray(booking.items)) {
           booking.items.forEach(
             (it: { room_id?: number }) =>
@@ -205,20 +187,16 @@ const BookingDetail = () => {
               s.service_id && serviceIds.push(String(s.service_id))
           );
         }
-
         const uniqueServiceIds = Array.from(new Set(serviceIds));
         const allServicesData = await getServices();
-
         const [roomResults, serviceResults] = await Promise.all([
           Promise.all(roomIds.map(getRoomID)),
           Promise.all(uniqueServiceIds.map(getServiceById)),
         ]);
-
         if (mounted) {
           setRooms(roomResults.filter(Boolean) as Room[]);
           setServices(serviceResults.filter(Boolean) as Services[]);
           setAllServices(allServicesData);
-
           if (booking.stay_status_id === 3) {
             const hasCleaningRoom = roomResults.some(
               (r) => r && (r.status === "cleaning" || r.status === "available")
@@ -235,7 +213,6 @@ const BookingDetail = () => {
         if (mounted) setLoadingExtras(false);
       }
     };
-
     loadExtras();
     const fetchIncidents = async () => {
       if (!booking?.id) return;
@@ -254,18 +231,15 @@ const BookingDetail = () => {
       mounted = false;
     };
   }, [booking]);
-
   const formatPrice = (price: number | string) => {
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
       currency: "VND",
     }).format(Number(price));
   };
-
   const formatDate = (date: string | Date) => {
     return format(new Date(date), "dd 'tháng' MM, yyyy", { locale: vi });
   };
-
   const handleApprove = async () => {
     if (!booking || !booking.id) return;
     setUpdating(true);
@@ -280,7 +254,6 @@ const BookingDetail = () => {
       setUpdating(false);
     }
   };
-
   const handleMarkPaid = async () => {
     if (!booking || !booking.id) return;
     setUpdating(true);
@@ -295,7 +268,6 @@ const BookingDetail = () => {
       setUpdating(false);
     }
   };
-
   const handleCheckIn = async () => {
     if (!booking || !booking.id) return;
     setUpdating(true);
@@ -312,25 +284,18 @@ const BookingDetail = () => {
       setUpdating(false);
     }
   };
-
   const handleCheckOut = () => {
     if (!booking || !booking.check_out) return;
-
-    // ✅ KIỂM TRA THỜI GIAN CLIENT NGAY LẬP TỨC
     const now = new Date();
     const checkOutDate = new Date(booking.check_out);
     checkOutDate.setHours(14, 0, 0, 0);
-
     console.log("[CheckOut] Now:", now.toLocaleString("vi-VN"));
     console.log(
       "[CheckOut] CheckOut limit:",
       checkOutDate.toLocaleString("vi-VN")
     );
-
-    // ✅ NẾU ĐƯỢC PHÉP, MỚI MỞ MODAL BÃO CÁO THIẾT BỊ HỎA
     setBrokenModalVisible(true);
   };
-
   const handleSelectRoom = async (roomId: number | null, idx: number) => {
     if (roomId !== null && !roomDevicesMap[roomId]) {
       const devices = await getRoomDevices({ room_id: roomId });
@@ -341,7 +306,6 @@ const BookingDetail = () => {
     arr[idx].deviceId = null;
     setBrokenReports(arr);
   };
-
   const handleConfirmBrokenDevice = async () => {
     for (const r of brokenReports) {
       if (
@@ -365,11 +329,9 @@ const BookingDetail = () => {
         }
       }
     }
-
     const validReports = brokenReports.filter(
       (r) => r.roomId && r.deviceId && r.status && r.quantity && r.quantity > 0
     );
-
     if (validReports.length > 0) {
       setBrokenLoading(true);
       try {
@@ -387,7 +349,6 @@ const BookingDetail = () => {
           });
         }
         message.success("Đã ghi nhận báo cáo thiết bị hỏng!");
-        // Không refetch ngay ở đây, chờ checkout xong refetch thể
       } catch (err) {
         message.error("Lỗi ghi nhận thiết bị hỏng!");
         setBrokenLoading(false);
@@ -399,10 +360,42 @@ const BookingDetail = () => {
     setFinalConfirmVisible(true);
   };
 
+  // Improved handleFinalCheckout to handle payment if needed
   const handleFinalCheckout = async () => {
     if (!booking || !booking.id) return;
+
+    // Calculate if payment is needed
+    const totalRoomPrice = Number(booking.total_room_price || 0);
+    const totalServicePrice = Number(booking.total_service_price || 0);
+    const totalIncidentPrice = incidents.reduce(
+      (sum, i) => sum + Number(i.amount || 0),
+      0
+    );
+    const finalTotal = totalRoomPrice + totalServicePrice + totalIncidentPrice;
+
+    // If amount_paid is valid (>0), use it.
+    // If not, but status is PAID, assume they paid at least the Room Price (Legacy/Fallback logic)
+    // This resolves the issue where "Paid" bookings show full amount due if amount_paid wasn't tracked.
+    let amountPaid = Number(booking.amount_paid || 0);
+    if (amountPaid === 0 && booking.payment_status === "paid") {
+      amountPaid = totalRoomPrice;
+    }
+    const remaining = finalTotal - amountPaid;
+
     setUpdating(true);
     try {
+      // If there is remaining amount, confirm payment first
+      if (remaining > 0) {
+        await setBookingStatus(booking.id, {
+          payment_status: "paid",
+          // amount_paid will be auto-updated to full total by backend or we can pass it if we support partial.
+          // Since backend auto-sets to total_price (which includes incidents), we just need to ensure total_price in DB is correct.
+          // However, backend auto-set uses DB total_price.
+          // We trust backend has updated total_price via incidents/services creation.
+        });
+        message.success("Đã xác nhận thanh toán phần còn lại.");
+      }
+
       await confirmCheckout(booking.id);
       message.success("Đã checkout - Phòng chuyển sang trạng thái Cleaning");
       refetch();
@@ -412,13 +405,11 @@ const BookingDetail = () => {
       ]);
     } catch (err: any) {
       console.error("Final checkout error:", err);
-      // Đây là lúc hiển thị lỗi "Chưa đến giờ check-out" từ Backend
       message.error(err.response?.data?.message || "Lỗi checkout");
     } finally {
       setUpdating(false);
     }
   };
-
   const handleCancel = async () => {
     if (!booking || !booking.id) return;
     let reason = "";
@@ -458,10 +449,7 @@ const BookingDetail = () => {
       },
     });
   };
-
   const canModifyService = booking && Number(booking.stay_status_id) === 2;
-
-  // 1. Hàm chuẩn bị thêm dịch vụ (Mở Modal)
   const initiateAddService = (
     bookingItemId: number,
     serviceId: number,
@@ -478,7 +466,6 @@ const BookingDetail = () => {
       message.error("Không tìm thấy dịch vụ");
       return;
     }
-
     setPendingService({
       bookingItemId,
       serviceId,
@@ -488,19 +475,13 @@ const BookingDetail = () => {
     setServiceNote("");
     setServiceModalVisible(true);
   };
-
-  // 2. Hàm xác nhận thêm dịch vụ (Gọi API)
   const confirmAddService = async () => {
     if (!pendingService || !booking?.id) return;
-
     const { bookingItemId, serviceId, quantity } = pendingService;
     const service = allServices.find((s) => s.id === serviceId);
-
     if (!service) return;
-
     setAddingService(bookingItemId);
     setUpdating(true);
-
     try {
       await createBookingService({
         booking_id: booking.id,
@@ -523,7 +504,6 @@ const BookingDetail = () => {
       setUpdating(false);
     }
   };
-
   const handlePrintBill = () => {
     if (!booking) return;
     const html = generateBillHTML(
@@ -549,7 +529,6 @@ const BookingDetail = () => {
       printWindow.close();
     }, 250);
   };
-
   if (isLoading) {
     return (
       <div style={{ textAlign: "center", padding: "50px" }}>
@@ -557,7 +536,6 @@ const BookingDetail = () => {
       </div>
     );
   }
-
   if (isError || !booking) {
     return (
       <Card style={{ maxWidth: 800, margin: "20px auto" }}>
@@ -573,25 +551,21 @@ const BookingDetail = () => {
       </Card>
     );
   }
-
   const totalExtraAdultFees =
     booking?.items?.reduce(
       (sum, item: any) => sum + (Number(item.extra_adult_fees) || 0),
       0
     ) || 0;
-
   const totalExtraChildFees =
     booking?.items?.reduce(
       (sum, item: any) => sum + (Number(item.extra_child_fees) || 0),
       0
     ) || 0;
-
   const totalOtherExtraFees =
     booking?.items?.reduce(
       (sum, item: any) => sum + (Number(item.extra_fees) || 0),
       0
     ) || 0;
-
   return (
     <div style={{ padding: "24px", background: "#f5f5f5", minHeight: "100vh" }}>
       <div style={{ maxWidth: 1000, margin: "0 auto" }}>
@@ -619,8 +593,7 @@ const BookingDetail = () => {
             ) : null}
           </Space>
         </Space>
-
-        {/* ... (Phần hiển thị thông tin chung và khách hàng giữ nguyên) ... */}
+        {}
         <Card style={{ marginBottom: 16 }}>
           <Row>
             <Col>
@@ -635,7 +608,6 @@ const BookingDetail = () => {
             </Col>
           </Row>
         </Card>
-
         <Card
           title={
             <Space>
@@ -794,8 +766,7 @@ const BookingDetail = () => {
             </>
           )}
         </Card>
-
-        {/* ... (Phần hiển thị danh sách phòng - giữ nguyên) ... */}
+        {}
         <Card
           title={
             <Space>
@@ -823,12 +794,10 @@ const BookingDetail = () => {
                 const extraFees = item.extra_fees || 0;
                 const quantity = item.quantity || 1;
                 const numBabies = item.num_babies || 0;
-
                 const roomServices =
                   booking.services?.filter(
                     (s: any) => s.booking_item_id === item.id
                   ) || [];
-
                 return (
                   <List.Item key={index}>
                     <div style={{ width: "100%" }}>
@@ -921,8 +890,7 @@ const BookingDetail = () => {
                           </div>
                         </div>
                       </div>
-
-                      {/* Services for this room */}
+                      {}
                       <div
                         style={{
                           marginTop: 12,
@@ -1034,8 +1002,7 @@ const BookingDetail = () => {
             <Empty description="Không có thông tin phòng" />
           )}
         </Card>
-
-        {/* ... (Phần Dịch vụ chung và Tổng tiền - Giữ nguyên) ... */}
+        {}
         {booking.services &&
           booking.services.some((s: any) => !s.booking_item_id) && (
             <Card
@@ -1061,7 +1028,6 @@ const BookingDetail = () => {
                   trước cập nhật)
                 </Text>
               </div>
-
               <List
                 dataSource={(() => {
                   const groupedServices = booking.services
@@ -1092,7 +1058,6 @@ const BookingDetail = () => {
                   const service = services.find(
                     (s) => s.id === bookingService.service_id
                   );
-
                   return (
                     <List.Item key={index}>
                       <List.Item.Meta
@@ -1150,7 +1115,6 @@ const BookingDetail = () => {
               />
             </Card>
           )}
-
         <Card
           title={
             <Space>
@@ -1188,7 +1152,6 @@ const BookingDetail = () => {
                             refundPolicy?.refund_percent || 0;
                           const isNonRefundable = refundPolicy?.non_refundable;
                           const isRefundable = refundPolicy?.refundable;
-
                           return (
                             <Row
                               key={idx}
@@ -1318,7 +1281,6 @@ const BookingDetail = () => {
                 </Col>
               </Row>
             )}
-
             <Row justify="space-between">
               <Text>Tiền phòng (Giá gốc)</Text>
               <Text strong>
@@ -1330,7 +1292,6 @@ const BookingDetail = () => {
                 )}
               </Text>
             </Row>
-
             {totalExtraAdultFees > 0 && (
               <Row justify="space-between" style={{ fontSize: 13 }}>
                 <Text type="secondary" style={{ paddingLeft: 12 }}>
@@ -1355,14 +1316,12 @@ const BookingDetail = () => {
                 <Text>{formatPrice(totalOtherExtraFees)}</Text>
               </Row>
             )}
-
             {booking.total_service_price ? (
               <Row justify="space-between" style={{ marginTop: 8 }}>
                 <Text>Dịch vụ bổ sung</Text>
                 <Text strong>{formatPrice(booking.total_service_price)}</Text>
               </Row>
             ) : null}
-
             {incidents.length > 0 && (
               <>
                 <Divider style={{ margin: "12px 0" }} />
@@ -1376,7 +1335,6 @@ const BookingDetail = () => {
                 {incidents.map((incident, idx) => {
                   const roomObj = rooms.find((r) => r.id === incident.room_id);
                   const roomName = roomObj ? roomObj.name : incident.room_id;
-
                   return (
                     <Row
                       key={idx}
@@ -1426,8 +1384,7 @@ const BookingDetail = () => {
             </Row>
           </Space>
         </Card>
-
-        {/* Action Buttons */}
+        {}
         <div style={{ marginTop: 24, textAlign: "right" }}>
           <Space>
             <Button onClick={() => navigate(-1)}>Quay lại</Button>
@@ -1506,23 +1463,23 @@ const BookingDetail = () => {
                 </Button>
                 {booking.stay_status_id === 2 && !checkoutConfirmed && (
                   <>
-                    <Button
-                      type="primary"
-                      loading={updating}
-                      disabled={updating}
-                      onClick={handleCheckOut}
-                    >
-                      Xác nhận checkout
-                    </Button>
+                    <>
+                      <Button
+                        type="primary"
+                        loading={updating}
+                        disabled={updating}
+                        onClick={handleCheckOut}
+                      >
+                        Trả phòng (Checkout)
+                      </Button>
+                    </>
                   </>
                 )}
                 <Modal
                   title="Báo cáo thiết bị hỏng khi checkout (có thể bỏ qua)"
                   open={brokenModalVisible}
                   onCancel={() => {
-                    // Khi tắt ngang (dấu X hoặc click ra ngoài), ta chỉ đóng modal này
                     setBrokenModalVisible(false);
-                    // Reset form nếu cần thiết
                     setBrokenReports([
                       { roomId: null, deviceId: null, quantity: 1, status: "" },
                     ]);
@@ -1571,8 +1528,7 @@ const BookingDetail = () => {
                           </Select.Option>
                         ))}
                       </Select>
-
-                      {/* ✅ FIX 2: LOGIC LỌC THIẾT BỊ ĐÃ CHỌN */}
+                      {}
                       <Select
                         style={{ width: 140 }}
                         placeholder="Chọn thiết bị"
@@ -1585,15 +1541,11 @@ const BookingDetail = () => {
                         disabled={!r.roomId}
                       >
                         {(r.roomId !== null ? roomDevicesMap[r.roomId] : [])
-                          // 👇 Lọc thiết bị: Chỉ hiện nếu chưa được chọn ở dòng khác (cùng phòng)
                           ?.filter((d: any) => {
                             const isSelectedInOtherRow = brokenReports.some(
                               (report, reportIndex) =>
-                                // Không phải dòng hiện tại
                                 reportIndex !== idx &&
-                                // Cùng phòng
                                 report.roomId === r.roomId &&
-                                // Cùng ID thiết bị
                                 String(report.deviceId) === String(d.id)
                             );
                             return !isSelectedInOtherRow;
@@ -1604,7 +1556,6 @@ const BookingDetail = () => {
                             </Select.Option>
                           ))}
                       </Select>
-
                       <InputNumber
                         min={1}
                         value={r.quantity}
@@ -1672,11 +1623,15 @@ const BookingDetail = () => {
                     Thêm dòng báo cáo
                   </Button>
                 </Modal>
-
                 <Modal
-                  title="Xác nhận checkout"
+                  title={
+                    <Space>
+                      <DollarOutlined /> Xác nhận Trả phòng & Thanh toán
+                    </Space>
+                  }
                   open={finalConfirmVisible}
                   onCancel={() => setFinalConfirmVisible(false)}
+                  width={700}
                   footer={[
                     <Button
                       key="cancel"
@@ -1690,10 +1645,305 @@ const BookingDetail = () => {
                       loading={updating}
                       onClick={handleFinalCheckout}
                     >
-                      Xác nhận
+                      {(() => {
+                        const totalRoomPrice = Number(
+                          booking.total_room_price || 0
+                        );
+                        const totalServicePrice = Number(
+                          booking.total_service_price || 0
+                        );
+                        const totalIncidentPrice = incidents.reduce(
+                          (sum, i) => sum + Number(i.amount || 0),
+                          0
+                        );
+                        const finalTotal =
+                          totalRoomPrice +
+                          totalServicePrice +
+                          totalIncidentPrice;
+
+                        // Fallback logic for Amount Paid display
+                        let amountPaid = Number(booking.amount_paid || 0);
+                        if (
+                          amountPaid === 0 &&
+                          booking.payment_status === "paid"
+                        ) {
+                          amountPaid = totalRoomPrice;
+                        }
+                        const remaining = finalTotal - amountPaid;
+
+                        return remaining > 0
+                          ? `Thanh toán ${formatPrice(remaining)} & Checkout`
+                          : "Xác nhận Checkout";
+                      })()}
                     </Button>,
                   ]}
                 >
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ marginBottom: 12, fontWeight: 500 }}>
+                      Vui lòng kiểm tra kỹ các khoản phí trước khi xác nhận trả
+                      phòng:
+                    </div>
+
+                    <table
+                      style={{ width: "100%", borderCollapse: "collapse" }}
+                    >
+                      <thead>
+                        <tr
+                          style={{
+                            background: "#f5f5f5",
+                            borderBottom: "1px solid #d9d9d9",
+                          }}
+                        >
+                          <th style={{ padding: "8px", textAlign: "left" }}>
+                            Khoản mục
+                          </th>
+                          <th style={{ padding: "8px", textAlign: "right" }}>
+                            Số tiền
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td
+                            style={{
+                              padding: "8px",
+                              borderBottom: "1px solid #f0f0f0",
+                            }}
+                          >
+                            Tiền phòng (Giá gốc)
+                          </td>
+                          <td
+                            style={{
+                              padding: "8px",
+                              borderBottom: "1px solid #f0f0f0",
+                              textAlign: "right",
+                            }}
+                          >
+                            {formatPrice(booking.total_room_price || 0)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td
+                            style={{
+                              padding: "8px",
+                              borderBottom: "1px solid #f0f0f0",
+                            }}
+                          >
+                            Dịch vụ bổ sung
+                          </td>
+                          <td
+                            style={{
+                              padding: "8px",
+                              borderBottom: "1px solid #f0f0f0",
+                              textAlign: "right",
+                            }}
+                          >
+                            {formatPrice(booking.total_service_price || 0)}
+                          </td>
+                        </tr>
+                        {incidents.length > 0 && (
+                          <>
+                            <tr>
+                              <td
+                                colSpan={2}
+                                style={{
+                                  padding: "8px 8px 4px",
+                                  fontWeight: 600,
+                                  color: "#cf1322",
+                                }}
+                              >
+                                Đền bù thiết bị:
+                              </td>
+                            </tr>
+                            {incidents
+                              .filter((i) => !i.deleted_at)
+                              .map((inc, idx) => (
+                                <tr key={`inc-${idx}`}>
+                                  <td
+                                    style={{
+                                      padding: "4px 8px 4px 24px",
+                                      color: "#555",
+                                    }}
+                                  >
+                                    {inc.equipment_name} ({inc.equipment_type})
+                                    x {inc.quantity}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "4px 8px",
+                                      textAlign: "right",
+                                      color: "#cf1322",
+                                    }}
+                                  >
+                                    {formatPrice(inc.amount)}
+                                  </td>
+                                </tr>
+                              ))}
+                            <tr>
+                              <td
+                                style={{
+                                  padding: "8px 8px 8px 24px",
+                                  fontStyle: "italic",
+                                }}
+                              >
+                                Tổng đền bù
+                              </td>
+                              <td
+                                style={{
+                                  padding: "8px",
+                                  textAlign: "right",
+                                  fontWeight: 500,
+                                  color: "#cf1322",
+                                }}
+                              >
+                                {formatPrice(
+                                  incidents.reduce(
+                                    (sum, i) => sum + Number(i.amount || 0),
+                                    0
+                                  )
+                                )}
+                              </td>
+                            </tr>
+                          </>
+                        )}
+                        <tr style={{ background: "#fafafa" }}>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              fontWeight: "bold",
+                              fontSize: 16,
+                            }}
+                          >
+                            Tổng cộng
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              textAlign: "right",
+                              fontWeight: "bold",
+                              fontSize: 16,
+                              color: "#d4380d",
+                            }}
+                          >
+                            {formatPrice(
+                              Number(booking.total_room_price || 0) +
+                                Number(booking.total_service_price || 0) +
+                                incidents.reduce(
+                                  (sum, i) => sum + Number(i.amount || 0),
+                                  0
+                                )
+                            )}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: "8px", color: "green" }}>
+                            Đã thanh toán
+                          </td>
+                          <td
+                            style={{
+                              padding: "8px",
+                              textAlign: "right",
+                              color: "green",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {formatPrice(
+                              (() => {
+                                let paid = Number(booking.amount_paid || 0);
+                                if (
+                                  paid === 0 &&
+                                  booking.payment_status === "paid"
+                                ) {
+                                  paid = Number(booking.total_room_price || 0);
+                                }
+                                return paid;
+                              })()
+                            )}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    {(() => {
+                      const totalRoomPrice = Number(
+                        booking.total_room_price || 0
+                      );
+                      const totalServicePrice = Number(
+                        booking.total_service_price || 0
+                      );
+                      const totalIncidentPrice = incidents.reduce(
+                        (sum, i) => sum + Number(i.amount || 0),
+                        0
+                      );
+                      const finalTotal =
+                        totalRoomPrice + totalServicePrice + totalIncidentPrice;
+
+                      let amountPaid = Number(booking.amount_paid || 0);
+                      if (
+                        amountPaid === 0 &&
+                        booking.payment_status === "paid"
+                      ) {
+                        amountPaid = totalRoomPrice;
+                      }
+
+                      const remaining = finalTotal - amountPaid;
+
+                      if (remaining > 0) {
+                        return (
+                          <div
+                            style={{
+                              marginTop: 16,
+                              padding: 12,
+                              background: "#fff2e8",
+                              border: "1px solid #ffbb96",
+                              borderRadius: 4,
+                            }}
+                          >
+                            <Text type="danger" strong>
+                              Khách còn nợ thanh toán: {formatPrice(remaining)}
+                            </Text>
+                            <br />
+                            <Text type="secondary">
+                              Hệ thống sẽ tự động xác nhận thanh toán số tiền
+                              còn lại này khi bạn nhấn nút bên dưới.
+                            </Text>
+                          </div>
+                        );
+                      } else if (remaining < 0) {
+                        return (
+                          <div
+                            style={{
+                              marginTop: 16,
+                              padding: 12,
+                              background: "#e6f7ff",
+                              border: "1px solid #91d5ff",
+                              borderRadius: 4,
+                            }}
+                          >
+                            <Text type="success" strong>
+                              Cần hoàn lại khách:{" "}
+                              {formatPrice(Math.abs(remaining))}
+                            </Text>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div
+                          style={{
+                            marginTop: 16,
+                            padding: 12,
+                            background: "#f6ffed",
+                            border: "1px solid #b7eb8f",
+                            borderRadius: 4,
+                          }}
+                        >
+                          <Text type="success" strong>
+                            Đã thanh toán đủ.
+                          </Text>
+                        </div>
+                      );
+                    })()}
+                  </div>
                   <div>Bạn có chắc chắn muốn checkout booking này không?</div>
                 </Modal>
                 {booking.stay_status_id === 3 &&
@@ -1710,8 +1960,7 @@ const BookingDetail = () => {
             )}
           </Space>
         </div>
-
-        {/* Modal Thêm Dịch Vụ */}
+        {}
         <Modal
           title={`Thêm dịch vụ: ${pendingService?.serviceName}`}
           open={serviceModalVisible}
@@ -1755,5 +2004,4 @@ const BookingDetail = () => {
     </div>
   );
 };
-
 export default BookingDetail;

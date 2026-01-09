@@ -1,13 +1,11 @@
 import { Link, NavLink } from "react-router-dom";
 import { useState } from "react";
 import useAuth from "@/hooks/useAuth";
-
 const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const auth = useAuth();
   const roleName = auth?.getRoleName(auth.user) || "user";
   const isManagerOrAbove = roleName === "manager" || roleName === "admin";
-
   const navItems = [
     {
       to: "/admin",
@@ -109,7 +107,7 @@ const Sidebar = () => {
     {
       to: "/admin/users",
       label: "Người dùng",
-      requireRole: "manager", // Only manager and admin
+      requireRole: "manager", 
       icon: (
         <svg
           className="w-6 h-6"
@@ -208,12 +206,10 @@ const Sidebar = () => {
       ),
     },
   ];
-
   const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-3 p-3 rounded-lg transition-colors duration-200 w-full ${
       isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:bg-gray-700"
     }`;
-
   return (
     <aside
       className={`${
@@ -234,7 +230,6 @@ const Sidebar = () => {
             </div>
           )}
         </Link>
-
         <button
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           onClick={() => setCollapsed((s) => !s)}
@@ -271,12 +266,10 @@ const Sidebar = () => {
           )}
         </button>
       </div>
-
       <nav className="flex-1 p-3">
         <ul className="space-y-2">
           {navItems
             .filter((item) => {
-              // Filter out items that require specific roles
               if ("requireRole" in item && item.requireRole === "manager") {
                 return isManagerOrAbove;
               }
@@ -297,5 +290,4 @@ const Sidebar = () => {
     </aside>
   );
 };
-
 export default Sidebar;

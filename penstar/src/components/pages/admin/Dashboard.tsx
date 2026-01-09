@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery } from "@tanstack/react-query";
 import { getStatistics } from "@/services/statisticsApi";
 import { Spin, DatePicker } from "antd";
@@ -26,16 +25,13 @@ import {
   FaArrowUp,
   FaConciergeBell,
 } from "react-icons/fa";
-
 const { RangePicker } = DatePicker;
-
 const Dashboard = () => {
   const navigate = useNavigate();
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([
     dayjs().startOf("month"),
     dayjs().endOf("month"),
   ]);
-
   const { data: stats, isLoading } = useQuery({
     queryKey: [
       "statistics",
@@ -47,32 +43,25 @@ const Dashboard = () => {
         dateRange[0].format("YYYY-MM-DD"),
         dateRange[1].format("YYYY-MM-DD")
       ),
-    // ✅ FIX: Tự động refetch khi quay lại trang này
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   });
-
   const formatVND = (value: number) =>
     new Intl.NumberFormat("vi-VN", {
       style: "currency",
       currency: "VND",
     }).format(value);
-
   const PIE_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
-
   if (isLoading)
     return (
       <div className="h-screen flex items-center justify-center">
         <Spin size="large" />
       </div>
     );
-
   return (
     <div className="min-h-screen bg-gray-50 p-6 font-sans text-gray-800">
-      {/* ... (Phần Header và KPI Stats giữ nguyên) ... */}
-
-      {/* Chỉ cần copy đè đoạn useQuery ở trên là được, phần giao diện bên dưới giữ nguyên */}
-
+      {}
+      {}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">
@@ -93,8 +82,7 @@ const Dashboard = () => {
           />
         </div>
       </div>
-
-      {/* --- KPI STATS GRID --- */}
+      {}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
           <div>
@@ -109,7 +97,6 @@ const Dashboard = () => {
             <FaMoneyBillWave size={20} />
           </div>
         </div>
-
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
           <div>
             <p className="text-gray-500 text-sm font-medium mb-1">
@@ -123,7 +110,6 @@ const Dashboard = () => {
             <FaCalendarCheck size={20} />
           </div>
         </div>
-
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
           <div>
             <p className="text-gray-500 text-sm font-medium mb-1">
@@ -137,7 +123,6 @@ const Dashboard = () => {
             <FaBed size={20} />
           </div>
         </div>
-
         <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
           <div>
             <p className="text-gray-500 text-sm font-medium mb-1">
@@ -152,8 +137,7 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
-
-      {/* --- STATUS & CHARTS SECTION --- */}
+      {}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
@@ -195,7 +179,6 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
           <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
             <FaArrowUp className="text-emerald-500 rotate-45" /> Xu hướng doanh
@@ -258,8 +241,7 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
-
-      {/* --- TABLES SECTION --- */}
+      {}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="p-5 border-b border-gray-100">
@@ -324,7 +306,6 @@ const Dashboard = () => {
             </table>
           </div>
         </div>
-
         <div className="flex flex-col gap-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
             <h3 className="font-bold text-gray-800 mb-4 text-sm">
@@ -370,7 +351,6 @@ const Dashboard = () => {
               ))}
             </div>
           </div>
-
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex-1">
             <div className="p-4 border-b border-gray-100 bg-red-50">
               <h3 className="font-bold text-red-700 text-sm">
@@ -390,7 +370,7 @@ const Dashboard = () => {
                       </td>
                     </tr>
                   ))}
-                  {/* Handle empty case if needed */}
+                  {}
                   {(!stats?.recentDamage ||
                     stats.recentDamage.length === 0) && (
                     <tr>
@@ -408,7 +388,6 @@ const Dashboard = () => {
     </div>
   );
 };
-
 const StatusItem = ({
   label,
   count,
@@ -426,5 +405,4 @@ const StatusItem = ({
     <span className="font-bold text-gray-800">{count || 0}</span>
   </div>
 );
-
 export default Dashboard;

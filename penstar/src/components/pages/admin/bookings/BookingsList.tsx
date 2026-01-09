@@ -7,7 +7,6 @@ import { getBookings } from "@/services/bookingsApi";
 import { getStayStatuses } from "@/services/stayStatusApi";
 import type { BookingShort } from "@/types/bookings";
 import type { StayStatus } from "@/types/stayStatus";
-
 const BookingsList: React.FC = () => {
   const nav = useNavigate();
   const [search, setSearch] = React.useState("");
@@ -19,18 +18,15 @@ const BookingsList: React.FC = () => {
   );
   const [current, setCurrent] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(5);
-
   const { data: bookings = [], isLoading } = useQuery<BookingShort[]>({
     queryKey: ["bookings"],
     queryFn: getBookings,
   });
-
   const { data: stayStatusesData } = useQuery<StayStatus[], Error>({
     queryKey: ["stay_statuses"],
     queryFn: getStayStatuses,
   });
   const stayStatuses: StayStatus[] = stayStatusesData ?? [];
-
   const columns: ColumnsType<BookingShort> = [
     {
       title: "STT",
@@ -74,7 +70,6 @@ const BookingsList: React.FC = () => {
                   : vv === "cancelled"
                     ? "red"
                     : "default";
-        // Luôn hiển thị đúng trạng thái thanh toán, kể cả khi đã hủy
         return <Tag color={color}>{String(v || "").toUpperCase()}</Tag>;
       },
     },
@@ -97,11 +92,9 @@ const BookingsList: React.FC = () => {
       dataIndex: "stay_status_id",
       key: "stay_status_id",
       render: (val: number) => {
-        // Map theo database: 1=reserved, 2=checked_in, 3=checked_out, 4=canceled, 5=no_show, 6=pending
         const statusId = Number(val);
         let color = "default";
         let displayName = String(val);
-
         if (statusId === 6) {
           color = "gold";
           displayName = "Chờ xác nhận";
@@ -121,7 +114,6 @@ const BookingsList: React.FC = () => {
           color = "purple";
           displayName = "Không đến";
         }
-
         return <Tag color={color}>{displayName}</Tag>;
       },
     },
@@ -137,8 +129,6 @@ const BookingsList: React.FC = () => {
       ),
     },
   ];
-
-  // apply client-side filters
   const filtered = bookings.filter((b) => {
     if (search) {
       const q = search.trim().toLowerCase();
@@ -156,14 +146,11 @@ const BookingsList: React.FC = () => {
       return false;
     return true;
   });
-
   const total = filtered.length;
-
   const pagedData = filtered.slice(
     (current - 1) * pageSize,
     current * pageSize
   );
-
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -229,7 +216,6 @@ const BookingsList: React.FC = () => {
           </Button>
         </div>
       </div>
-
       <Card>
         <Table
           columns={columns}
@@ -256,5 +242,4 @@ const BookingsList: React.FC = () => {
     </div>
   );
 };
-
 export default BookingsList;
