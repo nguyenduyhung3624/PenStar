@@ -6,7 +6,6 @@ import {
   deleteRole as modelDeleteRole,
 } from "../models/rolesmodel.js";
 import { ERROR_MESSAGES } from "../utils/constants.js";
-
 export const getRoles = async (req, res) => {
   try {
     const data = await modelGetRoles();
@@ -16,7 +15,6 @@ export const getRoles = async (req, res) => {
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
-
 export const createRole = async (req, res) => {
   try {
     const { existsRoleWithName } = await import("../models/rolesmodel.js");
@@ -34,7 +32,6 @@ export const createRole = async (req, res) => {
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
-
 export const getRoleById = async (req, res) => {
   const { id } = req.params;
   try {
@@ -48,7 +45,6 @@ export const getRoleById = async (req, res) => {
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
-
 export const updateRole = async (req, res) => {
   const { id } = req.params;
   try {
@@ -67,11 +63,9 @@ export const updateRole = async (req, res) => {
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
-
 export const deleteRole = async (req, res) => {
   const { id } = req.params;
   try {
-    // optionally check references (users.role_id)
     const deleted = await modelDeleteRole(id);
     if (!deleted) {
       return res.error("Vai trò không tồn tại", null, 404);

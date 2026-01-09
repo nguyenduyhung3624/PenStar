@@ -1,20 +1,16 @@
 import * as model from "../models/room_devicesmodel.js";
 import { validateRoomEquipments } from "../models/validateRoomEquipments.js";
 import { ERROR_MESSAGES } from "../utils/constants.js";
-
-// Khôi phục trạng thái thiết bị về 'working'
 export const restoreDeviceStatus = async (req, res) => {
   try {
     const { id } = req.params;
     console.log("[RESTORE DEVICE] id:", id);
-    // Truy vấn thiết bị để lấy booking_id
     const device = await model.getDeviceById(Number(id));
     console.log("[RESTORE DEVICE] device:", device);
     if (!device) {
       console.log("[RESTORE DEVICE] Thiết bị không tồn tại");
       return res.error("Thiết bị không tồn tại", null, 404);
     }
-    // Truy vấn booking liên quan đến phòng này
     const pool = (await import("../db.js")).default;
     const bookingRes = await pool.query(
       `SELECT b.stay_status_id FROM bookings b
@@ -34,7 +30,6 @@ export const restoreDeviceStatus = async (req, res) => {
         400
       );
     }
-    // Chỉ cho phép nếu booking đã checkout
     const updatedDevice = await model.updateDevice(Number(id), {
       status: "working",
     });
@@ -46,12 +41,9 @@ export const restoreDeviceStatus = async (req, res) => {
   }
 };
 import { getRooms } from "../models/roomsmodel.js";
-
-// Kiểm tra tiêu chuẩn thiết bị cho tất cả phòng thuộc một loại phòng
 export const checkRoomDevicesStandardByType = async (req, res) => {
   const roomTypeId = req.params.roomTypeId;
   try {
-    // Lấy tất cả phòng thuộc loại này
     const rooms = await getRooms();
     const filteredRooms = rooms.filter(
       (r) => String(r.type_id) === String(roomTypeId)
@@ -67,7 +59,6 @@ export const checkRoomDevicesStandardByType = async (req, res) => {
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
-
 export const getDeviceById = async (req, res) => {
   try {
     const device = await model.getDeviceById(Number(req.params.id));
@@ -79,7 +70,6 @@ export const getDeviceById = async (req, res) => {
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
-
 export const getDevices = async (req, res) => {
   try {
     const { room_id } = req.query;
@@ -91,20 +81,16 @@ export const getDevices = async (req, res) => {
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
-
 export const createDevice = async (req, res) => {
   try {
-    // req.body.images: mảng đường dẫn ảnh (nếu có)
     const device = await model.createDevice(req.body);
     res.success(device, "Tạo thiết bị thành công", 201);
   } catch (error) {
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
-
 export const updateDevice = async (req, res) => {
   try {
-    // req.body.images: mảng đường dẫn ảnh (nếu có)
     const { id } = req.params;
     const device = await model.updateDevice(Number(id), req.body);
     res.success(device, "Cập nhật thiết bị thành công");
@@ -112,7 +98,6 @@ export const updateDevice = async (req, res) => {
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
-
 export const deleteDevice = async (req, res) => {
   try {
     const { id } = req.params;
@@ -122,8 +107,6 @@ export const deleteDevice = async (req, res) => {
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
-
-// Điều chuyển thiết bị giữa 2 phòng, đồng thời ghi log
 import { createStockLog } from "../models/equipment_stock_logsmodel.js";
 export const transferDevice = async (req, res) => {
   try {
@@ -141,7 +124,6 @@ export const transferDevice = async (req, res) => {
       from_room_id,
       to_room_id,
     });
-    // Ghi log điều chuyển
     await createStockLog({
       equipment_id,
       type: "transfer",
@@ -156,7 +138,6 @@ export const transferDevice = async (req, res) => {
     res.error(error.message, null, 400);
   }
 };
-
 export const checkRoomDevicesStandard = async (req, res) => {
   const roomId = req.params.id;
   console.log("[checkRoomDevicesStandard] Called with roomId:", roomId);
