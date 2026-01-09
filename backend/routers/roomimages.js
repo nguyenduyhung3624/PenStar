@@ -14,10 +14,7 @@ import {
   validateRoomImageUpdate,
 } from "../middlewares/roomimagevalidate.js";
 import { requireAuth, requireRole } from "../middlewares/auth.js";
-
 const router = express.Router();
-
-// upload route should appear before param routes
 router.post(
   "/room/:roomId/upload",
   requireAuth,
@@ -25,8 +22,6 @@ router.post(
   uploadMiddleware.single("file"),
   uploadImageForRoom
 );
-
-// Public: list images and get images by room for client pages
 router.get("/", getAllRoomImages);
 router.get("/:id", validateRoomImageUpdate, getRoomImage);
 router.get("/room/:roomId", getImagesByRoom);
@@ -51,5 +46,4 @@ router.delete(
   validateRoomImageUpdate,
   deleteImage
 );
-
 export default router;
