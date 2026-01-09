@@ -20,6 +20,12 @@ export type BookingItem = {
   room_type_name?: string;
   // Số tiền hoàn lại cho từng phòng (nếu có)
   refund_amount?: number;
+  status?: string;
+  room_name?: string;
+  receipt_image?: string;
+  refund_status?: string;
+  refund_request_id?: number;
+  cancelled_at?: string;
 };
 
 export interface BookingRoom {
