@@ -86,3 +86,52 @@ export const searchAvailableRooms = async (
     throw error;
   }
 };
+
+// Tìm kiếm TẤT CẢ phòng với trạng thái availability
+export const searchAllRoomsWithAvailability = async (
+  params: RoomSearchParams
+): Promise<RoomSearchResponse> => {
+  try {
+    const response = await instance.get("/rooms/search-all", { params });
+    console.log("🔍 Search all rooms response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error searching all rooms:", error);
+    throw error;
+  }
+};
+
+// Admin: Get occupied rooms
+export const getOccupiedRooms = async () => {
+  try {
+    const response = await instance.get("/rooms/occupied");
+    return response.data?.data || [];
+  } catch (error) {
+    console.error("Error fetching occupied rooms:", error);
+    throw error;
+  }
+};
+
+// Admin: Get room booking history
+export const getRoomBookingHistory = async (roomId: number, limit = 20) => {
+  try {
+    const response = await instance.get(`/rooms/${roomId}/bookings`, {
+      params: { limit },
+    });
+    return response.data?.data || [];
+  } catch (error) {
+    console.error("Error fetching room booking history:", error);
+    throw error;
+  }
+};
+
+// Admin: Get room statistics
+export const getRoomStats = async () => {
+  try {
+    const response = await instance.get("/rooms/stats");
+    return response.data?.data || {};
+  } catch (error) {
+    console.error("Error fetching room stats:", error);
+    throw error;
+  }
+};

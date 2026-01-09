@@ -6,6 +6,16 @@ export interface Room {
   thumbnail?: string;
   room_type_name?: string;
   room_type_price?: number;
+  type_name?: string;
+  capacity?: number;
+  price?: number;
+  floor_name?: string;
+  is_available?: boolean;
+  conflicting_bookings?: Array<{
+    check_in: string;
+    check_out: string;
+    customer_name: string;
+  }>;
 }
 
 // Type cho tìm kiếm phòng

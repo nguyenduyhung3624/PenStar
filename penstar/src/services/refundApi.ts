@@ -143,3 +143,11 @@ export const getBookingItems = async (bookingId: number): Promise<any[]> => {
   const res = await instance.get(`/booking-items/booking/${bookingId}`);
   return res.data?.data || [];
 };
+
+/**
+ * Get booking items with refund request info
+ */
+export const getBookingItemsWithRefund = async (bookingId: number): Promise<any[]> => {
+  const res = await instance.get(`/booking-items/booking/${bookingId}/with-refund`);
+  return res.data?.data || [];
+};

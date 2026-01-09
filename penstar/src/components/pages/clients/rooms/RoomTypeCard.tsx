@@ -50,7 +50,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
     // Khởi tạo mảng độc lập cho từng phòng
 
     const maxSelectableRooms = roomsInType.filter(
-      (room) => room.status === "available"
+      (room) => room.is_available !== false && room.status === "available"
     ).length;
     const [selectedRoomsCount, setSelectedRoomsCount] = useState(0);
     const prevRoomsConfigLength = React.useRef(0);
@@ -118,7 +118,10 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
     }, [selectedRoomsCount]);
 
     const suitableRooms = useMemo(() => {
-      return roomsInType.filter((room) => room.status === "available");
+      // Filter rooms that are available AND not booked for the selected dates
+      return roomsInType.filter(
+        (room) => room.is_available !== false && room.status === "available"
+      );
     }, [roomsInType]);
 
     // Calculate extra fees for a specific room
@@ -211,6 +214,8 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
     // Chỉ block/cảnh báo khi số phòng chọn vượt quá số phòng trống
     const isDisabled = selectedRoomsCount > maxSelectableRooms;
     const showNotEnoughRoomsWarning = selectedRoomsCount > maxSelectableRooms;
+    // Kiểm tra xem có phòng nào trống không
+    const noRoomsAvailable = maxSelectableRooms === 0;
 
     return (
       <>
@@ -540,26 +545,49 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                               </span>
                             </div>
                           </div>
-                          <Button
-                            type="primary"
-                            disabled={isDisabled}
-                            style={{
-                              background: "#f5a623",
-                              borderColor: "#f5a623",
-                              color: "#fff",
-                              fontWeight: "600",
-                              height: "38px",
-                              padding: "0 18px",
-                              fontSize: "14px",
-                              borderRadius: "4px",
-                            }}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setIsExpanded(!isExpanded);
-                            }}
-                          >
-                            Chọn phòng
-                          </Button>
+                          {noRoomsAvailable ? (
+                            <div
+                              style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "flex-end",
+                                gap: "4px",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  background: "#ff4d4f",
+                                  color: "#fff",
+                                  padding: "4px 12px",
+                                  borderRadius: "4px",
+                                  fontSize: "12px",
+                                  fontWeight: "600",
+                                }}
+                              >
+                                Hết phòng
+                              </span>
+                            </div>
+                          ) : (
+                            <Button
+                              disabled={isDisabled}
+                              style={{
+                                background: "#f5a623",
+                                borderColor: "#f5a623",
+                                color: "#fff",
+                                fontWeight: "600",
+                                height: "38px",
+                                padding: "0 18px",
+                                fontSize: "14px",
+                                borderRadius: "4px",
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setIsExpanded(!isExpanded);
+                              }}
+                            >
+                              Chọn phòng
+                            </Button>
+                          )}
                         </div>
                       </div>
                     </Col>
@@ -707,16 +735,60 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                           setSelectedRoomsCount(Number(e.target.value))
                         }
                       >
-                        <option value={0}>0 Phòng</option>
+                        <option value={0}>Không chọn</option>
                         {Array.from(
                           { length: Math.min(maxSelectableRooms, 5) },
                           (_, i) => i + 1
-                        ).map((num) => (
-                          <option key={num} value={num}>
-                            {num} Phòng
-                          </option>
-                        ))}
+                        ).map((num) => {
+                          // Hiển thị chi tiết phòng sẽ được chọn
+                          const roomNames = suitableRooms
+                            .slice(0, num)
+                            .map(
+                              (r) =>
+                                `${r.name}${r.floor_name ? ` (${r.floor_name})` : ""}`
+                            )
+                            .join(", ");
+                          return (
+                            <option key={num} value={num} title={roomNames}>
+                              {num} Phòng
+                            </option>
+                          );
+                        })}
                       </select>
+                      {/* Hiển thị chi tiết phòng đã chọn */}
+                      {selectedRoomsCount > 0 && (
+                        <div
+                          style={{
+                            marginTop: "8px",
+                            fontSize: "12px",
+                            color: "#666",
+                          }}
+                        >
+                          {suitableRooms
+                            .slice(0, selectedRoomsCount)
+                            .map((room) => (
+                              <span
+                                key={room.id}
+                                style={{
+                                  display: "inline-block",
+                                  background: "#f5f5f5",
+                                  padding: "2px 8px",
+                                  borderRadius: "4px",
+                                  marginRight: "6px",
+                                  marginBottom: "4px",
+                                }}
+                              >
+                                {room.name}
+                                {room.floor_name && (
+                                  <span style={{ color: "#999" }}>
+                                    {" "}
+                                    - {room.floor_name}
+                                  </span>
+                                )}
+                              </span>
+                            ))}
+                        </div>
+                      )}
                     </div>
                   </div>{" "}
                   {/* Cảnh báo nếu không đủ phòng */}
