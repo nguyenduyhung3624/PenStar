@@ -113,15 +113,21 @@ export const RefundRequestsModel = {
   async updateStatus(id, { status, admin_notes, processed_by, receipt_image }) {
     const result = await pool.query(
       `UPDATE refund_requests
-       SET status = $2,
-           admin_notes = COALESCE($3, admin_notes),
-           processed_by = COALESCE($4, processed_by),
-           receipt_image = COALESCE($5, receipt_image),
-           processed_at = CASE WHEN $2 IN ('completed', 'rejected') THEN NOW() ELSE processed_at END,
+       SET status = $2::text,
+           admin_notes = COALESCE($3::text, admin_notes),
+           processed_by = COALESCE($4::integer, processed_by),
+           receipt_image = COALESCE($5::text, receipt_image),
+           processed_at = CASE WHEN $2::text = 'completed' OR $2::text = 'rejected' THEN NOW() ELSE processed_at END,
            updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
-      [id, status, admin_notes, processed_by, receipt_image]
+      [
+        id,
+        status,
+        admin_notes || null,
+        processed_by || null,
+        receipt_image || null,
+      ]
     );
     return result.rows[0];
   },
