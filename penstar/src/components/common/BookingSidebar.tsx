@@ -2,8 +2,6 @@ import { Card, Button, Empty, Collapse } from "antd";
 import { CloseOutlined } from "@ant-design/icons";
 import dayjs from "@/utils/dayjs";
 import type { BookingRoom } from "@/types/bookings";
-
-// Removed unused promoCode prop from BookingSidebarProps
 const BookingSidebar: React.FC<{
   checkIn: string;
   checkOut: string;
@@ -20,7 +18,6 @@ const BookingSidebar: React.FC<{
         nights,
     0
   );
-
   return (
     <Card
       className="sticky top-0 booking-sidebar-card"
@@ -57,7 +54,7 @@ const BookingSidebar: React.FC<{
             {nights === 1 ? "" : "1 "}đêm )
           </div>
         </div>
-        {/* Danh sách phòng - Group by type */}
+        {}
         {rooms.length === 0 ? (
           <Empty
             description="Chưa chọn phòng nào"
@@ -66,7 +63,7 @@ const BookingSidebar: React.FC<{
           />
         ) : (
           <div className="space-y-3 mb-4">
-            {/* Group rooms by type_name */}
+            {}
             {(() => {
               const typeGroups: Record<string, BookingRoom[]> = {};
               rooms.forEach((room) => {
@@ -96,7 +93,6 @@ const BookingSidebar: React.FC<{
                               Phòng: {typeGroups[type].length} {type}
                             </div>
                             {typeGroups[type].map((room, index) => {
-                              // Tính toán index toàn cục bằng cách đếm các phòng trước đó
                               let roomGlobalIndex = 0;
                               for (let i = 0; i < rooms.length; i++) {
                                 if (rooms[i] === room) {
@@ -196,7 +192,6 @@ const BookingSidebar: React.FC<{
                               {typeNames[0]}
                             </div>
                             {typeGroups[typeNames[0]].map((room, index) => {
-                              // Tính toán index toàn cục
                               const roomGlobalIndex = rooms.indexOf(room);
                               return (
                                 <div
@@ -311,5 +306,4 @@ const BookingSidebar: React.FC<{
     </Card>
   );
 };
-
 export default BookingSidebar;
