@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { message, Spin, Empty, Button, Row, Col } from "antd";
-import { searchAvailableRooms } from "@/services/roomsApi";
+import { searchAllRoomsWithAvailability } from "@/services/roomsApi";
 import { getRoomTypes } from "@/services/roomTypeApi";
 import type { Room, RoomSearchParams } from "@/types/room";
 import type { RoomType } from "@/types/roomtypes";
@@ -73,7 +73,8 @@ const RoomSearchResults = () => {
     // setRoomsConfig([]); // Removed: unused
     try {
       console.log("🔍 Searching with params:", params);
-      const response = await searchAvailableRooms(params);
+      // Use searchAllRoomsWithAvailability to get ALL rooms with is_available flag
+      const response = await searchAllRoomsWithAvailability(params);
       console.log("📦 Search response:", response);
       setRooms(response.data);
       setSearchParams(params);
@@ -81,7 +82,12 @@ const RoomSearchResults = () => {
       if (params.num_rooms) {
         setNumRooms(params.num_rooms);
       }
-      message.success(response.message);
+      const available = response.data.filter(
+        (r: Room) => r.is_available
+      ).length;
+      message.success(
+        `Tìm thấy ${response.data.length} phòng (${available} trống)`
+      );
     } catch (error) {
       console.error("Error searching rooms:", error);
       message.error("Lỗi tìm kiếm phòng");

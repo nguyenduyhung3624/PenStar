@@ -1,340 +1,402 @@
-import React from "react";
-import { cancelBooking, getMyBookings } from "@/services/bookingsApi";
-import useAuth from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
-import type { BookingShort } from "@/types/bookings";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState } from "react";
+import {
+  Card,
+  Table,
+  Tag,
+  Button,
+  Space,
+  Collapse,
+  message,
+  Popconfirm,
+  Image,
+  Tooltip,
+  Empty,
+  Spin,
+} from "antd";
+import {
+  EyeOutlined,
+  CloseCircleOutlined,
+  DollarOutlined,
+  CheckCircleOutlined,
+} from "@ant-design/icons";
+import { getMyBookings } from "@/services/bookingsApi";
+import {
+  cancelBookingItem,
+  getBookingItemsWithRefund,
+} from "@/services/refundApi";
 import RefundRequestModal from "./RefundRequestModal";
+import useAuth from "@/hooks/useAuth";
+import dayjs from "dayjs";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+interface BookingItem {
+  id: number;
+  room_id: number;
+  room_name: string;
+  room_type_name: string;
+  check_in: string;
+  check_out: string;
+  room_type_price: number;
+  extra_adult_fees: number;
+  extra_child_fees: number;
+  extra_fees: number;
+  status: string;
+  refund_amount: number;
+  refund_request_id?: number;
+  refund_status?: string;
+  refund_amount_requested?: number;
+  receipt_image?: string;
+  cancelled_at?: string;
+}
+
+interface Booking {
+  id: number;
+  customer_name: string;
+  total_price: number;
+  stay_status_id: number;
+  stay_status_name?: string;
+  payment_status: string;
+  is_refunded?: boolean;
+  created_at?: string;
+  items?: BookingItem[];
+}
 
 const MyBookings: React.FC = () => {
-  const [data, setData] = React.useState<BookingShort[]>([]);
-  const [loading, setLoading] = React.useState(false);
-  const [updating, setUpdating] = React.useState(false);
+  const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
+  const [itemsCache, setItemsCache] = useState<Record<number, BookingItem[]>>(
+    {}
+  );
+  const queryClient = useQueryClient();
 
-  // Refund modal state
-  const [refundModalOpen, setRefundModalOpen] = React.useState(false);
-  const [selectedBookingForRefund, setSelectedBookingForRefund] =
-    React.useState<BookingShort | null>(null);
-
-  // --- State phân trang ---
-  const [currentPage, setCurrentPage] = React.useState(1);
-  const itemsPerPage = 5; // Số lượng dòng mỗi trang (bạn có thể đổi thành 10)
+  // Refund modal
+  const [refundModalOpen, setRefundModalOpen] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<BookingItem | null>(null);
+  const [selectedBookingId, setSelectedBookingId] = useState<number | null>(
+    null
+  );
 
   const auth = useAuth() as unknown as { user?: { id?: number } };
-  const nav = useNavigate();
 
-  const fetchBookings = async () => {
-    if (!auth?.user) return;
-    setLoading(true);
-    try {
-      const bookings = await getMyBookings();
-      setData(bookings);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Fetch bookings using TanStack Query
+  const {
+    data: bookings = [],
+    isLoading,
+    refetch,
+  } = useQuery<Booking[]>({
+    queryKey: ["my-bookings"],
+    queryFn: getMyBookings,
+    enabled: !!auth?.user,
+  });
 
-  React.useEffect(() => {
-    fetchBookings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth]);
-
-  // --- Logic tính toán phân trang ---
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = data.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(data.length / itemsPerPage);
-
-  const handlePageChange = (pageNumber: number) => {
-    setCurrentPage(pageNumber);
-  };
-
-  // Helper render badge trạng thái
-  const renderStatusBadge = (statusId?: number, statusName?: string) => {
-    const id = statusId || 0;
-    const name = statusName || "-";
-    let className = "px-2 py-1 text-xs font-semibold rounded-full ";
-    let label = name;
-
-    switch (id) {
-      case 6:
-        className += "bg-yellow-100 text-yellow-800";
-        label = "Chờ xác nhận";
-        break;
-      case 1:
-        className += "bg-blue-100 text-blue-800";
-        label = "Đã xác nhận";
-        break;
-      case 2:
-        className += "bg-green-100 text-green-800";
-        label = "Đã Check-in";
-        break;
-      case 3:
-        className += "bg-cyan-100 text-cyan-800";
-        label = "Đã Check-out";
-        break;
-      case 4:
-        className += "bg-red-100 text-red-800";
-        label = "Đã hủy";
-        break;
-      case 5:
-        className += "bg-purple-100 text-purple-800";
-        label = "No show";
-        break;
-      default:
-        className += "bg-gray-100 text-gray-800";
-        break;
-    }
-    return <span className={className}>{label}</span>;
-  };
-
-  // Helper render badge thanh toán
-  const renderPaymentBadge = (status?: string, isRefunded?: boolean) => {
-    let className = "px-2 py-1 text-xs font-semibold rounded-md border ";
-    const label = status?.toUpperCase() || "-";
-
-    if (status === "paid")
-      className += "bg-green-50 text-green-700 border-green-200";
-    else if (status === "pending")
-      className += "bg-yellow-50 text-yellow-700 border-yellow-200";
-    else if (status === "failed" || status === "cancelled")
-      className += "bg-red-50 text-red-700 border-red-200";
-    else if (status === "refunded")
-      className += "bg-purple-50 text-purple-700 border-purple-200";
-    else className += "bg-gray-50 text-gray-700 border-gray-200";
-
-    return (
-      <div className="flex flex-col items-start gap-1">
-        <span className={className}>{label}</span>
-        {isRefunded && (
-          <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-1 rounded border border-purple-100">
-            ✓ Đã hoàn tiền
-          </span>
-        )}
-      </div>
-    );
-  };
-
-  const handleCancelBooking = async (bookingId: number) => {
-    if (
-      window.confirm(
-        "Bạn có chắc muốn hủy booking này?\nNếu hủy trước 24h check-in, bạn sẽ được hoàn tiền 100%."
-      )
-    ) {
-      setUpdating(true);
-      try {
-        await cancelBooking(bookingId);
-        alert("Đã hủy booking thành công! Bạn có thể yêu cầu hoàn tiền.");
-        fetchBookings();
-      } catch (error) {
-        console.error("Cancel booking error:", error);
-        const err = error as { response?: { data?: { message?: string } } };
-        alert(err.response?.data?.message || "Lỗi hủy booking");
-      } finally {
-        setUpdating(false);
+  // Cancel item mutation
+  const cancelMutation = useMutation({
+    mutationFn: (itemId: number) =>
+      cancelBookingItem(itemId, "Khách hàng yêu cầu hủy"),
+    onSuccess: (_, itemId) => {
+      message.success("Đã hủy phòng thành công!");
+      // Find booking and refresh its items
+      const bookingId = Object.keys(itemsCache).find((key) =>
+        itemsCache[Number(key)]?.some((item) => item.id === itemId)
+      );
+      if (bookingId) {
+        fetchItemsForBooking(Number(bookingId));
       }
+      queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+    },
+    onError: (err: any) => {
+      message.error(err?.response?.data?.message || "Lỗi hủy phòng");
+    },
+  });
+
+  // Fetch items for a specific booking
+  const fetchItemsForBooking = async (bookingId: number) => {
+    try {
+      const items = await getBookingItemsWithRefund(bookingId);
+      setItemsCache((prev) => ({ ...prev, [bookingId]: items }));
+    } catch (err) {
+      console.error("Error fetching booking items:", err);
     }
   };
 
-  const handleOpenRefundModal = (booking: BookingShort) => {
-    setSelectedBookingForRefund(booking);
+  const handleExpand = (keys: string[]) => {
+    setExpandedKeys(keys);
+    // Load items for newly expanded bookings
+    keys.forEach((key) => {
+      const bookingId = parseInt(key);
+      if (!itemsCache[bookingId]) {
+        fetchItemsForBooking(bookingId);
+      }
+    });
+  };
+
+  const openRefundModal = (item: BookingItem, bookingId: number) => {
+    setSelectedItem(item);
+    setSelectedBookingId(bookingId);
     setRefundModalOpen(true);
   };
 
-  const formatPrice = (price?: number) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(price || 0);
+  const formatPrice = (price?: number) =>
+    new Intl.NumberFormat("vi-VN").format(price || 0) + "đ";
+
+  const getStatusTag = (statusId: number) => {
+    const config: Record<number, { color: string; label: string }> = {
+      6: { color: "orange", label: "Chờ xác nhận" },
+      1: { color: "blue", label: "Đã xác nhận" },
+      2: { color: "green", label: "Đã Check-in" },
+      3: { color: "cyan", label: "Đã Check-out" },
+      4: { color: "red", label: "Đã hủy" },
+      5: { color: "purple", label: "No show" },
+    };
+    const c = config[statusId] || { color: "default", label: "Không rõ" };
+    return <Tag color={c.color}>{c.label}</Tag>;
   };
 
-  // Check if booking can request refund
-  const canRequestRefund = (b: BookingShort) => {
-    // Cancelled (4) or No-show (5) and paid but not refunded
-    const isCancelledOrNoShow =
-      b.stay_status_id === 4 || b.stay_status_id === 5;
-    const isPaid = b.payment_status === "paid";
-    const notRefunded = !b.is_refunded;
-    return isCancelledOrNoShow && isPaid && notRefunded;
+  const getPaymentTag = (status: string, isRefunded: boolean) => {
+    if (isRefunded)
+      return (
+        <Tag color="purple" icon={<CheckCircleOutlined />}>
+          Đã hoàn tiền
+        </Tag>
+      );
+    const config: Record<string, { color: string; label: string }> = {
+      paid: { color: "green", label: "Đã thanh toán" },
+      unpaid: { color: "red", label: "Chưa thanh toán" },
+      pending: { color: "orange", label: "Đang xử lý" },
+    };
+    const c = config[status] || { color: "default", label: status };
+    return <Tag color={c.color}>{c.label}</Tag>;
+  };
+
+  const getRefundStatusTag = (status?: string) => {
+    if (!status) return null;
+    const config: Record<string, { color: string; label: string }> = {
+      pending: { color: "orange", label: "Đang chờ duyệt" },
+      approved: { color: "blue", label: "Đã duyệt" },
+      completed: { color: "green", label: "Đã hoàn tiền" },
+      rejected: { color: "red", label: "Từ chối" },
+    };
+    const c = config[status] || { color: "default", label: status };
+    return <Tag color={c.color}>{c.label}</Tag>;
+  };
+
+  // Render room items table
+  const renderItemsTable = (booking: Booking) => {
+    const items = itemsCache[booking.id];
+
+    if (!items) {
+      return (
+        <div className="py-8 text-center">
+          <Spin />
+        </div>
+      );
+    }
+
+    if (items.length === 0) {
+      return <Empty description="Không có phòng nào" />;
+    }
+
+    const canCancelItem = (item: BookingItem) => {
+      return booking.stay_status_id === 6 && item.status === "active";
+    };
+
+    const canRequestRefund = (item: BookingItem) => {
+      return (
+        item.status === "cancelled" &&
+        !item.refund_request_id &&
+        booking.payment_status === "paid"
+      );
+    };
+
+    return (
+      <Table
+        dataSource={items}
+        rowKey="id"
+        size="small"
+        pagination={false}
+        rowClassName={(item) =>
+          item.status === "cancelled" ? "bg-gray-100 opacity-70" : ""
+        }
+        columns={[
+          {
+            title: "Phòng",
+            key: "room",
+            render: (_, item) => (
+              <div
+                className={item.status === "cancelled" ? "line-through" : ""}
+              >
+                <div className="font-medium">{item.room_name}</div>
+                <div className="text-xs text-gray-500">
+                  {item.room_type_name}
+                </div>
+              </div>
+            ),
+          },
+          {
+            title: "Ngày",
+            key: "dates",
+            render: (_, item) => (
+              <div className="text-xs">
+                <div>{dayjs(item.check_in).format("DD/MM/YYYY")}</div>
+                <div>→ {dayjs(item.check_out).format("DD/MM/YYYY")}</div>
+              </div>
+            ),
+          },
+          {
+            title: "Giá phòng",
+            key: "price",
+            render: (_, item) => {
+              const total =
+                (item.room_type_price || 0) +
+                (item.extra_adult_fees || 0) +
+                (item.extra_child_fees || 0) +
+                (item.extra_fees || 0);
+              return (
+                <span
+                  className={item.status === "cancelled" ? "line-through" : ""}
+                >
+                  {formatPrice(total)}
+                </span>
+              );
+            },
+          },
+          {
+            title: "Trạng thái",
+            key: "status",
+            render: (_, item) => (
+              <div className="space-y-1">
+                {item.status === "cancelled" ? (
+                  <Tag color="red">Đã hủy</Tag>
+                ) : (
+                  <Tag color="green">Đang sử dụng</Tag>
+                )}
+                {item.refund_status && getRefundStatusTag(item.refund_status)}
+              </div>
+            ),
+          },
+          {
+            title: "Bill hoàn tiền",
+            key: "receipt",
+            render: (_, item) => {
+              const apiUrl =
+                import.meta.env.VITE_API_URL || "http://localhost:5001";
+              const imageUrl = item.receipt_image?.startsWith("http")
+                ? item.receipt_image
+                : `${apiUrl}${item.receipt_image}`;
+              return item.receipt_image ? (
+                <Image
+                  src={imageUrl}
+                  alt="Bill hoàn tiền"
+                  width={60}
+                  style={{ borderRadius: 4 }}
+                />
+              ) : item.refund_status === "completed" ? (
+                <span className="text-gray-400 text-xs">Chưa có</span>
+              ) : null;
+            },
+          },
+          {
+            title: "Thao tác",
+            key: "action",
+            render: (_, item) => (
+              <Space>
+                {canCancelItem(item) && (
+                  <Popconfirm
+                    title="Bạn có chắc muốn hủy phòng này?"
+                    description="Bạn có thể yêu cầu hoàn tiền sau khi hủy."
+                    onConfirm={() => cancelMutation.mutate(item.id)}
+                    okText="Hủy phòng"
+                    cancelText="Không"
+                    okButtonProps={{ danger: true }}
+                  >
+                    <Button
+                      size="small"
+                      danger
+                      icon={<CloseCircleOutlined />}
+                      loading={cancelMutation.isPending}
+                    >
+                      Hủy
+                    </Button>
+                  </Popconfirm>
+                )}
+                {canRequestRefund(item) && (
+                  <Tooltip title="Yêu cầu hoàn tiền cho phòng này">
+                    <Button
+                      size="small"
+                      type="primary"
+                      icon={<DollarOutlined />}
+                      onClick={() => openRefundModal(item, booking.id)}
+                      className="bg-purple-500 hover:bg-purple-600"
+                    >
+                      Hoàn tiền
+                    </Button>
+                  </Tooltip>
+                )}
+                {item.refund_status === "pending" && (
+                  <Tag color="orange">Đang chờ duyệt hoàn tiền</Tag>
+                )}
+              </Space>
+            ),
+          },
+        ]}
+      />
+    );
   };
 
   return (
     <div className="p-4 max-w-6xl mx-auto">
-      <div className="bg-white shadow-lg rounded-lg overflow-hidden border border-gray-200">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
-          <h2 className="text-xl font-bold text-gray-800">Booking của tôi</h2>
-          {loading && (
-            <span className="text-sm text-gray-500 animate-pulse">
-              Đang tải...
-            </span>
-          )}
-        </div>
-
-        {/* Table Container */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-100 text-gray-600 text-sm uppercase tracking-wider">
-                <th className="px-6 py-3 font-semibold border-b">Mã</th>
-                <th className="px-6 py-3 font-semibold border-b">Khách hàng</th>
-                <th className="px-6 py-3 font-semibold border-b">Tổng tiền</th>
-                <th className="px-6 py-3 font-semibold border-b">Trạng thái</th>
-                <th className="px-6 py-3 font-semibold border-b">Thanh toán</th>
-                <th className="px-6 py-3 font-semibold border-b text-center">
-                  Hành động
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {currentItems.length > 0 ? (
-                currentItems.map((b) => {
-                  const canCancel =
-                    b.stay_status_id === 6 || b.stay_status_id === 1;
-                  const showRefundBtn = canRequestRefund(b);
-                  return (
-                    <tr
-                      key={b.id}
-                      className="hover:bg-gray-50 transition-colors"
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
-                        #{b.id}
-                      </td>
-                      <td className="px-6 py-4 text-gray-700">
-                        {b.customer_name}
-                      </td>
-                      <td className="px-6 py-4 font-semibold text-blue-600">
-                        {formatPrice(b.total_price)}
-                      </td>
-                      <td className="px-6 py-4">
-                        {renderStatusBadge(
-                          b.stay_status_id,
-                          b.stay_status_name
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        {renderPaymentBadge(b.payment_status, b.is_refunded)}
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="flex justify-center gap-2 flex-wrap">
-                          <button
-                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded shadow-sm transition-colors"
-                            onClick={() => nav(`/bookings/success/${b.id}`)}
-                          >
-                            Chi tiết
-                          </button>
-                          {canCancel && (
-                            <button
-                              className={`px-3 py-1.5 text-white text-xs font-medium rounded shadow-sm transition-colors ${
-                                updating
-                                  ? "bg-red-300 cursor-not-allowed"
-                                  : "bg-red-500 hover:bg-red-600"
-                              }`}
-                              onClick={() => handleCancelBooking(b.id)}
-                              disabled={updating}
-                            >
-                              {updating ? "..." : "Hủy"}
-                            </button>
-                          )}
-                          {showRefundBtn && (
-                            <button
-                              className="px-3 py-1.5 bg-purple-500 hover:bg-purple-600 text-white text-xs font-medium rounded shadow-sm transition-colors"
-                              onClick={() => handleOpenRefundModal(b)}
-                            >
-                              Yêu cầu hoàn tiền
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              ) : (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-6 py-8 text-center text-gray-500"
-                  >
-                    {loading
-                      ? "Đang tải dữ liệu..."
-                      : "Bạn chưa có booking nào."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* --- PHẦN PHÂN TRANG (PAGINATION) --- */}
-        {data.length > itemsPerPage && (
-          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex items-center justify-between">
-            <span className="text-sm text-gray-600">
-              Hiển thị{" "}
-              <span className="font-medium">{indexOfFirstItem + 1}</span> đến{" "}
-              <span className="font-medium">
-                {Math.min(indexOfLastItem, data.length)}
-              </span>{" "}
-              trong tổng số <span className="font-medium">{data.length}</span>{" "}
-              booking
-            </span>
-            <div className="flex gap-1">
-              {/* Nút Previous */}
-              <button
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-                className={`px-3 py-1 text-sm border rounded ${
-                  currentPage === 1
-                    ? "text-gray-400 bg-gray-100 cursor-not-allowed"
-                    : "text-gray-700 bg-white hover:bg-gray-100"
-                }`}
-              >
-                Trước
-              </button>
-
-              {/* Các nút số trang */}
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                (page) => (
-                  <button
-                    key={page}
-                    onClick={() => handlePageChange(page)}
-                    className={`px-3 py-1 text-sm border rounded ${
-                      currentPage === page
-                        ? "bg-blue-600 text-white border-blue-600"
-                        : "text-gray-700 bg-white hover:bg-gray-100"
-                    }`}
-                  >
-                    {page}
-                  </button>
-                )
-              )}
-
-              {/* Nút Next */}
-              <button
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className={`px-3 py-1 text-sm border rounded ${
-                  currentPage === totalPages
-                    ? "text-gray-400 bg-gray-100 cursor-not-allowed"
-                    : "text-gray-700 bg-white hover:bg-gray-100"
-                }`}
-              >
-                Sau
-              </button>
-            </div>
-          </div>
+      <Card
+        title={<span className="text-xl font-bold">Booking của tôi</span>}
+        loading={isLoading}
+      >
+        {bookings.length === 0 ? (
+          <Empty description="Bạn chưa có booking nào" />
+        ) : (
+          <Collapse
+            activeKey={expandedKeys}
+            onChange={(keys) => handleExpand(keys as string[])}
+            items={bookings.map((booking) => ({
+              key: String(booking.id),
+              label: (
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <Space>
+                    <span className="font-bold">#{booking.id}</span>
+                    <span className="text-gray-600">
+                      {booking.customer_name}
+                    </span>
+                    {getStatusTag(booking.stay_status_id)}
+                    {getPaymentTag(
+                      booking.payment_status,
+                      booking.is_refunded ?? false
+                    )}
+                  </Space>
+                  <span className="font-semibold text-blue-600">
+                    {formatPrice(booking.total_price)}
+                  </span>
+                </div>
+              ),
+              children: renderItemsTable(booking),
+            }))}
+          />
         )}
-      </div>
+      </Card>
 
-      {/* Refund Request Modal */}
+      {/* Refund Modal */}
       <RefundRequestModal
         open={refundModalOpen}
-        bookingId={selectedBookingForRefund?.id}
-        refundAmount={selectedBookingForRefund?.total_price || 0}
+        bookingId={selectedBookingId || undefined}
+        bookingItemId={selectedItem?.id}
+        refundAmount={selectedItem?.refund_amount || 0}
         onClose={() => {
           setRefundModalOpen(false);
-          setSelectedBookingForRefund(null);
+          setSelectedItem(null);
+          setSelectedBookingId(null);
         }}
         onSuccess={() => {
-          fetchBookings();
+          if (selectedBookingId) {
+            fetchItemsForBooking(selectedBookingId);
+          }
+          queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
         }}
       />
     </div>
