@@ -30,6 +30,7 @@ export const getRoomTypes = async () => {
         rp.notes as refund_notes
       FROM room_types rt
       LEFT JOIN refund_policies rp ON rt.id = rp.room_type_id
+      ORDER BY rt.created_at DESC
     `);
   } catch (err) {
     console.error("Lỗi truy vấn room_types:", err);
