@@ -1,6 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { instance } from "./api";
-
 export const getMasterEquipments = async () => {
   try {
     const res = await instance.get("/master-equipments");
@@ -10,7 +8,6 @@ export const getMasterEquipments = async () => {
     return [];
   }
 };
-
 export const createMasterEquipment = async (data: any) => {
   try {
     const res = await instance.post("/master-equipments", data);
@@ -20,7 +17,6 @@ export const createMasterEquipment = async (data: any) => {
     throw error;
   }
 };
-
 export const updateMasterEquipment = async (id: number, data: any) => {
   try {
     const res = await instance.put(`/master-equipments/${id}`, data);
@@ -30,7 +26,6 @@ export const updateMasterEquipment = async (id: number, data: any) => {
     throw error;
   }
 };
-
 export const deleteMasterEquipment = async (id: number) => {
   try {
     const res = await instance.delete(`/master-equipments/${id}`);
@@ -40,8 +35,6 @@ export const deleteMasterEquipment = async (id: number) => {
     throw error;
   }
 };
-
-// Lấy thông tin thiết bị theo id
 export const getMasterEquipmentById = async (id: number) => {
   try {
     const res = await instance.get(`/master-equipments/${id}`);

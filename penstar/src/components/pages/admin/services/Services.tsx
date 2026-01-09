@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { EditOutlined, PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 import {
   Button,
@@ -16,15 +15,12 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import type { Services } from "@/types/services";
 import { getServices, deleteService } from "@/services/servicesApi";
-
 const ServiceList = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 10;
   const [searchTerm, setSearchTerm] = useState<string>("");
-
-  // ✅ Query để lấy danh sách dịch vụ
   const {
     data: services = [],
     isLoading,
@@ -33,13 +29,9 @@ const ServiceList = () => {
     queryKey: ["services"],
     queryFn: getServices,
   });
-
-  // ✅ Log để debug
   console.log("[Services] Data:", services);
   console.log("[Services] Loading:", isLoading);
   console.log("[Services] Error:", error);
-
-  // ✅ Filter services theo search term
   const filteredServices = services.filter((s: Services) => {
     const q = String(searchTerm ?? "")
       .trim()
@@ -49,8 +41,6 @@ const ServiceList = () => {
       .toLowerCase()
       .includes(q);
   });
-
-  // ✅ Mutation để xóa dịch vụ
   const deleteMut = useMutation({
     mutationFn: (id: number | string) => deleteService(id),
     onSuccess: () => {
@@ -62,16 +52,12 @@ const ServiceList = () => {
       message.error(error?.response?.data?.message || "Xóa dịch vụ thất bại");
     },
   });
-
-  // ✅ Format giá VND
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
       currency: "VND",
     }).format(price);
   };
-
-  // ✅ Columns definition
   const columns: ColumnsType<Services> = [
     {
       title: "STT",
@@ -86,12 +72,12 @@ const ServiceList = () => {
       width: 80,
       align: "center",
       render: (_v, record) => {
-        // Nếu thumbnail là đường dẫn tương đối, prefix domain backend
         let src = record.thumbnail;
         if (src && src.startsWith("/")) {
-          // Ưu tiên biến môi trường, fallback localhost:5000
           const apiUrl =
-            import.meta.env.VITE_API_URL || "http://localhost:5000";
+            import.meta.env.VITE_BASE_URL ||
+            import.meta.env.VITE_API_URL ||
+            "http://localhost:5001";
           src = apiUrl.replace(/\/$/, "") + src;
         }
         return src ? (
@@ -180,7 +166,6 @@ const ServiceList = () => {
       ),
     },
   ];
-
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
@@ -192,7 +177,6 @@ const ServiceList = () => {
             Quản lý các dịch vụ bổ sung của khách sạn
           </p>
         </div>
-
         <div className="flex items-center gap-3">
           <Input.Search
             placeholder="Tìm theo tên dịch vụ"
@@ -214,7 +198,6 @@ const ServiceList = () => {
           </Button>
         </div>
       </div>
-
       <Card>
         <Table
           columns={columns}
@@ -242,5 +225,4 @@ const ServiceList = () => {
     </div>
   );
 };
-
 export default ServiceList;

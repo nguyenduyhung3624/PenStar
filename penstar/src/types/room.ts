@@ -17,21 +17,18 @@ export interface Room {
     customer_name: string;
   }>;
 }
-
-// Type cho tìm kiếm phòng
 export interface RoomSearchParams {
-  check_in: string; // Format: YYYY-MM-DD
-  check_out: string; // Format: YYYY-MM-DD
-  num_rooms?: number; // Số phòng cần đặt
-  promo_code?: string; // Mã khuyến mãi/voucher
-  room_type_id?: number; // Filter theo loại phòng
-  floor_id?: number; // Filter theo tầng
-  num_adults?: number; // Sẽ chọn ở trang Results
-  num_children?: number; // Sẽ chọn ở trang Results
-  status?: string; // Filter theo trạng thái phòng (available, occupied, cleaning...)
-  booking_statuses?: number[]; // Loại trừ các booking có trạng thái này
+  check_in: string; 
+  check_out: string; 
+  num_rooms?: number; 
+  promo_code?: string; 
+  room_type_id?: number; 
+  floor_id?: number; 
+  num_adults?: number; 
+  num_children?: number; 
+  status?: string; 
+  booking_statuses?: number[]; 
 }
-
 export interface RoomSearchResponse {
   success: boolean;
   message: string;

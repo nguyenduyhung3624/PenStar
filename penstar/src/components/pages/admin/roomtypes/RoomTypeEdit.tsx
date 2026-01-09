@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   Button,
   Card,
@@ -12,7 +11,6 @@ import {
   Col,
   Spin,
 } from "antd";
-
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import QuillEditor from "@/components/common/QuillEditor";
@@ -27,42 +25,32 @@ import {
   deleteRoomTypeImage,
 } from "@/services/roomTypeImagesApi";
 import type { RoomTypeImage } from "@/types/roomTypeImage";
-
 type FileWithMeta = RcFile & { lastModified?: number };
-
 const RoomTypeEdit = () => {
   const [form] = Form.useForm();
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-
-  // File upload states
   const [fileList, setFileList] = useState<RcFile[]>([]);
   const [thumbFile, setThumbFile] = useState<RcFile | null>(null);
   const [existingThumbUrl, setExistingThumbUrl] = useState<string | null>(null);
   const [previews, setPreviews] = useState<Record<string, string>>({});
   const [existingExtras, setExistingExtras] = useState<RoomTypeImage[]>([]);
-
   const { data, isLoading } = useQuery({
     queryKey: ["roomtype", id],
     queryFn: () => getRoomTypeById(id as string),
     enabled: !!id,
   });
-
   const { data: existingImages = [] } = useQuery({
     queryKey: ["roomtype_images", id],
     queryFn: () => getImagesByRoomType(Number(id)),
     enabled: !!id,
   });
-
-  // Cleanup previews on unmount
   useEffect(() => {
     return () => {
       Object.values(previews).forEach((u) => URL.revokeObjectURL(u));
     };
   }, [previews]);
-
-  // Load existing images
   useEffect(() => {
     if (!existingImages || existingImages.length === 0) return;
     const thumb = existingImages.find((img) => img.is_thumbnail);
@@ -70,14 +58,11 @@ const RoomTypeEdit = () => {
     if (thumb) setExistingThumbUrl(thumb.image_url);
     setExistingExtras(extras);
   }, [existingImages]);
-
   useEffect(() => {
     if (!data) return;
     form.setFieldsValue({
       name: data.name,
       description: data.description,
-      // amenities: data.amenities || [],
-      // Đã loại bỏ free_amenities
       paid_amenities: data.paid_amenities || [],
       capacity: data.capacity,
       base_adults: data.base_adults,
@@ -92,12 +77,10 @@ const RoomTypeEdit = () => {
       policies: data.policies || {},
     });
   }, [data, form]);
-
   const handleFinish = async (values: {
     name: string;
     description: string;
-    // amenities?: string[];
-    // Đã loại bỏ free_amenities
+    free_amenities?: string[];
     paid_amenities?: string[];
     capacity?: number;
     base_adults?: number;
@@ -112,11 +95,9 @@ const RoomTypeEdit = () => {
     policies?: any;
   }) => {
     try {
-      // 1. Update room type basic info
       await updateRoomType(id as string, {
         name: values.name,
         description: values.description,
-        // amenities: values.amenities,
         free_amenities: values.free_amenities || [],
         paid_amenities: values.paid_amenities,
         capacity: values.capacity ? Number(values.capacity) : undefined,
@@ -141,10 +122,7 @@ const RoomTypeEdit = () => {
         room_size: values.room_size ? Number(values.room_size) : undefined,
         policies: values.policies || {},
       });
-
-      // 2. Handle thumbnail
       if (thumbFile) {
-        // Delete old thumbnail if exists
         const oldThumb = existingImages.find((img) => img.is_thumbnail);
         if (oldThumb) {
           try {
@@ -153,15 +131,12 @@ const RoomTypeEdit = () => {
             console.error("Failed to delete old thumbnail:", e);
           }
         }
-        // Upload new thumbnail
         try {
           await uploadRoomTypeImage(Number(id), thumbFile, true);
         } catch (e) {
           console.error("Failed to upload new thumbnail:", e);
         }
       }
-
-      // 3. Upload new gallery images
       if (fileList.length > 0) {
         for (const f of fileList) {
           try {
@@ -171,7 +146,6 @@ const RoomTypeEdit = () => {
           }
         }
       }
-
       message.success("Cập nhật loại phòng thành công");
       queryClient.invalidateQueries({ queryKey: ["room_types"] });
       queryClient.invalidateQueries({ queryKey: ["roomtype", id] });
@@ -185,7 +159,6 @@ const RoomTypeEdit = () => {
       message.error(errorMsg);
     }
   };
-
   const handleDeleteExistingImage = async (imageId: number) => {
     try {
       await deleteRoomTypeImage(imageId);
@@ -203,7 +176,6 @@ const RoomTypeEdit = () => {
       </div>
     );
   }
-
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -285,15 +257,7 @@ const RoomTypeEdit = () => {
               <Form.Item name="description" label="Mô tả" valuePropName="value">
                 <QuillEditor />
               </Form.Item>
-              {/*
-              <Form.Item name="amenities" label="Tiện nghi & Dịch vụ">
-                <Select
-                  mode="tags"
-                  placeholder="Nhập tiện nghi và nhấn Enter (VD: WiFi, Điều hòa, Tivi...)"
-                  style={{ width: "100%" }}
-                />
-              </Form.Item>
-              */}
+              {}
               <Form.Item name="free_amenities" label="Tiện nghi miễn phí">
                 <Select
                   mode="tags"
@@ -328,7 +292,6 @@ const RoomTypeEdit = () => {
                 />
               </Form.Item>
             </Col>
-
             <Col span={8}>
               <Form.Item label="Thumbnail">
                 <Upload
@@ -351,7 +314,7 @@ const RoomTypeEdit = () => {
                               uid: "existing",
                               name: "current",
                               status: "done",
-                              url: `http://localhost:5000${existingThumbUrl}`,
+                              url: `http://localhost:5001${existingThumbUrl}`,
                             },
                           ]
                         : []
@@ -376,7 +339,6 @@ const RoomTypeEdit = () => {
                       });
                       return true;
                     }
-                    // If removing existing thumbnail
                     setExistingThumbUrl(null);
                     return true;
                   }}
@@ -389,9 +351,8 @@ const RoomTypeEdit = () => {
                   )}
                 </Upload>
               </Form.Item>
-
               <Form.Item label="Gallery Images">
-                {/* Ảnh bổ sung */}
+                {}
                 {existingExtras.length > 0 && (
                   <div className="mb-3">
                     <div className="text-xs text-gray-500 mb-2">Ảnh đã có:</div>
@@ -399,7 +360,7 @@ const RoomTypeEdit = () => {
                       {existingExtras.map((img) => (
                         <div key={img.id} className="relative group">
                           <img
-                            src={`http://localhost:5000${img.image_url}`}
+                            src={`http://localhost:5001${img.image_url}`}
                             alt=""
                             className="w-full h-20 object-cover rounded border"
                           />
@@ -416,8 +377,7 @@ const RoomTypeEdit = () => {
                     </div>
                   </div>
                 )}
-
-                {/* New image uploads */}
+                {}
                 <Upload
                   accept="image/*"
                   listType="picture-card"
@@ -482,7 +442,6 @@ const RoomTypeEdit = () => {
               </Form.Item>
             </Col>
           </Row>
-
           <div className="mt-6 pt-4 border-t">
             <div className="flex gap-3">
               <Button type="primary" htmlType="submit" size="large">
@@ -498,5 +457,4 @@ const RoomTypeEdit = () => {
     </div>
   );
 };
-
 export default RoomTypeEdit;

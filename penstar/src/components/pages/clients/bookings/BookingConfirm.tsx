@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -25,30 +23,24 @@ import { createBooking } from "@/services/bookingsApi";
 import { createPayment, createMoMoPayment } from "@/services/paymentApi";
 import { useMutation } from "@tanstack/react-query";
 import useAuth from "@/hooks/useAuth";
-
 import {
   checkDiscountCode,
   suggestDiscountCodes,
 } from "@/services/discountApi";
 import { AutoComplete } from "antd";
-
 const { TextArea } = Input;
 const { Option } = Select;
-
 const BookingConfirm = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [form] = Form.useForm();
   const auth = useAuth();
   const user = auth?.user;
-
-  // Dữ liệu từ RoomSearchResults
   const {
     searchParams,
     items = [],
     totalPrice: totalPriceFromState,
   } = location.state || {};
-
   const [customerInfo, setCustomerInfo] = useState({
     customer_name: "",
     customer_phone: "",
@@ -63,14 +55,10 @@ const BookingConfirm = () => {
   const [suggestedCodes, setSuggestedCodes] = useState<
     { label: string; value: string; description?: string }[]
   >([]);
-
-  // (Đã chuyển useEffect này xuống sau khi khai báo totalRoomPrice)
   const [notes, setNotes] = useState("");
   const [agreePolicy, setAgreePolicy] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState("vnpay");
   const [termsModalOpen, setTermsModalOpen] = useState(false);
-
-  // Auto-fill user info
   useEffect(() => {
     if (user) {
       const data = {
@@ -82,8 +70,6 @@ const BookingConfirm = () => {
       setCustomerInfo(data);
     }
   }, [user, form]);
-
-  // Tính số đêm
   const nights = useMemo(() => {
     if (!searchParams?.check_in || !searchParams?.check_out) return 1;
     const diff =
@@ -91,8 +77,6 @@ const BookingConfirm = () => {
       new Date(searchParams.check_in).getTime();
     return Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
   }, [searchParams]);
-
-  // Tính tổng tiền phòng - ưu tiên dùng totalPrice từ state
   const totalRoomPrice = useMemo(() => {
     if (totalPriceFromState) {
       return totalPriceFromState;
@@ -104,8 +88,6 @@ const BookingConfirm = () => {
       return sum + pricePerNight * nights;
     }, 0);
   }, [items, nights, totalPriceFromState]);
-
-  // Lấy danh sách mã giảm giá đề xuất đủ điều kiện
   useEffect(() => {
     const fetchSuggested = async () => {
       try {
@@ -119,14 +101,12 @@ const BookingConfirm = () => {
             }))
           );
         }
-      } catch (e) {
+      } catch {
         setSuggestedCodes([]);
       }
     };
     fetchSuggested();
   }, [totalRoomPrice]);
-
-  // Lấy danh sách mã giảm giá đề xuất đủ điều kiện
   useEffect(() => {
     const fetchSuggested = async () => {
       try {
@@ -143,36 +123,28 @@ const BookingConfirm = () => {
             }))
           );
         }
-      } catch (e) {
+      } catch {
         setSuggestedCodes([]);
       }
     };
     fetchSuggested();
   }, [totalRoomPrice]);
-
-  // Tổng sau giảm giá
   const totalAfterDiscount = useMemo(() => {
     if (discountInfo?.discountAmount) {
       return Math.max(0, totalRoomPrice - discountInfo.discountAmount);
     }
     return totalRoomPrice;
   }, [totalRoomPrice, discountInfo]);
-
-  // Format giá
   const formatPrice = (price: number) =>
     new Intl.NumberFormat("vi-VN", {
       style: "currency",
       currency: "VND",
     }).format(Math.round(price));
-
-  // Mutation create booking
   const createBookingMutation = useMutation({
     mutationFn: createBooking,
     onSuccess: async (res: any) => {
       const bookingId = res?.id || res?.data?.id;
       const booking = res?.data || res;
-
-      // Nếu chọn cash (tiền mặt), chuyển thẳng sang success
       if (paymentMethod === "cash") {
         message.success(
           "Đặt phòng thành công! Vui lòng thanh toán khi nhận phòng."
@@ -182,8 +154,6 @@ const BookingConfirm = () => {
         });
         return;
       }
-
-      // Nếu chọn online payment (vnpay/momo), tạo payment URL
       try {
         let paymentUrl: string = "";
         const paymentParams = {
@@ -191,7 +161,6 @@ const BookingConfirm = () => {
           amount: totalAfterDiscount,
           orderInfo: `Thanh toán đặt phòng #${bookingId}`,
         };
-
         if (paymentMethod === "vnpay") {
           const paymentRes = await createPayment(paymentParams);
           paymentUrl =
@@ -201,13 +170,10 @@ const BookingConfirm = () => {
           paymentUrl =
             paymentRes.paymentUrl ?? paymentRes.data?.paymentUrl ?? "";
         }
-
         if (paymentUrl) {
           message.success("Đang chuyển đến trang thanh toán...");
-          // Lưu bookingId vào localStorage để PaymentResult có thể lấy
           localStorage.setItem("bookingId", bookingId.toString());
           localStorage.setItem("bookingInfo", JSON.stringify(booking));
-          // Redirect to payment gateway
           window.location.href = paymentUrl;
         } else {
           throw new Error("Không nhận được URL thanh toán");
@@ -222,9 +188,6 @@ const BookingConfirm = () => {
       message.error(err?.response?.data?.message || "Đặt phòng thất bại");
     },
   });
-
-  // Kiểm tra mã giảm giá
-  // Chỉ kiểm tra và báo lỗi khi ấn nút Áp dụng
   const handleCheckDiscount = async (code?: string) => {
     const codeToCheck = (code ?? promoCode).trim();
     if (!codeToCheck) {
@@ -244,7 +207,6 @@ const BookingConfirm = () => {
         );
       } else {
         setDiscountInfo(null);
-        // Chỉ báo lỗi khi người dùng thực sự ấn nút Áp dụng
         message.error(res.error || "Mã không hợp lệ");
       }
     } catch (err: any) {
@@ -254,9 +216,6 @@ const BookingConfirm = () => {
       setCheckingDiscount(false);
     }
   };
-
-  // Submit form
-  // Helper: check refund eligibility for all items (dùng refund_policy từ item)
   const checkRefundEligibility = () => {
     const now = new Date();
     const messages: string[] = [];
@@ -287,7 +246,6 @@ const BookingConfirm = () => {
     });
     return { eligible: allEligible, messages };
   };
-
   const handleSubmit = async () => {
     if (!customerInfo.customer_name?.trim()) {
       return message.error("Vui lòng nhập họ tên");
@@ -301,7 +259,6 @@ const BookingConfirm = () => {
     if (!agreePolicy) {
       return message.error("Vui lòng đồng ý với chính sách đặt phòng");
     }
-    // Validate refund eligibility before booking
     const refundCheck = checkRefundEligibility();
     if (!refundCheck.eligible) {
       message.warning(
@@ -316,18 +273,13 @@ const BookingConfirm = () => {
         </div>,
         6
       );
-      // Optionally: return here to block booking, or allow to continue
-      // return;
     }
-
-    // Validate mã giảm giá nếu có nhập
     if (promoCode.trim()) {
       if (!discountInfo) {
         return message.error(
           "Vui lòng kiểm tra và áp dụng mã giảm giá trước khi đặt phòng."
         );
       }
-      // Có discountInfo nhưng cần xác thực lại với backend (tránh trường hợp mã hết hạn giữa lúc đặt)
       try {
         const res = await checkDiscountCode(promoCode.trim(), totalRoomPrice);
         if (!res.ok) {
@@ -336,23 +288,18 @@ const BookingConfirm = () => {
             res.error || "Mã giảm giá không hợp lệ hoặc đã hết hạn."
           );
         }
-      } catch (err: any) {
+      } catch {
         setDiscountInfo(null);
         return message.error(
           "Không thể xác thực mã giảm giá. Vui lòng thử lại."
         );
       }
     }
-
-    // Gom nhóm items theo room_type_id, num_adults, num_children để tạo rooms_config cho backend
     const roomsConfigMap: Record<string, any> = {};
-
     items.forEach((item: any) => {
       const key = `${item.room_type_id}-${item.num_adults}-${item.num_children}`;
-      // Parse base price - use base_price or room_type_price, ensure it's a number
       const basePrice =
         Number(item.base_price) || Number(item.room_type_price) || 0;
-
       if (!roomsConfigMap[key]) {
         roomsConfigMap[key] = {
           room_type_id: item.room_type_id,
@@ -362,22 +309,18 @@ const BookingConfirm = () => {
           room_type_price: Math.round(basePrice * nights),
           num_adults: item.num_adults,
           num_children: item.num_children,
-          // Khởi tạo các trường phụ phí
           extra_fees: 0,
           extra_adult_fees: 0,
           extra_child_fees: 0,
         };
       }
       roomsConfigMap[key].quantity += 1;
-      // Cộng dồn phụ phí cho từng nhóm
       roomsConfigMap[key].extra_fees += Number(item.extra_fees || 0) * nights;
       roomsConfigMap[key].extra_adult_fees +=
         Number(item.extra_adult_fees || 0) * nights;
       roomsConfigMap[key].extra_child_fees +=
         Number(item.extra_child_fees || 0) * nights;
     });
-
-    // Lấy trung bình phụ phí trên mỗi phòng (nếu cần)
     Object.values(roomsConfigMap).forEach((cfg: any) => {
       if (cfg.quantity > 0) {
         cfg.extra_fees = Math.round(cfg.extra_fees / cfg.quantity);
@@ -385,14 +328,11 @@ const BookingConfirm = () => {
         cfg.extra_child_fees = Math.round(cfg.extra_child_fees / cfg.quantity);
       }
     });
-
-    // Truyền đủ các trường phụ phí vào từng item, KHÔNG truyền num_babies
     const itemsWithFees = items.map((item: any) => {
       const key = `${item.room_type_id}-${item.num_adults}-${item.num_children}`;
       const config = roomsConfigMap[key];
       const basePrice =
         Number(item.base_price) || Number(item.room_type_price) || 0;
-
       return {
         room_id: item.room_id,
         room_type_id: item.room_type_id,
@@ -407,7 +347,6 @@ const BookingConfirm = () => {
         extra_child_fees: Math.round(config?.extra_child_fees ?? 0),
       };
     });
-
     const payload = {
       customer_name: customerInfo.customer_name,
       customer_email: customerInfo.customer_email,
@@ -419,14 +358,12 @@ const BookingConfirm = () => {
       payment_status: "unpaid",
       payment_method: paymentMethod,
       booking_method: "online",
-      stay_status_id: 6, // pending
+      stay_status_id: 6,
       items: itemsWithFees,
     };
-
     console.log("📤 Payload gửi backend:", payload);
     createBookingMutation.mutate(payload as any);
   };
-
   if (!searchParams || items.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -439,10 +376,9 @@ const BookingConfirm = () => {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+      {}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <Button
@@ -457,11 +393,10 @@ const BookingConfirm = () => {
           </h1>
         </div>
       </div>
-
-      {/* Main Content */}
+      {}
       <div className="max-w-7xl mx-auto px-4 py-6">
         <Row gutter={24}>
-          {/* Left Column - Form */}
+          {}
           <Col xs={24} lg={14}>
             <Card title="Thông tin người đặt phòng">
               <Form form={form} layout="vertical">
@@ -478,7 +413,6 @@ const BookingConfirm = () => {
                     }
                   />
                 </Form.Item>
-
                 <Form.Item label="Email" required>
                   <Input
                     prefix={<MailOutlined />}
@@ -493,7 +427,6 @@ const BookingConfirm = () => {
                     }
                   />
                 </Form.Item>
-
                 <Form.Item label="Số điện thoại" required>
                   <Input
                     prefix={<PhoneOutlined />}
@@ -507,7 +440,6 @@ const BookingConfirm = () => {
                     }
                   />
                 </Form.Item>
-
                 <Form.Item label="Yêu cầu thêm">
                   <TextArea
                     rows={4}
@@ -518,8 +450,7 @@ const BookingConfirm = () => {
                 </Form.Item>
               </Form>
             </Card>
-
-            {/* Chính sách */}
+            {}
             <Card title="Chính sách đặt phòng" className="mt-4">
               <div className="space-y-2 text-sm">
                 <p>
@@ -534,8 +465,7 @@ const BookingConfirm = () => {
                 <p>✓ Đã bao gồm ăn sáng.</p>
               </div>
             </Card>
-
-            {/* Payment Method */}
+            {}
             <Card title="Phương thức thanh toán" className="mt-4">
               <Select
                 value={paymentMethod}
@@ -544,7 +474,7 @@ const BookingConfirm = () => {
               >
                 <Option value="vnpay">
                   <div className="flex items-center">
-                    <span className="mr-2">💳</span> VNPay (Thẻ ATM)
+                    <span className="mr-2">💳</span> VNPay
                   </div>
                 </Option>
                 <Option value="momo">MoMo</Option>
@@ -552,12 +482,11 @@ const BookingConfirm = () => {
               </Select>
             </Card>
           </Col>
-
-          {/* Right Column - Booking Summary */}
+          {}
           <Col xs={24} lg={10}>
             <Card title="Yêu cầu đặt phòng của bạn" className="sticky top-4">
               <div className="space-y-4">
-                {/* Hotel Info */}
+                {}
                 <div>
                   <h3 className="font-bold text-lg">PenStar Luxury Hotel</h3>
                   <p className="text-sm text-gray-600">
@@ -570,10 +499,8 @@ const BookingConfirm = () => {
                     ({nights} đêm | {items.length} phòng)
                   </p>
                 </div>
-
                 <Divider />
-
-                {/* Room Details */}
+                {}
                 <div className="space-y-3">
                   <h4 className="font-semibold">Thông tin phòng:</h4>
                   {items.map((item: any, idx: number) => {
@@ -588,24 +515,20 @@ const BookingConfirm = () => {
                     );
                     const totalExtraFees = extraAdultFees + extraChildFees;
                     const totalPerRoom = basePrice + totalExtraFees;
-
                     const refund = item.refund_policy;
-
                     return (
                       <div key={idx} className="bg-gray-50 p-3 rounded">
                         <p className="font-medium">
                           Phòng {idx + 1}:{" "}
                           {item.room_type_name || "Phòng Deluxe"}
                         </p>
-
-                        {/* Thông tin khách */}
+                        {}
                         <p className="text-sm text-gray-600 mt-1">
                           Dành cho {item.num_adults} Người lớn -{" "}
                           {item.num_children} Trẻ em
                           {item.num_babies > 0 && ` - ${item.num_babies} Em bé`}
                         </p>
-
-                        {/* Refund Policy Display */}
+                        {}
                         {refund && (
                           <div className="mt-2 p-2 rounded bg-blue-50 border border-blue-200">
                             <div className="font-semibold text-blue-700 mb-1">
@@ -646,8 +569,7 @@ const BookingConfirm = () => {
                             )}
                           </div>
                         )}
-
-                        {/* Chi tiết phụ phí */}
+                        {}
                         {(extraAdultFees > 0 || extraChildFees > 0) && (
                           <div className="mt-2 space-y-1">
                             {extraAdultFees > 0 && (
@@ -664,13 +586,11 @@ const BookingConfirm = () => {
                             )}
                           </div>
                         )}
-
-                        {/* Giá phòng */}
+                        {}
                         <p className="text-sm text-gray-700 mt-2">
                           Giá phòng: {formatPrice(basePrice)}
                         </p>
-
-                        {/* Tổng */}
+                        {}
                         <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-300">
                           <span className="font-semibold text-base">Tổng:</span>
                           <span className="font-bold text-lg">
@@ -681,10 +601,8 @@ const BookingConfirm = () => {
                     );
                   })}
                 </div>
-
                 <Divider />
-
-                {/* Price Summary */}
+                {}
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span>Giá phòng:</span>
@@ -692,7 +610,7 @@ const BookingConfirm = () => {
                       {formatPrice(totalRoomPrice)}
                     </span>
                   </div>
-                  {/* Input mã giảm giá */}
+                  {}
                   <div className="flex items-center gap-2 mb-2">
                     <AutoComplete
                       options={suggestedCodes}
@@ -740,7 +658,7 @@ const BookingConfirm = () => {
                         Xóa mã
                       </Button>
                     )}
-                    {/* Always show entered code if not yet applied */}
+                    {}
                   </div>
                   {discountInfo && (
                     <div className="flex justify-between text-green-600">
@@ -752,25 +670,20 @@ const BookingConfirm = () => {
                     </div>
                   )}
                 </div>
-
                 <Divider />
-
-                {/* Total */}
+                {}
                 <div className="flex justify-between items-center">
                   <span className="text-xl font-bold">Tổng giá:</span>
                   <span className="text-2xl font-bold text-orange-500">
                     {formatPrice(totalAfterDiscount)}
                   </span>
                 </div>
-
                 <p className="text-xs text-gray-500">
                   Bao gồm tất cả các loại thuế. Quý khách vui lòng thanh toán
                   theo giá VND.
                 </p>
-
                 <Divider />
-
-                {/* Checkbox đồng ý */}
+                {}
                 <Checkbox
                   checked={agreePolicy}
                   onChange={(e) => setAgreePolicy(e.target.checked)}
@@ -787,8 +700,7 @@ const BookingConfirm = () => {
                   </span>{" "}
                   của khách sạn.
                 </Checkbox>
-
-                {/* Nút thực hiện */}
+                {}
                 <Button
                   type="primary"
                   size="large"
@@ -812,8 +724,7 @@ const BookingConfirm = () => {
           </Col>
         </Row>
       </div>
-
-      {/* Terms Modal */}
+      {}
       <Modal
         title="Điều khoản đặt phòng"
         open={termsModalOpen}
@@ -844,7 +755,6 @@ const BookingConfirm = () => {
               </li>
             </ul>
           </section>
-
           <section>
             <h3 className="font-bold text-lg text-gray-800 mb-2">
               2. Chính sách thanh toán
@@ -860,7 +770,6 @@ const BookingConfirm = () => {
               <li>Giá đã bao gồm thuế VAT và phí dịch vụ.</li>
             </ul>
           </section>
-
           <section>
             <h3 className="font-bold text-lg text-gray-800 mb-2">
               3. Chính sách hủy phòng & hoàn tiền
@@ -876,7 +785,6 @@ const BookingConfirm = () => {
               <li>Yêu cầu hoàn tiền sẽ được xử lý trong 3-5 ngày làm việc.</li>
             </ul>
           </section>
-
           <section>
             <h3 className="font-bold text-lg text-gray-800 mb-2">
               4. Quy định khác
@@ -897,7 +805,6 @@ const BookingConfirm = () => {
               </li>
             </ul>
           </section>
-
           <section>
             <h3 className="font-bold text-lg text-gray-800 mb-2">5. Liên hệ</h3>
             <p className="text-gray-600">
@@ -912,5 +819,4 @@ const BookingConfirm = () => {
     </div>
   );
 };
-
 export default BookingConfirm;

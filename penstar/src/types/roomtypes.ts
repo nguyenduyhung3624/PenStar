@@ -6,7 +6,6 @@ export interface RoomTypePolicy {
   extra_fees?: string;
   other_policies?: string[];
 }
-
 export interface RoomType {
   id: number;
   name: string;
@@ -29,7 +28,6 @@ export interface RoomType {
   view_direction?: string;
   free_amenities?: string[];
   paid_amenities?: string[];
-  // ...existing code...
   refund_policy?: {
     refundable?: boolean;
     refund_percent?: number;

@@ -1,18 +1,15 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { instance } from "./api";
 import type { RoomType } from "@/types/roomtypes";
-
 export const getRoomTypes = async (): Promise<RoomType[]> => {
   try {
     const response = await instance.get("/roomtypes");
     console.log("📦 Response from /roomtypes API:", response.data);
-    return response.data?.data ?? []; // Trả về array data hoặc array rỗng
+    return response.data?.data ?? []; 
   } catch (error) {
     console.error("Error fetching room types:", error);
     throw error;
   }
 };
-
 export const getRoomTypeById = async (
   id: number | string
 ): Promise<RoomType | null> => {
@@ -24,12 +21,10 @@ export const getRoomTypeById = async (
     throw error;
   }
 };
-
 export const createRoomType = async (roomTypeData: {
   name: string;
   description: string;
   thumbnail?: string;
-  // amenities?: string[];
   capacity?: number;
   max_adults?: number;
   max_children?: number;
@@ -44,7 +39,6 @@ export const createRoomType = async (roomTypeData: {
     throw error;
   }
 };
-
 export const updateRoomType = async (
   id: number | string,
   roomTypeData: {
@@ -73,7 +67,6 @@ export const updateRoomType = async (
     throw error;
   }
 };
-
 export const deleteRoomType = async (id: number | string) => {
   try {
     const response = await instance.delete(`/roomtypes/${id}`);
@@ -83,7 +76,6 @@ export const deleteRoomType = async (id: number | string) => {
     throw error;
   }
 };
-
 export const checkRoomTypeNameExists = async (
   name: string,
   excludeId?: number | string
@@ -98,8 +90,6 @@ export const checkRoomTypeNameExists = async (
     throw error;
   }
 };
-
-// Lấy danh sách thiết bị chuẩn của một loại phòng
 export interface RoomTypeEquipment {
   id: number;
   equipment_id: number;
@@ -108,7 +98,6 @@ export interface RoomTypeEquipment {
   min_quantity: number;
   max_quantity: number;
 }
-
 export const getRoomTypeEquipments = async (
   roomTypeId: number | string
 ): Promise<RoomTypeEquipment[]> => {

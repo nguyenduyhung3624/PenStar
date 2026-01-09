@@ -1,15 +1,11 @@
 import type { RoomSearchParams } from "@/types/room";
 import RoomSearchBar from "@/components/common/RoomSearchBar";
 import { useState } from "react";
-
-// Import images from assets
 import bannerImage from "@/assets/images/banner-tin-tuc-uu-dai_1686539225_1686815922.jpg";
 import { useNavigate } from "react-router-dom";
-
 const HomePage = () => {
   const navigate = useNavigate();
   const [currentSlide, setCurrentSlide] = useState(0);
-
   const destinations = [
     [
       {
@@ -80,20 +76,17 @@ const HomePage = () => {
       },
     ],
   ];
-
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % destinations.length);
   };
-
   const prevSlide = () => {
     setCurrentSlide(
       (prev) => (prev - 1 + destinations.length) % destinations.length
     );
   };
-
   return (
     <div className="min-h-screen bg-white">
-      {/* Hero Section with Banner Image */}
+      {}
       <section className="relative flex flex-col items-stretch justify-end overflow-visible p-0">
         <div className="w-full relative h-[500px]">
           <img
@@ -101,21 +94,19 @@ const HomePage = () => {
             alt="PenStar Banner"
             className="w-full h-full object-cover"
           />
-          {/* Lớp phủ nhẹ để tăng tương phản nếu cần */}
+          {}
           <div className="absolute inset-0 bg-black/5 pointer-events-none"></div>
         </div>
-
-        {/* Search Bar Wrapper */}
+        {}
         <div
           className="absolute left-1/2 bottom-0 w-full flex justify-center z-20"
           style={{ transform: "translate(-50%, 50%)" }}
         >
           <div className="w-full max-w-6xl px-4">
-            {/* Box trắng chứa SearchBar: Tăng padding và bo góc */}
+            {}
             <div>
               <RoomSearchBar
                 onSearch={(params: RoomSearchParams) => {
-                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
                   const { num_rooms, ...rest } = params as RoomSearchParams & {
                     num_rooms?: number;
                   };
@@ -128,12 +119,11 @@ const HomePage = () => {
           </div>
         </div>
       </section>
-
-      {/* Features Section - Tăng margin-top (mt-32) để tránh bị Search Bar che */}
+      {}
       <section className="py-12 mt-32 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {/* Feature 1 */}
+            {}
             <div className="group text-center">
               <div className="w-20 h-20 border-2 border-gray-300 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:border-blue-500 transition-all duration-300">
                 <svg
@@ -154,8 +144,7 @@ const HomePage = () => {
                 Đảm bảo giá tốt nhất
               </h3>
             </div>
-
-            {/* Feature 2 */}
+            {}
             <div className="group text-center">
               <div className="w-20 h-20 border-2 border-gray-300 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:border-blue-500 transition-all duration-300">
                 <svg
@@ -182,8 +171,7 @@ const HomePage = () => {
                 Nhiều điểm đến lựa chọn
               </h3>
             </div>
-
-            {/* Feature 3 */}
+            {}
             <div className="group text-center">
               <div className="w-20 h-20 border-2 border-gray-300 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:border-blue-500 transition-all duration-300">
                 <svg
@@ -204,8 +192,7 @@ const HomePage = () => {
                 Đảm bảo chất lượng phục vụ
               </h3>
             </div>
-
-            {/* Feature 4 */}
+            {}
             <div className="group text-center">
               <div className="w-20 h-20 border-2 border-gray-300 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:border-blue-500 transition-all duration-300">
                 <svg
@@ -229,8 +216,7 @@ const HomePage = () => {
           </div>
         </div>
       </section>
-
-      {/* Ưu Đãi Section */}
+      {}
       <section className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
@@ -239,7 +225,6 @@ const HomePage = () => {
               <span className="text-gray-800">DÀNH CHO BẠN</span>
             </h2>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
               {
@@ -311,8 +296,7 @@ const HomePage = () => {
           </div>
         </div>
       </section>
-
-      {/* Combo Section */}
+      {}
       <section className="py-16 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
@@ -321,7 +305,6 @@ const HomePage = () => {
               <span className="text-gray-800">GIÁ TỐT</span>
             </h2>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
               {
@@ -405,8 +388,7 @@ const HomePage = () => {
           </div>
         </div>
       </section>
-
-      {/* Điểm Đến Section - Carousel Style */}
+      {}
       <section className="py-16 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
@@ -415,9 +397,8 @@ const HomePage = () => {
               <span className="text-gray-800">NỔI BẬT</span>
             </h2>
           </div>
-
           <div className="relative">
-            {/* Previous Button */}
+            {}
             <button
               onClick={prevSlide}
               className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white p-3 shadow-lg transition-all"
@@ -437,8 +418,7 @@ const HomePage = () => {
                 />
               </svg>
             </button>
-
-            {/* Next Button */}
+            {}
             <button
               onClick={nextSlide}
               className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white p-3 shadow-lg transition-all"
@@ -458,8 +438,7 @@ const HomePage = () => {
                 />
               </svg>
             </button>
-
-            {/* Carousel Container */}
+            {}
             <div className="overflow-hidden">
               <div
                 className="flex transition-transform duration-500 ease-in-out"
@@ -478,7 +457,6 @@ const HomePage = () => {
                           }
                         >
                           {dest.images ? (
-                            // Split layout for locations with 2 images
                             <div className="grid grid-rows-2 gap-4 h-64">
                               <div className="relative group cursor-pointer overflow-hidden shadow-md hover:shadow-xl transition-all">
                                 <img
@@ -524,7 +502,6 @@ const HomePage = () => {
                               </div>
                             </div>
                           ) : (
-                            // Single image layout
                             <div className="relative group cursor-pointer overflow-hidden shadow-md hover:shadow-xl transition-all h-64">
                               <img
                                 src={dest.image}
@@ -568,8 +545,7 @@ const HomePage = () => {
                 ))}
               </div>
             </div>
-
-            {/* Carousel dots */}
+            {}
             <div className="flex justify-center mt-6 gap-2">
               {destinations.map((_, idx) => (
                 <button
@@ -583,7 +559,6 @@ const HomePage = () => {
               ))}
             </div>
           </div>
-
           <div className="text-center mt-8">
             <button className="px-6 py-2 border border-yellow-500 text-yellow-600 hover:bg-yellow-50 transition font-medium">
               Xem nhiều →
@@ -591,8 +566,7 @@ const HomePage = () => {
           </div>
         </div>
       </section>
-
-      {/* Tin Tức Section */}
+      {}
       <section className="py-16 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
@@ -601,9 +575,8 @@ const HomePage = () => {
               <span className="text-gray-800">NỔI BẬT</span>
             </h2>
           </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Large Featured Article */}
+            {}
             <div className="md:row-span-2 bg-white overflow-hidden shadow-md hover:shadow-xl transition-all">
               <img
                 src="https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=700"
@@ -627,8 +600,7 @@ const HomePage = () => {
                 </button>
               </div>
             </div>
-
-            {/* Small Articles */}
+            {}
             {[
               {
                 image:
@@ -675,5 +647,4 @@ const HomePage = () => {
     </div>
   );
 };
-
 export default HomePage;

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
@@ -22,9 +21,7 @@ import type { RoomImage } from "@/types/roomImage";
 import type { RoomType } from "@/types/roomtypes";
 import type { Floors } from "@/types/floors";
 import type { RcFile } from "antd/lib/upload";
-
 type FileWithMeta = RcFile & { lastModified?: number };
-
 const RoomEdit = () => {
   const [form] = Form.useForm();
   const [fileList, setFileList] = useState<RcFile[]>([]);
@@ -34,11 +31,8 @@ const RoomEdit = () => {
   const [existingExtras, setExistingExtras] = useState<RoomImage[]>([]);
   const extrasKeySetRef = useRef<Set<string>>(new Set());
   const previewsRef = useRef<Record<string, string>>({});
-  // refs for managing previews and dedupe
   const { id } = useParams();
   const navigate = useNavigate();
-
-  // helper to get filename from URL (used in multiple places)
   const filenameFromUrl = (url: string) => {
     try {
       const p = new URL(url);
@@ -47,17 +41,14 @@ const RoomEdit = () => {
       return url.split("/").pop() || url;
     }
   };
-
   const { data: types = [], isLoading: typesLoading } = useQuery({
     queryKey: ["roomtypes"],
     queryFn: getRoomTypes,
   });
-
   const { data: floors = [], isLoading: floorsLoading } = useQuery({
     queryKey: ["floors"],
     queryFn: getFloors,
   });
-
   useEffect(() => {
     if (!id) return;
     (async () => {
@@ -73,10 +64,8 @@ const RoomEdit = () => {
             status: data.status,
           });
           setExistingThumbUrl(data.thumbnail || null);
-          // fetch existing extras
           try {
             const imgs = await getImagesByRoom(Number(id));
-            // helper to get filename from URL
             const filenameFromUrl = (url: string) => {
               try {
                 const p = new URL(url);
@@ -85,10 +74,6 @@ const RoomEdit = () => {
                 return url.split("/").pop() || url;
               }
             };
-
-            // helper to get filename from URL (reused)
-
-            // filter out thumbnail image from extras list if any (either flagged or same filename)
             const thumbName = data.thumbnail
               ? filenameFromUrl(data.thumbnail)
               : null;
@@ -102,7 +87,6 @@ const RoomEdit = () => {
               return true;
             });
             setExistingExtras(extras);
-            // populate dedupe key set for existing images (id-based and filename-based)
             extras.forEach((im) => {
               const key = `existing-${im.id}`;
               extrasKeySetRef.current.add(key);
@@ -118,7 +102,6 @@ const RoomEdit = () => {
       }
     })();
   }, [id, form]);
-
   const uploadSelectedFiles = async (roomId: number) => {
     const results: unknown[] = [];
     if (thumbFile) {
@@ -141,7 +124,6 @@ const RoomEdit = () => {
       }
     }
     setFileList([]);
-    // clear previews for uploaded files
     setPreviews((p) => {
       const copy = { ...p };
       Object.keys(copy).forEach((k) => {
@@ -152,10 +134,8 @@ const RoomEdit = () => {
       });
       return copy;
     });
-    // refresh existing images and thumbnail from server to avoid duplicates/view drift
     try {
       const imgs = await getImagesByRoom(Number(roomId));
-      // fetch updated room to get thumbnail field
       const room = await getRoomID(Number(roomId));
       const thumbName = room?.thumbnail
         ? filenameFromUrl(room.thumbnail)
@@ -171,7 +151,6 @@ const RoomEdit = () => {
       });
       setExistingThumbUrl(room?.thumbnail || null);
       setExistingExtras(extras);
-      // rebuild dedupe key set
       extrasKeySetRef.current.clear();
       extras.forEach((im) => {
         const key = `existing-${im.id}`;
@@ -184,19 +163,14 @@ const RoomEdit = () => {
     }
     return results;
   };
-
   useEffect(() => {
     return () => {
       Object.values(previews).forEach((u) => URL.revokeObjectURL(u));
     };
   }, [previews]);
-
   useEffect(() => {
     previewsRef.current = previews;
   }, [previews]);
-
-  // (optional) file hashing could be added later for content-based dedupe
-
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -211,25 +185,15 @@ const RoomEdit = () => {
           layout="vertical"
           onFinish={async (values) => {
             if (!id) return;
-            // Build payload but be careful with thumbnail:
-            // - if user selected a new thumbFile, let uploadSelectedFiles set the thumbnail after update
-            // - if user did NOT select a new thumbFile, preserve existingThumbUrl (or null if they removed it)
             const payload = {
               ...values,
               type_id: values.type_id ? Number(values.type_id) : undefined,
               floor_id: values.floor_id ? Number(values.floor_id) : undefined,
-              // price removed, now taken from room_types
             } as Record<string, unknown>;
-
             if (!thumbFile) {
-              // no new thumbnail file: explicitly include current state (string or null)
-              // this prevents the update from accidentally setting thumbnail to NULL when omitted
               payload.thumbnail = existingThumbUrl ?? null;
             } else {
-              // new file will be uploaded after update; avoid sending thumbnail field so DB isn't overwritten
-              // do nothing here
             }
-
             try {
               await updateRoom(Number(id), payload);
               await uploadSelectedFiles(Number(id));
@@ -280,7 +244,7 @@ const RoomEdit = () => {
                   </Select>
                 </Form.Item>
               </div>
-              {/* Price input removed, now managed in room type */}
+              {}
               <Form.Item
                 name="status"
                 label="Trạng thái"
@@ -340,7 +304,6 @@ const RoomEdit = () => {
                   }
                   beforeUpload={(file) => {
                     const f = file as RcFile & { lastModified?: number };
-                    // If this file is already present in pending extras, remove it to avoid duplicate
                     const key = `${f.name}-${f.size}-${f.lastModified ?? 0}`;
                     setFileList((prev) =>
                       prev.filter((p) => {
@@ -365,7 +328,6 @@ const RoomEdit = () => {
                     return false;
                   }}
                   onRemove={async () => {
-                    // If user removes a newly selected file, just clear it.
                     if (thumbFile) {
                       setThumbFile(null);
                       setPreviews((p) => {
@@ -376,8 +338,6 @@ const RoomEdit = () => {
                       });
                       return true;
                     }
-
-                    // If removing existing thumbnail (already uploaded), delete the image record on server
                     try {
                       if (existingThumbUrl && id) {
                         const imgs = await getImagesByRoom(Number(id));
@@ -389,7 +349,6 @@ const RoomEdit = () => {
                         );
                         if (match) {
                           await deleteRoomImage(match.id);
-                          // remove dedupe keys related to this image
                           extrasKeySetRef.current.delete(
                             `existing-${match.id}`
                           );
@@ -408,7 +367,6 @@ const RoomEdit = () => {
                         e
                       );
                     }
-
                     setThumbFile(null);
                     setExistingThumbUrl(null);
                     setPreviews((p) => {
@@ -420,7 +378,7 @@ const RoomEdit = () => {
                     return true;
                   }}
                 >
-                  {/* Only show upload button when there's no existing thumbnail and no newly selected file */}
+                  {}
                   {!thumbFile && !existingThumbUrl && (
                     <div className="flex flex-col items-center justify-center">
                       <div className="text-2xl">+</div>
@@ -429,9 +387,8 @@ const RoomEdit = () => {
                   )}
                 </Upload>
               </Form.Item>
-
               <Form.Item label="Ảnh bổ sung (không bắt buộc)">
-                {/* Upload control remains for selecting new files */}
+                {}
                 <Upload
                   accept="image/*"
                   listType="picture-card"
@@ -440,7 +397,6 @@ const RoomEdit = () => {
                   beforeUpload={(file) => {
                     const f = file as RcFile & { lastModified?: number };
                     const key = `${f.name}-${f.size}-${f.lastModified ?? 0}`;
-                    // prevent adding if it's already selected as thumbnail
                     if (thumbFile) {
                       const tLast =
                         (thumbFile as FileWithMeta).lastModified ?? 0;
@@ -452,12 +408,10 @@ const RoomEdit = () => {
                         return false;
                       }
                     }
-                    // also check filename-based keys from existing images
                     if (
                       extrasKeySetRef.current.has(key) ||
                       extrasKeySetRef.current.has(`name:${f.name}`)
                     ) {
-                      // duplicate, skip adding
                       message.info("This image is already selected or exists.");
                       return false;
                     }
@@ -473,12 +427,10 @@ const RoomEdit = () => {
                     <div>Tải ảnh</div>
                   </div>
                 </Upload>
-
                 <div className="text-xs text-gray-500 mt-2">
                   Đã chọn (chờ tải lên): {fileList.length} ảnh
                 </div>
-
-                {/* Gallery: render both existing extras (from server) and newly selected files */}
+                {}
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   {existingExtras.map((im) => (
                     <div key={`existing-${im.id}`} className="relative">
@@ -491,13 +443,11 @@ const RoomEdit = () => {
                         type="button"
                         className="absolute top-1 right-1 bg-white rounded-full p-1 shadow"
                         onClick={async () => {
-                          // call delete API then remove from UI
                           try {
                             await deleteRoomImage(im.id);
                             setExistingExtras((prev) =>
                               prev.filter((p) => p.id !== im.id)
                             );
-                            // remove dedupe keys (both id-based and filename-based)
                             extrasKeySetRef.current.delete(`existing-${im.id}`);
                             try {
                               const urlParts = im.image_url.split("/");
@@ -523,7 +473,6 @@ const RoomEdit = () => {
                       </button>
                     </div>
                   ))}
-
                   {fileList.map((f) => {
                     const last = (f as FileWithMeta).lastModified ?? 0;
                     const key = `${f.name}-${f.size}-${last}`;
@@ -538,7 +487,6 @@ const RoomEdit = () => {
                           type="button"
                           className="absolute top-1 right-1 bg-white rounded-full p-1 shadow"
                           onClick={() => {
-                            // remove pending file (same logic as Upload onRemove)
                             extrasKeySetRef.current.delete(key);
                             setFileList((prev) =>
                               prev.filter((p) => {
@@ -575,5 +523,4 @@ const RoomEdit = () => {
     </div>
   );
 };
-
 export default RoomEdit;

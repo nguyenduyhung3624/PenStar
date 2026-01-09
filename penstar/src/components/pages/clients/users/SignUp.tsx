@@ -3,7 +3,6 @@ import { useNavigate, Link } from "react-router-dom";
 import { register } from "@/services/usersApi";
 import { useMutation } from "@tanstack/react-query";
 import { message } from "antd";
-
 const SignUp = () => {
   const navigate = useNavigate();
   const [payload, setPayload] = useState({
@@ -14,7 +13,6 @@ const SignUp = () => {
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
   const regMut = useMutation({
     mutationFn: (p: typeof payload) => register(p),
     onSuccess: () => {
@@ -22,7 +20,6 @@ const SignUp = () => {
       navigate("/signin");
     },
     onError: (err) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const axiosErr = (err as any)?.response?.data?.message;
       const errMsg =
         typeof axiosErr === "string" ? axiosErr : "Đăng ký thất bại";
@@ -31,7 +28,6 @@ const SignUp = () => {
     },
     onSettled: () => setLoading(false),
   });
-
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -42,7 +38,6 @@ const SignUp = () => {
     setLoading(true);
     regMut.mutate(payload);
   };
-
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="max-w-md w-full bg-white shadow-lg p-8">
@@ -63,7 +58,6 @@ const SignUp = () => {
               placeholder="Nguyen Van A"
             />
           </div>
-
           <div>
             <label className="block text-sm text-gray-600 mb-1">Email</label>
             <input
@@ -76,7 +70,6 @@ const SignUp = () => {
               placeholder="you@example.com"
             />
           </div>
-
           <div>
             <label className="block text-sm text-gray-600 mb-1">Mật khẩu</label>
             <input
@@ -89,7 +82,6 @@ const SignUp = () => {
               placeholder="••••••••"
             />
           </div>
-
           <div>
             <label className="block text-sm text-gray-600 mb-1">
               Số điện thoại
@@ -104,7 +96,6 @@ const SignUp = () => {
               placeholder="0123456789"
             />
           </div>
-
           <button
             type="submit"
             disabled={loading}
@@ -113,7 +104,6 @@ const SignUp = () => {
             {loading ? "Đang đăng ký..." : "Đăng ký"}
           </button>
         </form>
-
         <div className="mt-4 text-sm text-gray-600">
           Đã có tài khoản?{" "}
           <Link to="/signin" className="text-blue-600 hover:underline">
@@ -124,5 +114,4 @@ const SignUp = () => {
     </div>
   );
 };
-
 export default SignUp;

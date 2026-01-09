@@ -10,5 +10,4 @@ export interface BookingIncident {
   note?: string;
   room_name?: string;
   created_at?: string;
-  // Thêm các trường khác nếu cần
 }
