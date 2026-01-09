@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Button, Card, Form, Input, message } from "antd";
 import QuillEditor from "@/components/common/QuillEditor";
 import { Link } from "react-router-dom";
@@ -6,24 +5,20 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getFloorById, updateFloor } from "@/services/floorsApi";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEffect } from "react";
-
 const FloorEdit = () => {
   const [form] = Form.useForm();
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-
   const { data } = useQuery({
     queryKey: ["floor", id],
     queryFn: () => getFloorById(id as string),
     enabled: !!id,
   });
-
   useEffect(() => {
     if (!data) return;
     form.setFieldsValue({ name: data.name, description: data.description });
   }, [data, form]);
-
   const updateMut = useMutation({
     mutationFn: ({ id, payload }: any) => updateFloor(id, payload),
     onSuccess: () => {
@@ -33,7 +28,6 @@ const FloorEdit = () => {
     },
     onError: () => message.error("Cập nhật tầng thất bại"),
   });
-
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -64,5 +58,4 @@ const FloorEdit = () => {
     </div>
   );
 };
-
 export default FloorEdit;

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from "react";
 import {
   Table,
@@ -30,7 +29,6 @@ import {
   CheckOutlined,
 } from "@ant-design/icons";
 import RefundProcessModal from "./RefundProcessModal";
-
 const RefundRequestList: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
@@ -40,19 +38,14 @@ const RefundRequestList: React.FC = () => {
     null
   );
   const [modalOpen, setModalOpen] = useState(false);
-
-  // Fetch refund requests
   const { data: requests = [], isLoading } = useQuery<RefundRequest[]>({
     queryKey: ["refund-requests", statusFilter],
     queryFn: () => getAllRefundRequests(statusFilter || undefined),
   });
-
-  // Fetch stats
   const { data: stats } = useQuery<RefundStats>({
     queryKey: ["refund-stats"],
     queryFn: getRefundStats,
   });
-
   const filteredRequests = requests
     .filter((r) => {
       const q = searchTerm.toLowerCase();
@@ -65,11 +58,9 @@ const RefundRequestList: React.FC = () => {
       );
     })
     ?.sort((a, b) => Number(b.id) - Number(a.id));
-
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("vi-VN").format(value) + "đ";
   };
-
   const getStatusTag = (status: string) => {
     const statusConfig: Record<string, { color: string; label: string }> = {
       pending: { color: "orange", label: "Chờ xử lý" },
@@ -80,12 +71,10 @@ const RefundRequestList: React.FC = () => {
     const config = statusConfig[status] || { color: "default", label: status };
     return <Tag color={config.color}>{config.label}</Tag>;
   };
-
   const openProcessModal = (request: RefundRequest) => {
     setSelectedRequest(request);
     setModalOpen(true);
   };
-
   const columns = [
     {
       title: "ID",
@@ -191,13 +180,11 @@ const RefundRequestList: React.FC = () => {
       ),
     },
   ];
-
   return (
     <div>
       <div className="mb-4">
         <h1 className="text-2xl font-bold mb-4">Quản lý yêu cầu hoàn tiền</h1>
-
-        {/* Statistics */}
+        {}
         <Row gutter={16} className="mb-4">
           <Col span={6}>
             <Card>
@@ -246,8 +233,7 @@ const RefundRequestList: React.FC = () => {
             </Card>
           </Col>
         </Row>
-
-        {/* Filters */}
+        {}
         <div className="flex items-center gap-3 mb-4">
           <Input.Search
             placeholder="Tìm theo tên, email, ngân hàng..."
@@ -272,7 +258,6 @@ const RefundRequestList: React.FC = () => {
           />
         </div>
       </div>
-
       <Card>
         <Table
           rowKey="id"
@@ -290,8 +275,7 @@ const RefundRequestList: React.FC = () => {
           }}
         />
       </Card>
-
-      {/* Process Modal */}
+      {}
       <RefundProcessModal
         open={modalOpen}
         request={selectedRequest}
@@ -303,5 +287,4 @@ const RefundRequestList: React.FC = () => {
     </div>
   );
 };
-
 export default RefundRequestList;

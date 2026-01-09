@@ -1,4 +1,3 @@
-// services used: roomsApi wrapper functions
 import { EditOutlined, PlusOutlined } from "@ant-design/icons";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button, Popconfirm, Table, Select, Input, message } from "antd";
@@ -10,7 +9,6 @@ import { getFloors } from "@/services/floorsApi";
 import { getRoomTypes } from "@/services/roomTypeApi";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-
 const Rooms = () => {
   const [messageApi, contextHolder] = message.useMessage();
   const queryClient = useQueryClient();
@@ -24,25 +22,21 @@ const Rooms = () => {
   );
   const [searchTerm, setSearchTerm] = useState<string>("");
   const navigate = useNavigate();
-
   const {
     data: rooms,
     isLoading,
     isError,
   } = useQuery<Room[]>({ queryKey: ["rooms"], queryFn: getRooms });
-
   type FloorShort = { id: number | string; name: string };
   const { data: floors = [] } = useQuery<FloorShort[]>({
     queryKey: ["floors"],
     queryFn: getFloors,
   });
-
   type RoomTypeShort = { id: number | string; name: string };
   const { data: room_types = [] } = useQuery<RoomTypeShort[]>({
     queryKey: ["room_types"],
     queryFn: getRoomTypes,
   });
-
   const { mutate: deleteMut } = useMutation({
     mutationFn: async (id: number) => deleteRoom(id),
     onSuccess: () => {
@@ -51,10 +45,8 @@ const Rooms = () => {
     },
     onError: () => messageApi.error("Xóa phòng thất bại"),
   });
-
   if (isLoading) return <div>Đang tải...</div>;
   if (isError) return <div>Lỗi</div>;
-
   const filteredRooms = rooms
     ?.filter((r) => {
       if (filterTypeId && String(r.type_id) !== String(filterTypeId))
@@ -73,7 +65,6 @@ const Rooms = () => {
       return true;
     })
     ?.sort((a, b) => Number(b.id) - Number(a.id));
-
   const columns: ColumnsType<Room> = [
     {
       title: "STT",
@@ -121,7 +112,6 @@ const Rooms = () => {
       key: "floor_name",
       render: (floor_name) => floor_name || "N/A",
     },
-    // Price column removed, now managed in room type
     {
       title: "Thao tác",
       key: "action",
@@ -147,7 +137,6 @@ const Rooms = () => {
       ),
     },
   ];
-
   return (
     <div>
       {contextHolder}
@@ -233,5 +222,4 @@ const Rooms = () => {
     </div>
   );
 };
-
 export default Rooms;

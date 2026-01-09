@@ -20,32 +20,25 @@ import type { RcFile } from "antd/lib/upload";
 import type { RoomType } from "@/types/roomtypes";
 import type { Floors as Floor } from "@/types/floors";
 type FileWithMeta = RcFile & { lastModified?: number };
-
 const RoomAdd: React.FC = () => {
   const [form] = Form.useForm();
   const [extras, setExtras] = useState<RcFile[]>([]);
   const [thumb, setThumb] = useState<RcFile | null>(null);
   const [previews, setPreviews] = useState<Record<string, string>>({});
-  // use react-query like RoomEdit to fetch room types and floors
   const { data: roomTypes = [], isLoading: typesLoading } = useQuery({
     queryKey: ["roomtypes"],
     queryFn: getRoomTypes,
   });
-
   const { data: floors = [], isLoading: floorsLoading } = useQuery({
     queryKey: ["floors"],
     queryFn: getFloors,
   });
   const navigate = useNavigate();
-
   useEffect(() => {
     return () => {
       Object.values(previews).forEach((u) => URL.revokeObjectURL(u));
     };
   }, [previews]);
-
-  // room types and floors are fetched by react-query above
-
   const uploadSelectedFiles = async (roomId: number) => {
     if (thumb) {
       try {
@@ -55,7 +48,6 @@ const RoomAdd: React.FC = () => {
       }
       setThumb(null);
     }
-
     if (extras.length > 0) {
       for (const f of extras) {
         try {
@@ -65,14 +57,12 @@ const RoomAdd: React.FC = () => {
         }
       }
     }
-
     setExtras([]);
     setPreviews({});
   };
-
   return (
     <div>
-      {/* use global message so notifications persist across navigation */}
+      {}
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-2xl font-bold mb-4">THÊM PHÒNG</h2>
         <Link to="/admin/rooms">
@@ -84,24 +74,18 @@ const RoomAdd: React.FC = () => {
           form={form}
           layout="vertical"
           onFinish={async (values) => {
-            // ensure required fields exist and types are correct for backend Joi validation
             const PLACEHOLDER_THUMBNAIL =
               "https://via.placeholder.com/800x600?text=No+Image";
             const payload = {
               name: values.name ?? "",
               type_id: values.type_id ? Number(values.type_id) : undefined,
               floor_id: values.floor_id ? Number(values.floor_id) : undefined,
-              // price removed, now taken from room_types
               short_desc: values.short_desc ?? "",
               long_desc: values.long_desc ?? "",
-              // backend validation requires status and thumbnail on create
               status: "available",
-              // placeholder thumbnail URL; upload will replace this after creation
               thumbnail: PLACEHOLDER_THUMBNAIL,
             } as Record<string, unknown>;
-
             console.log("Creating room with payload:", payload);
-
             try {
               const created = await createRoom(payload);
               const roomId = created && (created as { id?: number }).id;
@@ -109,7 +93,6 @@ const RoomAdd: React.FC = () => {
               message.success("Tạo phòng thành công");
               navigate("/admin/rooms");
             } catch (err) {
-              // surface server-side validation message if available
               const e = err as { response?: { data?: { message?: string } } };
               const serverMsg = e?.response?.data?.message;
               console.error("Error creating room:", e, serverMsg ?? "");
@@ -126,7 +109,6 @@ const RoomAdd: React.FC = () => {
               >
                 <Input />
               </Form.Item>
-
               <div className="grid grid-cols-2 gap-4">
                 <Form.Item
                   name="type_id"
@@ -155,9 +137,7 @@ const RoomAdd: React.FC = () => {
                   </Select>
                 </Form.Item>
               </div>
-
-              {/* Price input removed, now managed in room type */}
-
+              {}
               <Form.Item
                 name="short_desc"
                 label="Mô tả ngắn"
@@ -165,7 +145,6 @@ const RoomAdd: React.FC = () => {
               >
                 <Input.TextArea rows={3} />
               </Form.Item>
-
               <Form.Item
                 name="long_desc"
                 label="Mô tả chi tiết"
@@ -174,7 +153,6 @@ const RoomAdd: React.FC = () => {
                 <QuillEditor />
               </Form.Item>
             </div>
-
             <div className="col-span-4">
               <Form.Item label="Ảnh đại diện">
                 <Upload
@@ -221,7 +199,6 @@ const RoomAdd: React.FC = () => {
                   )}
                 </Upload>
               </Form.Item>
-
               <Form.Item label="Ảnh bổ sung (không bắt buộc)">
                 <Upload
                   accept="image/*"
@@ -292,14 +269,12 @@ const RoomAdd: React.FC = () => {
                     <div>Tải ảnh</div>
                   </div>
                 </Upload>
-
                 <div className="text-xs text-gray-500 mt-2">
                   Đã chọn: {extras.length} ảnh
                 </div>
               </Form.Item>
             </div>
           </div>
-
           <div className="mt-4">
             <Button type="primary" htmlType="submit">
               Tạo mới
@@ -310,5 +285,4 @@ const RoomAdd: React.FC = () => {
     </div>
   );
 };
-
 export default RoomAdd;

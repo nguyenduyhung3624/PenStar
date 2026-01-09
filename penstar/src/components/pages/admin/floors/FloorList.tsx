@@ -6,20 +6,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getFloors, deleteFloor } from "@/services/floorsApi";
 import { useNavigate } from "react-router-dom";
 import type { Floors } from "@/types/floors";
-
 const FloorList = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
-
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 5;
   const [searchTerm, setSearchTerm] = useState<string>("");
-
   const { data: floors = [], isLoading } = useQuery<Floors[]>({
     queryKey: ["floors"],
     queryFn: getFloors,
   });
-
   const filteredFloors = floors.filter((f: Floors) => {
     const q = String(searchTerm ?? "")
       .trim()
@@ -29,7 +25,6 @@ const FloorList = () => {
       .toLowerCase()
       .includes(q);
   });
-
   const deleteMut = useMutation({
     mutationFn: (id: number | string) => deleteFloor(id),
     onSuccess: () => {
@@ -43,7 +38,6 @@ const FloorList = () => {
       message.error(msg);
     },
   });
-
   const columns: ColumnsType<Floors> = [
     {
       title: "STT",
@@ -87,7 +81,6 @@ const FloorList = () => {
       ),
     },
   ];
-
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -111,7 +104,6 @@ const FloorList = () => {
           </Button>
         </div>
       </div>
-
       <Card>
         <Table
           columns={columns}
@@ -128,10 +120,8 @@ const FloorList = () => {
           }}
         />
       </Card>
-
-      {/* Add/Edit handled on separate pages */}
+      {}
     </div>
   );
 };
-
 export default FloorList;
