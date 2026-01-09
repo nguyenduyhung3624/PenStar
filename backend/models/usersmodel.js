@@ -2,7 +2,7 @@ import pool from "../db.js";
 
 export const getUsers = async () => {
   const res = await pool.query(
-    `SELECT users.*, roles.name as role_name FROM users LEFT JOIN roles ON users.role_id = roles.id`
+    `SELECT users.*, roles.name as role_name FROM users LEFT JOIN roles ON users.role_id = roles.id ORDER BY users.created_at DESC`
   );
   return res.rows;
 };

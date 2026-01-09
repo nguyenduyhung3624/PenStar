@@ -11,7 +11,7 @@ export const getRooms = async () => {
     FROM rooms r
     LEFT JOIN room_types rt ON r.type_id = rt.id
     LEFT JOIN floors f ON r.floor_id = f.id
-    ORDER BY r.id
+    ORDER BY r.created_at DESC
   `);
   return resuit.rows;
 };
