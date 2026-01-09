@@ -67,10 +67,11 @@ const RoomTypesPage = () => {
       key: "thumbnail",
       width: 100,
       render: (thumbnail: string) => {
+        const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:3001";
         const imageUrl = thumbnail
           ? thumbnail.startsWith("http")
             ? thumbnail
-            : `http://localhost:5000${thumbnail}`
+            : `${baseUrl}${thumbnail}`
           : "https://via.placeholder.com/80x60?text=Không+ảnh";
         return (
           <Image
