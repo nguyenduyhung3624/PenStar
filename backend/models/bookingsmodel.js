@@ -600,8 +600,13 @@ export const cancelBooking = async (
       );
       totalRefund += itemRefund;
       await client.query(
-        `UPDATE booking_items SET refund_amount = $1 WHERE booking_id = $2 AND room_id = $3`,
-        [itemRefund, id, item.room_id]
+        `UPDATE booking_items
+         SET refund_amount = $1,
+             status = 'cancelled',
+             cancelled_at = NOW(),
+             cancel_reason = $4
+         WHERE booking_id = $2 AND room_id = $3`,
+        [itemRefund, id, item.room_id, cancelReason]
       );
     }
 
