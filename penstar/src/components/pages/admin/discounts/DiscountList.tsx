@@ -66,23 +66,25 @@ const DiscountList: React.FC = () => {
   });
 
   // Filter by code, name or description
-  const filteredVouchers = vouchers.filter((v) => {
-    const q = String(searchTerm ?? "")
-      .trim()
-      .toLowerCase();
-    if (!q) return true;
-    return (
-      String(v.code ?? "")
-        .toLowerCase()
-        .includes(q) ||
-      String(v.name ?? "")
-        .toLowerCase()
-        .includes(q) ||
-      String(v.description ?? "")
-        .toLowerCase()
-        .includes(q)
-    );
-  });
+  const filteredVouchers = vouchers
+    .filter((v) => {
+      const q = String(searchTerm ?? "")
+        .trim()
+        .toLowerCase();
+      if (!q) return true;
+      return (
+        String(v.code ?? "")
+          .toLowerCase()
+          .includes(q) ||
+        String(v.name ?? "")
+          .toLowerCase()
+          .includes(q) ||
+        String(v.description ?? "")
+          .toLowerCase()
+          .includes(q)
+      );
+    })
+    ?.sort((a, b) => Number(b.id) - Number(a.id));
 
   const handleStatusChange = (record: Voucher, checked: boolean) => {
     statusMutation.mutate({

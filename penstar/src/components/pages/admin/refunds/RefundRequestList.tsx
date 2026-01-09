@@ -53,16 +53,18 @@ const RefundRequestList: React.FC = () => {
     queryFn: getRefundStats,
   });
 
-  const filteredRequests = requests.filter((r) => {
-    const q = searchTerm.toLowerCase();
-    if (!q) return true;
-    return (
-      r.user_name?.toLowerCase().includes(q) ||
-      r.user_email?.toLowerCase().includes(q) ||
-      r.bank_name?.toLowerCase().includes(q) ||
-      r.account_holder?.toLowerCase().includes(q)
-    );
-  });
+  const filteredRequests = requests
+    .filter((r) => {
+      const q = searchTerm.toLowerCase();
+      if (!q) return true;
+      return (
+        r.user_name?.toLowerCase().includes(q) ||
+        r.user_email?.toLowerCase().includes(q) ||
+        r.bank_name?.toLowerCase().includes(q) ||
+        r.account_holder?.toLowerCase().includes(q)
+      );
+    })
+    ?.sort((a, b) => Number(b.id) - Number(a.id));
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("vi-VN").format(value) + "đ";
