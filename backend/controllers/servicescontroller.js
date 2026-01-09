@@ -46,42 +46,16 @@ export const createService = async (req, res) => {
     }
 
     let thumbnail = null;
-    let thumbnail_hash = null;
-
-    // ✅ XỬ LÝ FILE IMAGE
 
     // ✅ XỬ LÝ FILE THUMBNAIL
     if (req.files && req.files.thumbnail_file && req.files.thumbnail_file[0]) {
       const file = req.files.thumbnail_file[0];
-      const filePath = path.join(
-        process.cwd(),
-        "uploads",
-        "services",
-        file.filename
-      );
-      const fileBuffer = fs.readFileSync(filePath);
-      const fileHash = crypto
-        .createHash("sha1")
-        .update(fileBuffer)
-        .digest("hex");
-
-      const allServices = await modelGetServices();
-      const existed = allServices.find((s) => s.thumbnail_hash === fileHash);
-
-      if (existed) {
-        fs.unlinkSync(filePath);
-        thumbnail = existed.thumbnail;
-        thumbnail_hash = fileHash;
-      } else {
-        thumbnail = `/uploads/services/${file.filename}`;
-        thumbnail_hash = fileHash;
-      }
+      thumbnail = `/uploads/services/${file.filename}`;
     }
 
     const newService = await modelCreateService({
       ...req.body,
       thumbnail,
-      thumbnail_hash,
     });
 
     res.success(newService, "Tạo dịch vụ thành công", 201);
@@ -119,42 +93,16 @@ export const updateService = async (req, res) => {
     }
 
     let thumbnail = req.body.thumbnail || currentService.thumbnail;
-    let thumbnail_hash = currentService.thumbnail_hash;
-
-    // ✅ XỬ LÝ FILE IMAGE MỚI
 
     // ✅ XỬ LÝ FILE THUMBNAIL MỚI
     if (req.files && req.files.thumbnail_file && req.files.thumbnail_file[0]) {
       const file = req.files.thumbnail_file[0];
-      const filePath = path.join(
-        process.cwd(),
-        "uploads",
-        "services",
-        file.filename
-      );
-      const fileBuffer = fs.readFileSync(filePath);
-      const fileHash = crypto
-        .createHash("sha1")
-        .update(fileBuffer)
-        .digest("hex");
-
-      const allServices = await modelGetServices();
-      const existed = allServices.find((s) => s.thumbnail_hash === fileHash);
-
-      if (existed) {
-        fs.unlinkSync(filePath);
-        thumbnail = existed.thumbnail;
-        thumbnail_hash = fileHash;
-      } else {
-        thumbnail = `/uploads/services/${file.filename}`;
-        thumbnail_hash = fileHash;
-      }
+      thumbnail = `/uploads/services/${file.filename}`;
     }
 
     const updateData = {
       ...req.body,
       thumbnail,
-      thumbnail_hash,
     };
 
     const updated = await modelUpdateService(id, updateData);

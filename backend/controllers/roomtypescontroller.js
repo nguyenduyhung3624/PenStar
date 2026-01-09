@@ -6,7 +6,6 @@ import {
   deleteRoomType as modelDeleteRoomType,
 } from "../models/roomtypemodel.js";
 import { ERROR_MESSAGES } from "../utils/constants.js";
-
 export const getRoomTypes = async (req, res) => {
   try {
     const data = await modelGetRooomTypes();
@@ -16,7 +15,6 @@ export const getRoomTypes = async (req, res) => {
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
-
 export const createRoomType = async (req, res) => {
   try {
     const { existsRoomTypeWithName } = await import(
@@ -30,9 +28,7 @@ export const createRoomType = async (req, res) => {
       price,
       bed_type,
       view_direction,
-      // amenities đã bị loại bỏ
       paid_amenities,
-      // Đã loại bỏ free_amenities
       room_size,
       area,
       base_adults,
@@ -45,7 +41,6 @@ export const createRoomType = async (req, res) => {
     if (await existsRoomTypeWithName(String(name))) {
       return res.error("Tên loại phòng đã tồn tại", null, 400);
     }
-    // Validate required fields (name, price, capacity, ...)
     if (!name || !price || !capacity) {
       return res.error(
         "Thiếu thông tin bắt buộc: tên, giá, sức chứa",
@@ -61,9 +56,7 @@ export const createRoomType = async (req, res) => {
       price,
       bed_type,
       view_direction,
-      // amenities đã bị loại bỏ
       paid_amenities,
-      // Đã loại bỏ free_amenities
       room_size,
       area,
       base_adults,
@@ -79,7 +72,6 @@ export const createRoomType = async (req, res) => {
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
-
 export const getRoomTypeById = async (req, res) => {
   const { id } = req.params;
   try {
@@ -93,7 +85,6 @@ export const getRoomTypeById = async (req, res) => {
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
-
 export const updateRoomType = async (req, res) => {
   const { id } = req.params;
   try {
@@ -108,9 +99,7 @@ export const updateRoomType = async (req, res) => {
       price,
       bed_type,
       view_direction,
-      // amenities đã bị loại bỏ
       paid_amenities,
-      // Đã loại bỏ free_amenities
       room_size,
       area,
       base_adults,
@@ -123,7 +112,6 @@ export const updateRoomType = async (req, res) => {
     if (name && (await existsRoomTypeWithName(String(name), Number(id)))) {
       return res.error("Tên loại phòng đã tồn tại", null, 400);
     }
-    // Validate required fields (name, price, capacity)
     if (!name || !price || !capacity) {
       return res.error(
         "Thiếu thông tin bắt buộc: tên, giá, sức chứa",
@@ -139,9 +127,7 @@ export const updateRoomType = async (req, res) => {
       price,
       bed_type,
       view_direction,
-      // amenities đã bị loại bỏ
       paid_amenities,
-      // Đã loại bỏ free_amenities
       room_size,
       area,
       base_adults,
@@ -160,11 +146,9 @@ export const updateRoomType = async (req, res) => {
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
-
 export const deleteRoomType = async (req, res) => {
   const { id } = req.params;
   try {
-    // check if any room uses this type
     const { countRoomsByTypeId } = await import("../models/roomsmodel.js");
     const count = await countRoomsByTypeId(id);
     if (count > 0) {
@@ -174,7 +158,6 @@ export const deleteRoomType = async (req, res) => {
         400
       );
     }
-
     const deleted = await modelDeleteRoomType(id);
     if (!deleted) {
       return res.error("Loại phòng không tồn tại", null, 404);
@@ -182,7 +165,6 @@ export const deleteRoomType = async (req, res) => {
     res.success(deleted, "Xóa loại phòng thành công");
   } catch (error) {
     console.error("[deleteRoomType]", error);
-    // handle FK violation
     if (error && error.code === "23503") {
       return res.error(
         "Không thể xóa loại phòng đang được sử dụng",
