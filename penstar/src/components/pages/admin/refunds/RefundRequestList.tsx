@@ -7,7 +7,6 @@ import {
   Space,
   Card,
   Input,
-  message,
   Tooltip,
   Statistic,
   Row,
@@ -16,26 +15,23 @@ import {
   Image,
 } from "antd";
 import dayjs from "dayjs";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   getAllRefundRequests,
   getRefundStats,
-  updateRefundRequestStatus,
   type RefundRequest,
   type RefundStats,
 } from "@/services/refundApi";
 import {
   EyeOutlined,
-  CheckOutlined,
   CloseOutlined,
-  UploadOutlined,
   DollarOutlined,
   ClockCircleOutlined,
+  CheckOutlined,
 } from "@ant-design/icons";
 import RefundProcessModal from "./RefundProcessModal";
 
 const RefundRequestList: React.FC = () => {
-  const queryClient = useQueryClient();
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
   const [searchTerm, setSearchTerm] = useState("");
@@ -55,27 +51,6 @@ const RefundRequestList: React.FC = () => {
   const { data: stats } = useQuery<RefundStats>({
     queryKey: ["refund-stats"],
     queryFn: getRefundStats,
-  });
-
-  // Status update mutation
-  const statusMutation = useMutation({
-    mutationFn: ({
-      id,
-      status,
-      notes,
-    }: {
-      id: number;
-      status: "approved" | "rejected";
-      notes?: string;
-    }) => updateRefundRequestStatus(id, status, notes),
-    onSuccess: () => {
-      message.success("Cập nhật trạng thái thành công");
-      queryClient.invalidateQueries({ queryKey: ["refund-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["refund-stats"] });
-    },
-    onError: () => {
-      message.error("Cập nhật trạng thái thất bại");
-    },
   });
 
   const filteredRequests = requests.filter((r) => {
@@ -107,18 +82,6 @@ const RefundRequestList: React.FC = () => {
   const openProcessModal = (request: RefundRequest) => {
     setSelectedRequest(request);
     setModalOpen(true);
-  };
-
-  const handleApprove = (id: number) => {
-    statusMutation.mutate({ id, status: "approved" });
-  };
-
-  const handleReject = (id: number) => {
-    statusMutation.mutate({
-      id,
-      status: "rejected",
-      notes: "Từ chối bởi admin",
-    });
   };
 
   const columns = [
@@ -175,17 +138,19 @@ const RefundRequestList: React.FC = () => {
       dataIndex: "receipt_image",
       key: "receipt_image",
       width: 120,
-      render: (url: string) =>
-        url ? (
+      render: (url: string) => {
+        if (!url) return <span className="text-gray-400">Chưa có</span>;
+        const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5001";
+        const imageUrl = url.startsWith("http") ? url : `${apiUrl}${url}`;
+        return (
           <Image
-            src={url}
+            src={imageUrl}
             alt="Receipt"
             width={80}
             style={{ borderRadius: 4 }}
           />
-        ) : (
-          <span className="text-gray-400">Chưa có</span>
-        ),
+        );
+      },
     },
     {
       title: "Ngày tạo",
@@ -200,37 +165,16 @@ const RefundRequestList: React.FC = () => {
       width: 180,
       render: (_: any, record: RefundRequest) => (
         <Space wrap>
-          {record.status === "pending" && (
-            <>
-              <Tooltip title="Duyệt">
-                <Button
-                  type="primary"
-                  size="small"
-                  icon={<CheckOutlined />}
-                  onClick={() => handleApprove(record.id)}
-                  loading={statusMutation.isPending}
-                />
-              </Tooltip>
-              <Tooltip title="Từ chối">
-                <Button
-                  danger
-                  size="small"
-                  icon={<CloseOutlined />}
-                  onClick={() => handleReject(record.id)}
-                  loading={statusMutation.isPending}
-                />
-              </Tooltip>
-            </>
-          )}
-          {record.status === "approved" && (
-            <Tooltip title="Upload bill & hoàn thành">
+          {(record.status === "pending" || record.status === "approved") && (
+            <Tooltip title="Hoàn trả tiền cho khách">
               <Button
                 type="primary"
                 size="small"
-                icon={<UploadOutlined />}
+                icon={<DollarOutlined />}
                 onClick={() => openProcessModal(record)}
+                className="bg-green-600 hover:bg-green-700"
               >
-                Upload bill
+                Hoàn trả
               </Button>
             </Tooltip>
           )}
