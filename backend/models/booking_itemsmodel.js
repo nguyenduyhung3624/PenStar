@@ -121,3 +121,29 @@ export const hasActiveItems = async (bookingId) => {
   );
   return parseInt(res.rows[0].count) > 0;
 };
+
+/**
+ * Get booking items with refund request info
+ */
+export const getItemsWithRefundInfo = async (bookingId) => {
+  const res = await pool.query(
+    `SELECT bi.*,
+            r.name as room_name,
+            rt.name as room_type_name,
+            rt.price as room_type_price_base,
+            rr.id as refund_request_id,
+            rr.status as refund_status,
+            rr.amount as refund_amount_requested,
+            rr.receipt_image,
+            rr.admin_notes as refund_notes,
+            rr.processed_at as refund_processed_at
+     FROM booking_items bi
+     LEFT JOIN rooms r ON bi.room_id = r.id
+     LEFT JOIN room_types rt ON bi.room_type_id = rt.id
+     LEFT JOIN refund_requests rr ON rr.booking_item_id = bi.id
+     WHERE bi.booking_id = $1
+     ORDER BY bi.id`,
+    [bookingId]
+  );
+  return res.rows;
+};
