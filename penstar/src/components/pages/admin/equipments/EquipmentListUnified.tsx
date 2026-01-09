@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -28,14 +26,12 @@ import {
   checkRoomDevicesStandard,
   restoreRoomDeviceStatus,
 } from "@/services/roomDevicesApi";
-
 const EquipmentListUnified = () => {
   const [selectedRoom, setSelectedRoom] = useState<number | undefined>();
   const queryClient = useQueryClient();
   const [checkResult, setCheckResult] = useState<any>(null);
   const [checking, setChecking] = useState(false);
   const [showCheckModal, setShowCheckModal] = useState(false);
-
   const { data: rooms = [] } = useQuery({
     queryKey: ["rooms"],
     queryFn: getRooms,
@@ -51,7 +47,6 @@ const EquipmentListUnified = () => {
   const [checkingByType, setCheckingByType] = useState(false);
   const [checkResultByType, setCheckResultByType] = useState<any[]>([]);
   const [checkErrorByType, setCheckErrorByType] = useState<string | null>(null);
-  // Hàm kiểm tra tiêu chuẩn thiết bị theo loại phòng
   const handleCheckStandardByType = async () => {
     if (!selectedRoomType) {
       setCheckErrorByType("Vui lòng chọn loại phòng để kiểm tra.");
@@ -76,7 +71,6 @@ const EquipmentListUnified = () => {
       queryKey: ["master-equipments"],
       queryFn: getMasterEquipments,
     });
-  // Xóa thiết bị master
   const handleDeleteMaster = async (id: number) => {
     try {
       await deleteMasterEquipment(id);
@@ -94,18 +88,13 @@ const EquipmentListUnified = () => {
         : Promise.resolve([]),
     enabled: !!selectedRoom,
   });
-
-  // Lấy danh sách incidents theo phòng
   const { data: incidents = [] } = useQuery({
     queryKey: ["incidents-by-room", selectedRoom],
     queryFn: () =>
       selectedRoom ? getIncidentsByRoom(selectedRoom) : Promise.resolve([]),
     enabled: !!selectedRoom,
   });
-
   const navigate = useNavigate();
-  // Đảm bảo dữ liệu masterEquipments có trường loss_price
-  // Nếu backend trả về loss_price là string, ép kiểu về number
   const normalizedMasterEquipments = masterEquipments.map((item: any) => ({
     ...item,
     import_price:
@@ -117,7 +106,6 @@ const EquipmentListUnified = () => {
         ? Number(item.loss_price)
         : undefined,
   }));
-  // Map trạng thái hỏng vào roomDevices: chỉ dựa vào trường status
   const roomDevicesWithStatus = selectedRoom
     ? roomDevices.map((device: any) => ({
         ...device,
@@ -127,8 +115,6 @@ const EquipmentListUnified = () => {
   const dataSource = selectedRoom
     ? roomDevicesWithStatus
     : normalizedMasterEquipments;
-
-  // Định nghĩa columns duy nhất ngoài return
   const columns = [
     {
       title: "Tên thiết bị",
@@ -140,7 +126,6 @@ const EquipmentListUnified = () => {
       dataIndex: selectedRoom ? "device_type" : "type",
       key: "type",
     },
-    // Chỉ hiển thị khi chưa lọc phòng
     !selectedRoom && {
       title: "Giá nhập",
       dataIndex: "import_price",
@@ -166,7 +151,6 @@ const EquipmentListUnified = () => {
           dataIndex: "total_stock",
           key: "total_stock",
         },
-    // Thêm cột trạng thái khi lọc theo phòng
     selectedRoom && {
       title: "Trạng thái",
       dataIndex: "is_broken",
@@ -178,16 +162,13 @@ const EquipmentListUnified = () => {
           <Tag color="green">Bình thường</Tag>
         ),
     },
-    // Thêm cột Sự cố/Đền bù khi lọc theo phòng
     selectedRoom && {
       title: "Sự cố/Đền bù",
       key: "incidents",
       render: (_: any, record: any) => {
-        // Nếu thiết bị đã khôi phục (status = 'working'), không hiển thị sự cố/đền bù
         if (record.status === "working") {
           return <span style={{ color: "#aaa" }}>Không có</span>;
         }
-        // Lọc các incident liên quan đến thiết bị này, chỉ hiện sự cố chưa bị xóa
         const relatedIncidents = incidents.filter(
           (inc: any) =>
             inc.room_id === record.room_id &&
@@ -255,7 +236,6 @@ const EquipmentListUnified = () => {
                 try {
                   await restoreRoomDeviceStatus(record.id);
                   message.success("Đã khôi phục trạng thái thiết bị!");
-                  // Refetch lại roomDevices bằng react-query
                   queryClient.invalidateQueries({
                     queryKey: ["room-devices", selectedRoom],
                   });
@@ -270,7 +250,6 @@ const EquipmentListUnified = () => {
         </div>
       ),
     },
-    // Thao tác cho master (khi không lọc phòng)
     !selectedRoom && {
       title: "Thao tác",
       key: "action",
@@ -301,13 +280,11 @@ const EquipmentListUnified = () => {
       ),
     },
   ].filter(Boolean) as any[];
-
   const handleCheckStandard = async () => {
     if (!selectedRoom) return;
     setChecking(true);
     try {
       const result = await checkRoomDevicesStandard(selectedRoom);
-      // Chuyển missing thành errors dạng string nếu có
       let errors = [];
       if (result && result.missing) {
         errors = result.missing.map(
@@ -323,7 +300,6 @@ const EquipmentListUnified = () => {
       setChecking(false);
     }
   };
-
   return (
     <div>
       <h2 className="text-xl font-bold mb-4">DANH SÁCH THIẾT BỊ</h2>
@@ -540,5 +516,4 @@ const EquipmentListUnified = () => {
     </div>
   );
 };
-
 export default EquipmentListUnified;

@@ -1,24 +1,10 @@
-/**
- * Seed Data Script for PenStar Hotel Management System
- * Uses faker.js to generate realistic fake data
- *
- * Usage: node scripts/seed-data.js
- */
-
 import { faker } from "@faker-js/faker";
 import pkg from "pg";
 import dotenv from "dotenv";
 import bcrypt from "bcryptjs";
-
 dotenv.config();
-
 const { Pool } = pkg;
-
-// =============================================
-// CONFIGURATION - Adjust these to control data volume
-// =============================================
 const CONFIG = {
-  // Number of records to generate
   USERS: 50,
   ROOM_TYPES: 6,
   ROOMS_PER_TYPE: 5,
@@ -28,15 +14,9 @@ const CONFIG = {
   BOOKING_SERVICES_PER_BOOKING: 3,
   DISCOUNT_CODES: 10,
   FLOORS: 5,
-
-  // Images per entity
   ROOM_TYPE_IMAGES: 5,
   ROOM_IMAGES: 3,
 };
-
-// =============================================
-// RANDOM HOTEL IMAGES (Unsplash & Picsum)
-// =============================================
 const HOTEL_IMAGES = {
   rooms: [
     "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800",
@@ -70,15 +50,10 @@ const HOTEL_IMAGES = {
     "https://images.unsplash.com/photo-1507652313519-d4e9174996dd?w=800",
   ],
 };
-
-// =============================================
-// HELPER FUNCTIONS
-// =============================================
 const getRandomImage = (category) => {
   const images = HOTEL_IMAGES[category] || HOTEL_IMAGES.rooms;
   return images[Math.floor(Math.random() * images.length)];
 };
-
 const getRandomImages = (category, count) => {
   const images = [];
   for (let i = 0; i < count; i++) {
@@ -86,15 +61,9 @@ const getRandomImages = (category, count) => {
   }
   return images;
 };
-
 const getRandomElement = (arr) => arr[Math.floor(Math.random() * arr.length)];
-
 const getRandomNumber = (min, max) =>
   Math.floor(Math.random() * (max - min + 1)) + min;
-
-// =============================================
-// PREDEFINED DATA
-// =============================================
 const ROOM_TYPE_NAMES = [
   "Standard",
   "Deluxe",
@@ -103,9 +72,7 @@ const ROOM_TYPE_NAMES = [
   "Executive Suite",
   "Presidential Suite",
 ];
-
 const BED_TYPES = ["Single", "Double", "Queen", "King", "Twin", "Sofa Bed"];
-
 const VIEW_DIRECTIONS = [
   "City View",
   "Ocean View",
@@ -114,7 +81,6 @@ const VIEW_DIRECTIONS = [
   "Mountain View",
   "River View",
 ];
-
 const FREE_AMENITIES = [
   "WiFi miễn phí",
   "Điều hòa",
@@ -129,7 +95,6 @@ const FREE_AMENITIES = [
   "Ấm đun nước",
   "Cà phê/Trà miễn phí",
 ];
-
 const PAID_AMENITIES = [
   "Dịch vụ phòng 24/7",
   "Giặt ủi",
@@ -140,7 +105,6 @@ const PAID_AMENITIES = [
   "Thuê xe",
   "Bữa sáng buffet",
 ];
-
 const SERVICE_NAMES = [
   { name: "Giặt ủi quần áo", price: 50000 },
   { name: "Dịch vụ phòng 24/7", price: 0 },
@@ -158,7 +122,6 @@ const SERVICE_NAMES = [
   { name: "Thuê phòng họp", price: 2000000 },
   { name: "Dịch vụ trông trẻ", price: 150000 },
 ];
-
 const EQUIPMENT_TYPES = [
   {
     name: "TV Samsung 55 inch",
@@ -281,14 +244,9 @@ const EQUIPMENT_TYPES = [
     compensation_price: 1500000,
   },
 ];
-
 const BOOKING_METHODS = ["website", "phone", "walk-in", "ota", "agency"];
 const PAYMENT_METHODS = ["cash", "card", "transfer", "momo", "vnpay"];
 const PAYMENT_STATUSES = ["unpaid", "partial", "paid"];
-
-// =============================================
-// DATABASE CONNECTION
-// =============================================
 const pool = new Pool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
@@ -296,14 +254,8 @@ const pool = new Pool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
 });
-
-// =============================================
-// SEED FUNCTIONS
-// =============================================
-
 async function clearData() {
   console.log("🗑️  Clearing existing data...");
-
   const tables = [
     "booking_bill_logs",
     "booking_service_logs",
@@ -325,66 +277,52 @@ async function clearData() {
     "master_equipments",
     "users",
   ];
-
   for (const table of tables) {
     await pool.query(`DELETE FROM ${table}`);
-    // Reset sequence
     await pool.query(`ALTER SEQUENCE IF EXISTS ${table}_id_seq RESTART WITH 1`);
   }
-
   console.log("✅ Data cleared!");
 }
-
 async function seedUsers() {
   console.log("👥 Seeding users...");
-
   const users = [];
   const hashedPassword = await bcrypt.hash("123456", 10);
-
-  // Admin user
   users.push({
     full_name: "Admin PenStar",
-    email: "admin@penstar.com",
+    email: "tuananh31j@gmail.com",
     password: hashedPassword,
     phone: "0901234567",
-    role_id: 1, // admin
+    role_id: 1,
     status: "active",
   });
-
-  // Manager
   users.push({
     full_name: "Quản lý Khách sạn",
     email: "manager@penstar.com",
     password: hashedPassword,
     phone: "0901234568",
-    role_id: 2, // manager
+    role_id: 2,
     status: "active",
   });
-
-  // Receptionists
   for (let i = 0; i < 3; i++) {
     users.push({
       full_name: faker.person.fullName(),
       email: `receptionist${i + 1}@penstar.com`,
       password: hashedPassword,
       phone: `09${faker.string.numeric(8)}`,
-      role_id: 3, // receptionist
+      role_id: 3,
       status: "active",
     });
   }
-
-  // Regular users
   for (let i = 0; i < CONFIG.USERS - 5; i++) {
     users.push({
       full_name: faker.person.fullName(),
       email: faker.internet.email().toLowerCase(),
       password: hashedPassword,
       phone: `09${faker.string.numeric(8)}`,
-      role_id: 4, // user
+      role_id: 4,
       status: getRandomElement(["active", "active", "active", "banned"]),
     });
   }
-
   for (const user of users) {
     await pool.query(
       `INSERT INTO users (full_name, email, password, phone, role_id, status)
@@ -399,13 +337,10 @@ async function seedUsers() {
       ]
     );
   }
-
   console.log(`✅ Created ${users.length} users`);
 }
-
 async function seedMasterEquipments() {
   console.log("🔧 Seeding master equipments...");
-
   for (const eq of EQUIPMENT_TYPES) {
     await pool.query(
       `INSERT INTO master_equipments (name, type, import_price, compensation_price, total_stock)
@@ -419,13 +354,10 @@ async function seedMasterEquipments() {
       ]
     );
   }
-
   console.log(`✅ Created ${EQUIPMENT_TYPES.length} master equipments`);
 }
-
 async function seedServices() {
   console.log("🛎️  Seeding services...");
-
   for (const service of SERVICE_NAMES) {
     await pool.query(
       `INSERT INTO services (name, price, description, is_included, image_url, thumbnail)
@@ -440,19 +372,14 @@ async function seedServices() {
       ]
     );
   }
-
   console.log(`✅ Created ${SERVICE_NAMES.length} services`);
 }
-
 async function seedRoomTypes() {
   console.log("🏨 Seeding room types...");
-
   const roomTypeIds = [];
-
   for (let i = 0; i < CONFIG.ROOM_TYPES; i++) {
     const name = ROOM_TYPE_NAMES[i] || `Room Type ${i + 1}`;
     const basePrice = (i + 1) * 500000 + getRandomNumber(100000, 300000);
-
     const freeAmenities = faker.helpers.arrayElements(
       FREE_AMENITIES,
       getRandomNumber(4, 8)
@@ -461,7 +388,6 @@ async function seedRoomTypes() {
       PAID_AMENITIES,
       getRandomNumber(2, 5)
     );
-
     const result = await pool.query(
       `INSERT INTO room_types (
         name, description, thumbnail, capacity, price, bed_type,
@@ -487,10 +413,7 @@ async function seedRoomTypes() {
         12,
       ]
     );
-
     roomTypeIds.push(result.rows[0].id);
-
-    // Add room type images
     const images = getRandomImages("rooms", CONFIG.ROOM_TYPE_IMAGES);
     for (let j = 0; j < images.length; j++) {
       await pool.query(
@@ -499,8 +422,6 @@ async function seedRoomTypes() {
         [result.rows[0].id, images[j], j === 0]
       );
     }
-
-    // Add refund policy
     await pool.query(
       `INSERT INTO refund_policies (room_type_id, refundable, refund_percent, refund_deadline_hours)
        VALUES ($1, $2, $3, $4)`,
@@ -512,27 +433,19 @@ async function seedRoomTypes() {
       ]
     );
   }
-
   console.log(`✅ Created ${CONFIG.ROOM_TYPES} room types`);
   return roomTypeIds;
 }
-
 async function seedRooms(roomTypeIds) {
   console.log("🚪 Seeding rooms...");
-
   const roomIds = [];
-
-  // Get floor IDs
   const floorsResult = await pool.query("SELECT id FROM floors ORDER BY id");
   const floorIds = floorsResult.rows.map((f) => f.id);
-
   let roomNumber = 101;
-
   for (const typeId of roomTypeIds) {
     for (let i = 0; i < CONFIG.ROOMS_PER_TYPE; i++) {
       const floorIndex = Math.floor((roomNumber - 101) / 10) % floorIds.length;
       const floorId = floorIds[floorIndex] || floorIds[0];
-
       const result = await pool.query(
         `INSERT INTO rooms (name, type_id, status, thumbnail, floor_id, short_desc, long_desc)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -552,10 +465,7 @@ async function seedRooms(roomTypeIds) {
           faker.lorem.paragraph(),
         ]
       );
-
       roomIds.push(result.rows[0].id);
-
-      // Add room images
       const images = getRandomImages("rooms", CONFIG.ROOM_IMAGES);
       for (let j = 0; j < images.length; j++) {
         await pool.query(
@@ -564,39 +474,29 @@ async function seedRooms(roomTypeIds) {
           [result.rows[0].id, images[j], j === 0]
         );
       }
-
       roomNumber++;
     }
   }
-
   console.log(`✅ Created ${roomIds.length} rooms`);
   return roomIds;
 }
-
 async function seedRoomDevices(roomIds) {
   console.log("🔌 Seeding room devices...");
-
-  // Get master equipment IDs
   const equipmentResult = await pool.query(
     "SELECT id, name, type FROM master_equipments ORDER BY id"
   );
   const equipments = equipmentResult.rows;
-
   if (equipments.length === 0) {
     console.log("⚠️  No master equipments found, skipping room devices");
     return;
   }
-
   let deviceCount = 0;
-
   for (const roomId of roomIds) {
-    // Each room gets 3-6 random devices
     const numDevices = getRandomNumber(3, 6);
     const selectedEquipments = faker.helpers.arrayElements(
       equipments,
       Math.min(numDevices, equipments.length)
     );
-
     for (const eq of selectedEquipments) {
       await pool.query(
         `INSERT INTO room_devices (master_equipment_id, device_name, device_type, status, room_id, quantity, note)
@@ -620,14 +520,10 @@ async function seedRoomDevices(roomIds) {
       deviceCount++;
     }
   }
-
   console.log(`✅ Created ${deviceCount} room devices`);
 }
-
 async function seedDiscountCodes() {
   console.log("🎫 Seeding discount codes...");
-
-  // Predefined vouchers with new fields
   const vouchers = [
     {
       name: "Khách mới giảm 20%",
@@ -680,8 +576,6 @@ async function seedDiscountCodes() {
       max_uses_per_user: 1,
     },
   ];
-
-  // Add predefined vouchers
   for (const v of vouchers) {
     await pool.query(
       `INSERT INTO discount_codes (
@@ -704,8 +598,6 @@ async function seedDiscountCodes() {
       ]
     );
   }
-
-  // Add random vouchers
   const types = ["percent", "fixed"];
   for (let i = 0; i < CONFIG.DISCOUNT_CODES - vouchers.length; i++) {
     const type = getRandomElement(types);
@@ -715,7 +607,6 @@ async function seedDiscountCodes() {
         : getRandomNumber(50000, 500000);
     const maxDiscountAmount =
       type === "percent" ? getRandomNumber(200000, 1000000) : 0;
-
     await pool.query(
       `INSERT INTO discount_codes (
         name, code, type, value, min_total, max_uses, max_uses_per_user,
@@ -737,37 +628,28 @@ async function seedDiscountCodes() {
       ]
     );
   }
-
   console.log(`✅ Created ${CONFIG.DISCOUNT_CODES} discount codes`);
 }
-
 async function seedBookings(roomIds) {
   console.log("📋 Seeding bookings...");
-
-  // Get user IDs and stay status IDs
   const usersResult = await pool.query(
     "SELECT id FROM users WHERE role_id = 4"
   );
   const userIds = usersResult.rows.map((u) => u.id);
-
   const statusResult = await pool.query("SELECT id, name FROM stay_status");
   const stayStatuses = statusResult.rows;
-
   const servicesResult = await pool.query("SELECT id, price FROM services");
   const services = servicesResult.rows;
-
   const roomTypesResult = await pool.query("SELECT id, price FROM room_types");
   const roomTypePrices = {};
   roomTypesResult.rows.forEach((rt) => {
     roomTypePrices[rt.id] = rt.price;
   });
-
   const roomsResult = await pool.query("SELECT id, type_id FROM rooms");
   const roomTypeMap = {};
   roomsResult.rows.forEach((r) => {
     roomTypeMap[r.id] = r.type_id;
   });
-
   for (let i = 0; i < CONFIG.BOOKINGS; i++) {
     const userId = getRandomElement(userIds);
     const stayStatus = getRandomElement(stayStatuses);
@@ -778,12 +660,10 @@ async function seedBookings(roomIds) {
     const nights = getRandomNumber(1, 7);
     const checkOut = new Date(checkIn);
     checkOut.setDate(checkOut.getDate() + nights);
-
     const selectedRoomId = getRandomElement(roomIds);
     const roomTypeId = roomTypeMap[selectedRoomId];
     const roomPrice = roomTypePrices[roomTypeId] || 1000000;
     const totalPrice = roomPrice * nights;
-
     const bookingResult = await pool.query(
       `INSERT INTO bookings (
         customer_name, total_price, payment_status, booking_method,
@@ -802,10 +682,7 @@ async function seedBookings(roomIds) {
         getRandomNumber(0, Math.floor(totalPrice * 0.1)),
       ]
     );
-
     const bookingId = bookingResult.rows[0].id;
-
-    // Add booking item
     const bookingItemResult = await pool.query(
       `INSERT INTO booking_items (
         booking_id, room_id, check_in, check_out, num_adults, num_children,
@@ -825,13 +702,9 @@ async function seedBookings(roomIds) {
         1,
       ]
     );
-
     const bookingItemId = bookingItemResult.rows[0].id;
-
-    // Add booking services
     const numServices = getRandomNumber(0, CONFIG.BOOKING_SERVICES_PER_BOOKING);
     const selectedServices = faker.helpers.arrayElements(services, numServices);
-
     for (const service of selectedServices) {
       const quantity = getRandomNumber(1, 3);
       await pool.query(
@@ -847,19 +720,13 @@ async function seedBookings(roomIds) {
       );
     }
   }
-
   console.log(`✅ Created ${CONFIG.BOOKINGS} bookings`);
 }
-
-// =============================================
-// MAIN EXECUTION
-// =============================================
 async function main() {
   console.log("🚀 Starting data seeding...\n");
   console.log("Configuration:");
   console.log(JSON.stringify(CONFIG, null, 2));
   console.log("\n");
-
   try {
     await clearData();
     await seedUsers();
@@ -870,7 +737,6 @@ async function main() {
     await seedRoomDevices(roomIds);
     await seedDiscountCodes();
     await seedBookings(roomIds);
-
     console.log("\n🎉 Data seeding completed successfully!");
     console.log("\n📊 Summary:");
     console.log(`   - Users: ${CONFIG.USERS}`);
@@ -886,5 +752,4 @@ async function main() {
     await pool.end();
   }
 }
-
 main();

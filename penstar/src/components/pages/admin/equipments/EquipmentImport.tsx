@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState } from "react";
 import { Form, InputNumber, Button, Select, message } from "antd";
 import { useNavigate } from "react-router-dom";
@@ -7,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { getMasterEquipments } from "@/services/masterEquipmentsApi";
 import { importEquipmentStock } from "@/services/equipmentStockLogsApi";
 import TextArea from "antd/es/input/TextArea";
-
 const EquipmentImport = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -15,7 +12,6 @@ const EquipmentImport = () => {
     queryKey: ["master-equipments"],
     queryFn: getMasterEquipments,
   });
-
   const onFinish = async (values: any) => {
     setLoading(true);
     try {
@@ -32,7 +28,6 @@ const EquipmentImport = () => {
       setLoading(false);
     }
   };
-
   return (
     <div className="p-6 max-w-xl mx-auto bg-white rounded shadow">
       <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
@@ -89,5 +84,4 @@ const EquipmentImport = () => {
     </div>
   );
 };
-
 export default EquipmentImport;

@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from "react";
+import type { RadioChangeEvent } from "antd";
 import {
   Form,
   Input,
@@ -22,44 +22,53 @@ import {
 import { genCode } from "@/utils/genCode";
 import dayjs from "dayjs";
 
-enum DiscountType {
-  Percentage = "percent",
-  Fixed = "fixed",
-}
+const DiscountType = {
+  Percentage: "percent",
+  Fixed: "fixed",
+} as const;
 
+type DiscountType = (typeof DiscountType)[keyof typeof DiscountType];
+interface VoucherFormValues {
+  code: string;
+  name: string;
+  type: DiscountType;
+  value: number;
+  min_total?: number;
+  max_uses?: number;
+  max_uses_per_user?: number;
+  max_discount_amount?: number;
+  start_date?: dayjs.Dayjs;
+  end_date?: dayjs.Dayjs;
+  status: boolean;
+  description?: string;
+}
 const AddDiscount: React.FC = () => {
   const [form] = Form.useForm();
   const navigate = useNavigate();
   const [discountType, setDiscountType] = useState<DiscountType>(
     DiscountType.Percentage
   );
-
-  // Auto-generate voucher code on mount
   useEffect(() => {
     const code = genCode("VC");
     form.setFieldsValue({ code });
   }, [form]);
-
   const mutation = useMutation({
     mutationFn: createVoucher,
     onSuccess: () => {
       message.success("Thêm voucher thành công!");
       navigate("/admin/discount-codes");
     },
-    onError: (error: any) => {
+    onError: (error: { response?: { data?: { message?: string } } }) => {
       message.error(error?.response?.data?.message || "Có lỗi xảy ra!");
     },
   });
-
-  const handleDiscountTypeChange = (e: any) => {
+  const handleDiscountTypeChange = (e: RadioChangeEvent) => {
     setDiscountType(e.target.value);
-    // Reset related fields when type changes
     if (e.target.value === DiscountType.Fixed) {
       form.setFieldsValue({ max_discount_amount: 0 });
     }
   };
-
-  const onFinish = (values: any) => {
+  const onFinish = (values: VoucherFormValues) => {
     const payload: VoucherCreatePayload = {
       code: values.code?.toUpperCase(),
       name: values.name,
@@ -72,14 +81,13 @@ const AddDiscount: React.FC = () => {
         values.type === DiscountType.Percentage
           ? values.max_discount_amount || 0
           : 0,
-      start_date: values.start_date?.format("YYYY-MM-DD") || null,
-      end_date: values.end_date?.format("YYYY-MM-DD") || null,
+      start_date: values.start_date?.format("YYYY-MM-DD") || undefined,
+      end_date: values.end_date?.format("YYYY-MM-DD") || undefined,
       status: values.status ? "active" : "inactive",
       description: values.description || "",
     };
     mutation.mutate(payload);
   };
-
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -88,7 +96,6 @@ const AddDiscount: React.FC = () => {
           Quay lại
         </Button>
       </div>
-
       <Form
         form={form}
         layout="vertical"
@@ -100,7 +107,7 @@ const AddDiscount: React.FC = () => {
         }}
         className="flex flex-col gap-4"
       >
-        {/* Thông tin voucher */}
+        {}
         <Card title="Thông tin voucher">
           <Row gutter={24}>
             <Col span={12}>
@@ -153,7 +160,6 @@ const AddDiscount: React.FC = () => {
                 </Radio.Group>
               </Form.Item>
             </Col>
-
             {discountType === DiscountType.Percentage ? (
               <Col span={12}>
                 <Form.Item
@@ -199,16 +205,22 @@ const AddDiscount: React.FC = () => {
                     placeholder="Nhập giá trị giảm giá"
                     min={1000}
                     formatter={(value) =>
-                      `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                      value
+                        ? `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                        : ""
                     }
                     parser={(value) =>
-                      value!.replace(/\$\s?|(,*)/g, "") as unknown as number
+                      value
+                        ? (value.replace(
+                            /\$\s?|(,*)/g,
+                            ""
+                          ) as unknown as number)
+                        : 0 as any
                     }
                   />
                 </Form.Item>
               </Col>
             )}
-
             {discountType === DiscountType.Percentage && (
               <Col span={12}>
                 <Form.Item
@@ -227,16 +239,22 @@ const AddDiscount: React.FC = () => {
                     placeholder="Nhập giá trị giảm giá tối đa"
                     min={0}
                     formatter={(value) =>
-                      `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                      value
+                        ? `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                        : ""
                     }
                     parser={(value) =>
-                      value!.replace(/\$\s?|(,*)/g, "") as unknown as number
+                      value
+                        ? (value.replace(
+                            /\$\s?|(,*)/g,
+                            ""
+                          ) as unknown as number)
+                        : 0 as any
                     }
                   />
                 </Form.Item>
               </Col>
             )}
-
             <Col span={12}>
               <Form.Item
                 name="min_total"
@@ -271,12 +289,11 @@ const AddDiscount: React.FC = () => {
                     `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
                   }
                   parser={(value) =>
-                    value!.replace(/\$\s?|(,*)/g, "") as unknown as number
+                    value!.replace(/\$\s?|(,*)/g, "") as unknown as any
                   }
                 />
               </Form.Item>
             </Col>
-
             <Col span={12}>
               <Form.Item
                 name="max_uses"
@@ -297,12 +314,11 @@ const AddDiscount: React.FC = () => {
                     `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
                   }
                   parser={(value) =>
-                    value!.replace(/\$\s?|(,*)/g, "") as unknown as number
+                    value!.replace(/\$\s?|(,*)/g, "") as unknown as any
                   }
                 />
               </Form.Item>
             </Col>
-
             <Col span={12}>
               <Form.Item
                 name="max_uses_per_user"
@@ -335,15 +351,14 @@ const AddDiscount: React.FC = () => {
                     `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
                   }
                   parser={(value) =>
-                    value!.replace(/\$\s?|(,*)/g, "") as unknown as number
+                    value!.replace(/\$\s?|(,*)/g, "") as unknown as any
                   }
                 />
               </Form.Item>
             </Col>
           </Row>
         </Card>
-
-        {/* Thời gian áp dụng */}
+        {}
         <Card title="Thời gian áp dụng">
           <Row gutter={24}>
             <Col span={12}>
@@ -374,7 +389,6 @@ const AddDiscount: React.FC = () => {
                 />
               </Form.Item>
             </Col>
-
             <Col span={12}>
               <Form.Item
                 name="end_date"
@@ -408,15 +422,13 @@ const AddDiscount: React.FC = () => {
             </Col>
           </Row>
         </Card>
-
-        {/* Cài đặt voucher */}
+        {}
         <Card title="Cài đặt voucher">
           <Form.Item name="status" label="Công khai" valuePropName="checked">
             <Switch />
           </Form.Item>
         </Card>
-
-        {/* Submit buttons */}
+        {}
         <div className="flex gap-2">
           <Button
             type="primary"
@@ -437,5 +449,4 @@ const AddDiscount: React.FC = () => {
     </div>
   );
 };
-
 export default AddDiscount;
