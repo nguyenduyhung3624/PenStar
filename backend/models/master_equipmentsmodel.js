@@ -2,7 +2,7 @@ import pool from "../db.js";
 
 export const getAllEquipments = async () => {
   const result = await pool.query(
-    "SELECT * FROM master_equipments ORDER BY id"
+    "SELECT * FROM master_equipments ORDER BY created_at DESC"
   );
   return result.rows;
 };
