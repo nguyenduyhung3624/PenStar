@@ -23,6 +23,7 @@ import BookingConfirm from "@/components/pages/clients/bookings/BookingConfirm";
 import BookingsList from "@/components/pages/admin/bookings/BookingsList";
 import BookingSuccess from "@/components/pages/clients/bookings/BookingSuccess";
 import MyBookings from "@/components/pages/clients/bookings/MyBookings";
+import BookingDetailClient from "@/components/pages/clients/bookings/BookingDetailClient";
 import SignUp from "@/components/pages/clients/users/SignUp";
 import SignIn from "@/components/pages/clients/users/SignIn";
 import CustomerProfile from "@/components/pages/clients/users/CustomerProfile";
@@ -78,6 +79,14 @@ const AppRouter = () => {
             element={
               <RequireCustomerOnly>
                 <BookingConfirm />
+              </RequireCustomerOnly>
+            }
+          />
+          <Route
+            path="my-bookings/:id"
+            element={
+              <RequireCustomerOnly>
+                <BookingDetailClient />
               </RequireCustomerOnly>
             }
           />
