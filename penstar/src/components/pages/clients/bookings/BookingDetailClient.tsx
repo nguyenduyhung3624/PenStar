@@ -30,6 +30,7 @@ import {
 import RefundRequestModal from "./RefundRequestModal";
 import dayjs from "dayjs";
 import type { Booking, BookingItem } from "@/types/bookings";
+import { getImageUrl } from "@/utils/imageUtils";
 const { Title, Text } = Typography;
 const BookingDetailClient: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -195,6 +196,18 @@ const BookingDetailClient: React.FC = () => {
           <Descriptions.Item label="Phương thức thanh toán">
             {booking.payment_method || "Chưa chọn"}
           </Descriptions.Item>
+          {booking.discount_code && (
+            <Descriptions.Item label="Mã giảm giá">
+              <Tag color="red">{booking.discount_code}</Tag>
+            </Descriptions.Item>
+          )}
+          {booking.discount_amount && booking.discount_amount > 0 && (
+            <Descriptions.Item label="Giảm giá">
+              <Text type="danger" strong>
+                -{formatPrice(booking.discount_amount)}
+              </Text>
+            </Descriptions.Item>
+          )}
           <Descriptions.Item label="Ghi chú">
             {booking.notes || "Không có"}
           </Descriptions.Item>
@@ -225,7 +238,7 @@ const BookingDetailClient: React.FC = () => {
                   >
                     {item.room_type_image && (
                       <Image
-                        src={item.room_type_image}
+                        src={getImageUrl(item.room_type_image)}
                         alt={item.room_type_name}
                         width={80}
                         style={{

@@ -70,6 +70,7 @@ export type Booking = {
   refund_amount?: number;
   original_total?: number;
   discount_amount?: number;
+  discount_code?: string;
   promo_code?: string;
   items: BookingItem[];
   amount_paid?: number;
