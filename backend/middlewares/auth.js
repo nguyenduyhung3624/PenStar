@@ -18,7 +18,7 @@ export const requireAuth = (req, res, next) => {
 export const optionalAuth = (req, res, next) => {
   const auth = req.headers.authorization;
   if (!auth) {
-    req.user = null; 
+    req.user = null;
     return next();
   }
   const parts = auth.split(" ");
@@ -32,28 +32,22 @@ export const optionalAuth = (req, res, next) => {
     req.user = payload;
     next();
   } catch (err) {
-    req.user = null; 
+    req.user = null;
     next();
   }
 };
+// Simplified role system: only customer and admin
 const ROLE_LEVEL = {
   customer: 0,
-  user: 0,
-  staff: 1,
-  receptionist: 1,
-  manager: 2,
-  admin: 3,
+  admin: 1,
 };
+
 const roleIdToLevel = (roleId) => {
   switch (roleId) {
     case 1:
-      return 3; 
+      return 1; // admin
     case 2:
-      return 2; 
-    case 3:
-      return 1; 
-    case 4:
-      return 0; 
+      return 0; // customer
     default:
       return -1;
   }
