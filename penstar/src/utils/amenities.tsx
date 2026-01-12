@@ -89,8 +89,8 @@ export const FIXED_AMENITIES = [
     icon: <PhoneOutlined style={iconStyle} />,
   },
   {
-    value: "Trà & cà phê miễn phí",
-    label: "Trà & cà phê miễn phí",
+    value: "Trà & cà phê",
+    label: "Trà & cà phê",
     icon: <CoffeeOutlined style={iconStyle} />,
   },
   {

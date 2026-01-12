@@ -97,7 +97,7 @@ const FREE_AMENITIES = [
   "Dọn phòng hàng ngày",
   "Két an toàn",
   "Điện thoại",
-  "Trà & cà phê miễn phí",
+  "Trà & cà phê",
   "Bồn tắm",
   "Vòi sen",
   "Ban công",
