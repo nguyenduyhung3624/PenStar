@@ -1,6 +1,6 @@
 import {
   getStandardQuantity,
-  upsertStandard,
+  replaceAllForRoomType,
   getAllStandards as getAllStandardsModel,
   getEquipmentsByRoomType,
 } from "../models/room_type_equipmentsmodel.js";
@@ -28,21 +28,20 @@ export const getAllStandards = async (req, res) => {
   }
 };
 
-export const createOrUpdateStandard = async (req, res) => {
-  const { room_type_id, master_equipment_id, quantity } = req.body;
+export const updateStandardsForRoomType = async (req, res) => {
+  const { room_type_id } = req.params;
+  const { equipments } = req.body; // Expect array of { name, quantity, price }
 
-  if (!room_type_id || !master_equipment_id || quantity == null) {
-    return res.error("Thiếu tham số!", null, 400);
+  if (!room_type_id || !Array.isArray(equipments)) {
+    return res.error("Dữ liệu không hợp lệ!", null, 400);
   }
+
   try {
-    await upsertStandard(
-      Number(room_type_id),
-      Number(master_equipment_id),
-      Number(quantity)
-    );
-    res.success(null, "Cập nhật tiêu chuẩn thành công!");
+    await replaceAllForRoomType(Number(room_type_id), equipments);
+    res.success(null, "Cập nhật thiết bị thành công!");
   } catch (err) {
-    res.error("Lỗi khi cập nhật tiêu chuẩn!", err.message, 500);
+    console.error("updateStandardsForRoomType error:", err);
+    res.error("Lỗi cập nhật thiết bị!", err.message, 500);
   }
 };
 

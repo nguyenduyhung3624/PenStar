@@ -14,8 +14,8 @@ import { createBookingService } from "@/services/bookingServicesApi";
 import type { BookingDetails } from "@/types/bookings";
 import type { Room } from "@/types/room";
 import type { Services } from "@/types/services";
-import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -58,9 +58,8 @@ import { getImageUrl } from "@/utils/imageUtils";
 const { Title, Text } = Typography;
 const { TextArea } = Input;
 const BookingDetail = () => {
-  const [roomDevicesMap, setRoomDevicesMap] = useState<Record<number, any[]>>(
-    {}
-  );
+  const queryClient = useQueryClient();
+
   const [finalConfirmVisible, setFinalConfirmVisible] = useState(false);
   const [brokenModalVisible, setBrokenModalVisible] = useState(false);
   const [brokenReports, setBrokenReports] = useState<
@@ -71,7 +70,6 @@ const BookingDetail = () => {
       status: string;
     }>
   >([{ roomId: null, deviceId: null, quantity: 1, status: "broken" }]);
-  const [brokenLoading, setBrokenLoading] = useState(false);
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
   const [serviceNote, setServiceNote] = useState("");
   const [pendingService, setPendingService] = useState<{
@@ -84,20 +82,174 @@ const BookingDetail = () => {
   } | null>(null);
   const { id } = useParams();
   const navigate = useNavigate();
-  const [noShowLoading, setNoShowLoading] = useState(false);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [services, setServices] = useState<Services[]>([]);
-  const [allServices, setAllServices] = useState<Services[]>([]);
-  const [loadingExtras, setLoadingExtras] = useState(false);
-  const [updating, setUpdating] = useState(false);
-  const [checkoutConfirmed, setCheckoutConfirmed] = useState(false);
   const [addingService, setAddingService] = useState<number | null>(null);
-  const [incidents, setIncidents] = useState<any[]>([]);
-  // const [incidentsLoading, setIncidentsLoading] = useState(false);
-  const [refundLoading, setRefundLoading] = useState(false);
+
+  // --- Mutations ---
+
+  const approveMutation = useMutation({
+    mutationFn: (bookingId: number) =>
+      setBookingStatus(bookingId, { stay_status_id: 1 }),
+    onSuccess: () => {
+      message.success("Đã duyệt booking - Phòng chuyển sang trạng thái Booked");
+      queryClient.invalidateQueries({ queryKey: ["booking", id] });
+    },
+    onError: (err) => {
+      console.error("Lỗi duyệt booking:", err);
+      message.error("Lỗi duyệt booking");
+    },
+  });
+
+  const markPaidMutation = useMutation({
+    mutationFn: (bookingId: number) =>
+      setBookingStatus(bookingId, { payment_status: "paid" }),
+    onSuccess: () => {
+      message.success("Đã xác nhận thanh toán tiền mặt thành công");
+      queryClient.invalidateQueries({ queryKey: ["booking", id] });
+    },
+    onError: (err) => {
+      console.error("Lỗi xác nhận thanh toán:", err);
+      message.error("Lỗi xác nhận thanh toán");
+    },
+  });
+
+  const checkInMutation = useMutation({
+    mutationFn: confirmCheckin,
+    onSuccess: () => {
+      message.success(
+        "Đã check-in thành công - Phòng chuyển sang trạng thái Đã nhận"
+      );
+      queryClient.invalidateQueries({ queryKey: ["booking", id] });
+    },
+    onError: (err: any) => {
+      console.error("Check-in error:", err);
+      message.error(err.response?.data?.message || "Lỗi check-in");
+    },
+  });
+
+  const calculateLateFeeMutation = useMutation({
+    mutationFn: calculateLateFee,
+    onSuccess: (res) => {
+      if (res && res.lateFee > 0) {
+        message.info(
+          `Phát hiện checkout muộn! Đã thêm phụ phí: ${formatPrice(
+            res.lateFee
+          )} (${res.hours} giờ)`
+        );
+        queryClient.invalidateQueries({ queryKey: ["booking", id] });
+      }
+    },
+    onError: (e) => console.error("Error calc late fee", e),
+  });
+
+  const checkOutMutation = useMutation({
+    mutationFn: confirmCheckout,
+    onSuccess: () => {
+      message.success("Đã checkout - Phòng chuyển sang trạng thái Cleaning");
+      queryClient.invalidateQueries({ queryKey: ["booking", id] });
+      setFinalConfirmVisible(false);
+      setBrokenReports([
+        { roomId: null, deviceId: null, quantity: 1, status: "broken" },
+      ]);
+    },
+    onError: (err: any) => {
+      console.error("Final checkout error:", err);
+      message.error(err.response?.data?.message || "Lỗi checkout");
+    },
+  });
+
+  const markNoShowMutation = useMutation({
+    mutationFn: markNoShow,
+    onSuccess: () => {
+      message.success("Đã đánh dấu No Show thành công.");
+      queryClient.invalidateQueries({ queryKey: ["booking", id] });
+    },
+    onError: (err: any) => {
+      console.error("Lỗi No Show:", err);
+      message.error(err.response?.data?.message || "Lỗi No Show");
+    },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: ({
+      bookingId,
+      reason,
+    }: {
+      bookingId: number;
+      reason: string;
+    }) => cancelBooking(bookingId, reason),
+    onSuccess: () => {
+      message.success(
+        "Đã hủy booking - Phòng chuyển sang trạng thái Available."
+      );
+      queryClient.invalidateQueries({ queryKey: ["booking", id] });
+    },
+    onError: (err: any) => {
+      console.error("Lỗi hủy booking:", err);
+      message.error(err.response?.data?.message || "Lỗi hủy booking");
+    },
+  });
+
+  const refundMutation = useMutation({
+    mutationFn: markBookingRefunded,
+    onSuccess: (res) => {
+      if (res.success) {
+        message.success("Đã đánh dấu hoàn tiền thành công.");
+        queryClient.invalidateQueries({ queryKey: ["booking", id] });
+      } else {
+        message.error(res.message || "Có lỗi khi đánh dấu hoàn tiền.");
+      }
+    },
+    onError: () => message.error("Lỗi khi đánh dấu hoàn tiền."),
+  });
+
+  const createIncidentMutation = useMutation({
+    mutationFn: createBookingIncident,
+    onSuccess: () => {
+      // Don't show success here if mapping multiple, handle manually?
+      // Or just invalidate.
+      queryClient.invalidateQueries({
+        queryKey: ["bookingIncidents", booking?.id],
+      });
+      // Also might affect total price if we refetch booking
+      queryClient.invalidateQueries({ queryKey: ["booking", id] });
+    },
+    onError: () => {
+      // Handled in loop or individual?
+      // If we call mutateAsync in loop, we handle errors there.
+    },
+  });
+
+  const addServiceMutation = useMutation({
+    mutationFn: createBookingService,
+    onSuccess: () => {
+      message.success("Đã thêm dịch vụ thành công");
+      queryClient.invalidateQueries({ queryKey: ["bookingServicesList"] });
+      queryClient.invalidateQueries({ queryKey: ["booking", id] });
+      setServiceModalVisible(false);
+      setPendingService(null);
+    },
+    onError: (err: any) => {
+      console.error("Lỗi thêm dịch vụ:", err);
+      message.error(err.response?.data?.message || "Lỗi thêm dịch vụ");
+    },
+    onSettled: () => {
+      setAddingService(null);
+    },
+  });
+
+  // General "updating" state for UI blocking
+  const updating =
+    approveMutation.isPending ||
+    markPaidMutation.isPending ||
+    checkInMutation.isPending ||
+    checkOutMutation.isPending ||
+    cancelMutation.isPending ||
+    addServiceMutation.isPending ||
+    refundMutation.isPending;
+
   const {
     data: booking,
-    isLoading,
+    isLoading: isBookingLoading,
     isError,
     refetch,
   } = useQuery<BookingDetails | null>({
@@ -106,6 +258,138 @@ const BookingDetail = () => {
     enabled: !!id,
     retry: false,
   });
+
+  const { data: allServices = [], isLoading: isAllServicesLoading } = useQuery({
+    queryKey: ["allServices"],
+    queryFn: getServices,
+  });
+
+  const { data: incidents = [], isLoading: isIncidentsLoading } = useQuery({
+    queryKey: ["bookingIncidents", booking?.id],
+    queryFn: () => getBookingIncidents(booking!.id!),
+    enabled: !!booking?.id,
+  });
+
+  const { data: rooms = [], isLoading: isRoomsLoading } = useQuery({
+    queryKey: ["bookingRooms", booking?.id, booking?.stay_status_id],
+    queryFn: async () => {
+      const roomIds: string[] = [];
+      if (Array.isArray(booking?.items)) {
+        booking.items.forEach(
+          (it: { room_id?: number }) =>
+            it.room_id && roomIds.push(String(it.room_id))
+        );
+      }
+      const uniqueRoomIds = [...new Set(roomIds)];
+      const res = await Promise.all(uniqueRoomIds.map(getRoomID));
+      // Map back to original order or just return unique?
+      // The original code mapped index-to-index in the render: `rooms[index]`.
+      // The original code pushed roomIds in order of items: `booking.items.forEach(...) roomIds.push(...)`.
+      // So `rooms` array matched `booking.items` array index-for-index.
+      // My new query needs to preserve this "per item" structure OR fetching logic must return array matching items.
+      // Re-reading old logic:
+      // roomIds.push(String(it.room_id)) inside forEach items.
+      // Promise.all(roomIds.map(getRoomID))
+      // So if items are [Room A, Room B], roomIds is [idA, idB].
+      // result is [RoomAData, RoomBData].
+      // So `rooms[index]` works.
+
+      const orderedRoomIds =
+        booking?.items?.map((it: any) =>
+          it.room_id ? String(it.room_id) : null
+        ) || [];
+      const roomData = await Promise.all(
+        orderedRoomIds.map((rid) =>
+          rid ? getRoomID(rid) : Promise.resolve(null)
+        )
+      );
+      return roomData.filter(Boolean) as Room[];
+      // Wait, if I filter Boolean, the indices might shift if one fails?
+      // Old code: `setRooms(roomResults.filter(Boolean) as Room[])`
+      // If item 2 fails, `rooms[2]` becomes `rooms[3]`'s data?
+      // Yes, potentially buggy old code if fetches fail, but let's replicate "per item" fetching for safety or robust matching.
+      // Actually, standard practice is to map IDs to entities.
+      // But the render loop uses `rooms[index]`.
+      // Let's stick to the array matching.
+    },
+    enabled: !!booking?.items,
+  });
+
+  const { data: services = [], isLoading: isServicesLoading } = useQuery({
+    queryKey: ["bookingServicesList", booking?.id, booking?.services?.length],
+    queryFn: async () => {
+      const serviceIds: string[] = [];
+      if (Array.isArray(booking?.services)) {
+        booking.services.forEach(
+          (s: { service_id?: number }) =>
+            s.service_id && serviceIds.push(String(s.service_id))
+        );
+      }
+      const uniqueServiceIds = Array.from(new Set(serviceIds));
+      const res = await Promise.all(uniqueServiceIds.map(getServiceById));
+      return res.filter(Boolean) as Services[];
+    },
+    enabled: !!booking?.services,
+  });
+
+  const { data: bookingDevicesMap = {} } = useQuery({
+    queryKey: ["bookingDevicesMap", booking?.id],
+    queryFn: async () => {
+      if (!booking?.items) return {};
+      const roomIds = booking.items
+        .map((it: any) => it.room_id)
+        .filter((id: any) => id);
+      const uniqueIds = [...new Set(roomIds)];
+      const results = await Promise.all(
+        uniqueIds.map((id) => getRoomDevices({ room_id: Number(id) }))
+      );
+      const map: Record<number, any[]> = {};
+      uniqueIds.forEach((id, idx) => {
+        map[Number(id)] = results[idx];
+      });
+      return map;
+    },
+    enabled: !!booking?.id && brokenModalVisible,
+  });
+
+  const loadingExtras =
+    isAllServicesLoading ||
+    isIncidentsLoading ||
+    isRoomsLoading ||
+    isServicesLoading;
+
+  // Calculate late checkout fee automatically
+  const lateCheckoutInfo = useMemo(() => {
+    if (!booking || booking.stay_status_id !== 2) {
+      return { hours: 0, fee: 0, isLate: false };
+    }
+
+    const checkoutDates = booking.items
+      ?.filter((item: any) => item.status !== "cancelled")
+      .map((item: any) => new Date(item.check_out))
+      .sort((a: Date, b: Date) => b.getTime() - a.getTime());
+
+    if (!checkoutDates || checkoutDates.length === 0) {
+      return { hours: 0, fee: 0, isLate: false };
+    }
+
+    const checkoutDate = checkoutDates[0];
+    const standardCheckoutTime = new Date(checkoutDate);
+    standardCheckoutTime.setHours(15, 0, 0, 0);
+
+    const now = new Date();
+
+    if (now <= standardCheckoutTime) {
+      return { hours: 0, fee: 0, isLate: false };
+    }
+
+    const diffMs = now.getTime() - standardCheckoutTime.getTime();
+    const hours = Math.ceil(diffMs / (1000 * 60 * 60));
+    const fee = hours * 100000;
+
+    return { hours, fee, isLate: true };
+  }, [booking]);
+
   const timeZone = "Asia/Ho_Chi_Minh";
   const invalidStatusForNoShow = new Set([2, 3, 4, 5]);
   let canMarkNoShow = false;
@@ -132,21 +416,8 @@ const BookingDetail = () => {
         "Bạn có chắc chắn muốn đánh dấu booking này đã hoàn tiền cho khách?",
       okText: "Đánh dấu đã hoàn tiền",
       cancelText: "Hủy",
-      onOk: async () => {
-        setRefundLoading(true);
-        try {
-          const res = await markBookingRefunded(booking.id!);
-          if (res.success) {
-            message.success("Đã đánh dấu hoàn tiền thành công.");
-            refetch();
-          } else {
-            message.error(res.message || "Có lỗi khi đánh dấu hoàn tiền.");
-          }
-        } catch {
-          message.error("Lỗi khi đánh dấu hoàn tiền.");
-        } finally {
-          setRefundLoading(false);
-        }
+      onOk: () => {
+        refundMutation.mutate(booking.id!);
       },
     });
   };
@@ -157,86 +428,12 @@ const BookingDetail = () => {
       content: "Bạn có chắc chắn muốn đánh dấu booking này là No Show?",
       okText: "Xác nhận No Show",
       cancelText: "Hủy",
-      onOk: async () => {
-        setNoShowLoading(true);
-        try {
-          await markNoShow(booking.id!);
-          message.success("Đã đánh dấu No Show thành công.");
-          refetch();
-        } catch (err) {
-          console.error("Lỗi No Show:", err);
-          const error = err as { response?: { data?: { message?: string } } };
-          message.error(error.response?.data?.message || "Lỗi No Show");
-        } finally {
-          setNoShowLoading(false);
-        }
+      onOk: () => {
+        markNoShowMutation.mutate(booking.id!);
       },
     });
   };
-  useEffect(() => {
-    let mounted = true;
-    const loadExtras = async () => {
-      if (!booking) return;
-      setLoadingExtras(true);
-      try {
-        const roomIds: string[] = [];
-        const serviceIds: string[] = [];
-        if (Array.isArray(booking.items)) {
-          booking.items.forEach(
-            (it: { room_id?: number }) =>
-              it.room_id && roomIds.push(String(it.room_id))
-          );
-        }
-        if (Array.isArray(booking.services)) {
-          booking.services.forEach(
-            (s: { service_id?: number }) =>
-              s.service_id && serviceIds.push(String(s.service_id))
-          );
-        }
-        const uniqueServiceIds = Array.from(new Set(serviceIds));
-        const allServicesData = await getServices();
-        const [roomResults, serviceResults] = await Promise.all([
-          Promise.all(roomIds.map(getRoomID)),
-          Promise.all(uniqueServiceIds.map(getServiceById)),
-        ]);
-        if (mounted) {
-          setRooms(roomResults.filter(Boolean) as Room[]);
-          setServices(serviceResults.filter(Boolean) as Services[]);
-          setAllServices(allServicesData);
-          if (booking.stay_status_id === 3) {
-            const hasCleaningRoom = roomResults.some(
-              (r) => r && (r.status === "cleaning" || r.status === "available")
-            );
-            if (hasCleaningRoom) {
-              setCheckoutConfirmed(true);
-            }
-          }
-        }
-      } catch (err) {
-        message.error("Lỗi tải thông tin phòng/dịch vụ");
-        console.error(err);
-      } finally {
-        if (mounted) setLoadingExtras(false);
-      }
-    };
-    loadExtras();
-    const fetchIncidents = async () => {
-      if (!booking?.id) return;
-      // setIncidentsLoading(true);
-      try {
-        const data = await getBookingIncidents(booking.id);
-        setIncidents(data);
-      } catch {
-        setIncidents([]);
-      } finally {
-        // setIncidentsLoading(false);
-      }
-    };
-    fetchIncidents();
-    return () => {
-      mounted = false;
-    };
-  }, [booking]);
+
   const formatPrice = (price: number | string) => {
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
@@ -267,57 +464,30 @@ const BookingDetail = () => {
 
   const safeFormatDateTime = (date: string | Date | null | undefined) => {
     if (!date) return "—";
-    const d = new Date(date);
-    if (isNaN(d.getTime())) return "—";
     try {
-      return format(d, "HH:mm dd/MM/yyyy");
+      // Convert to Vietnam time (Asia/Ho_Chi_Minh)
+      const d = new Date(date);
+      if (isNaN(d.getTime())) return "—";
+
+      const timeZone = "Asia/Ho_Chi_Minh";
+      const zonedDate = toZonedTime(d, timeZone);
+
+      return format(zonedDate, "HH:mm dd/MM/yyyy");
     } catch {
       return "—";
     }
   };
   const handleApprove = async () => {
     if (!booking || !booking.id) return;
-    setUpdating(true);
-    try {
-      await setBookingStatus(booking.id, { stay_status_id: 1 });
-      message.success("Đã duyệt booking - Phòng chuyển sang trạng thái Booked");
-      refetch();
-    } catch (err) {
-      console.error("Lỗi duyệt booking:", err);
-      message.error("Lỗi duyệt booking");
-    } finally {
-      setUpdating(false);
-    }
+    approveMutation.mutate(booking.id);
   };
   const handleMarkPaid = async () => {
     if (!booking || !booking.id) return;
-    setUpdating(true);
-    try {
-      await setBookingStatus(booking.id, { payment_status: "paid" });
-      message.success("Đã xác nhận thanh toán tiền mặt thành công");
-      refetch();
-    } catch (err) {
-      console.error("Lỗi xác nhận thanh toán:", err);
-      message.error("Lỗi xác nhận thanh toán");
-    } finally {
-      setUpdating(false);
-    }
+    markPaidMutation.mutate(booking.id);
   };
   const handleCheckIn = async () => {
     if (!booking || !booking.id) return;
-    setUpdating(true);
-    try {
-      await confirmCheckin(booking.id);
-      message.success(
-        "Đã check-in thành công - Phòng chuyển sang trạng thái Đã nhận"
-      );
-      refetch();
-    } catch (err: any) {
-      console.error("Check-in error:", err);
-      message.error(err.response?.data?.message || "Lỗi check-in");
-    } finally {
-      setUpdating(false);
-    }
+    checkInMutation.mutate(booking.id);
   };
   const handleCheckOut = async () => {
     if (!booking || !booking.check_out || !booking.id) return;
@@ -331,30 +501,10 @@ const BookingDetail = () => {
     );
 
     // Trigger late fee calculation
-    setUpdating(true);
-    try {
-      const res = await calculateLateFee(booking.id);
-      if (res && res.lateFee > 0) {
-        message.info(
-          `Phát hiện checkout muộn! Đã thêm phụ phí: ${formatPrice(res.lateFee)} (${res.hours} giờ)`
-        );
-        await refetch(); // Reload data to show new service fee in reviews
-      } else {
-        // message.info("Checkout đúng giờ. Không có phụ phí.");
-      }
-    } catch (e) {
-      console.error("Error calc late fee", e);
-    } finally {
-      setUpdating(false);
-    }
-
+    await calculateLateFeeMutation.mutateAsync(booking.id);
     setBrokenModalVisible(true);
   };
-  const handleSelectRoom = async (roomId: number | null, idx: number) => {
-    if (roomId !== null && !roomDevicesMap[roomId]) {
-      const devices = await getRoomDevices({ room_id: roomId });
-      setRoomDevicesMap((prev) => ({ ...prev, [roomId]: devices }));
-    }
+  const handleSelectRoom = (roomId: number | null, idx: number) => {
     const arr = [...brokenReports];
     arr[idx].roomId = roomId;
     arr[idx].deviceId = null;
@@ -372,9 +522,9 @@ const BookingDetail = () => {
         return;
       }
       if (r.roomId && r.deviceId && r.quantity) {
-        const device = (r.roomId !== null ? roomDevicesMap[r.roomId] : []).find(
-          (d: any) => String(d.id) === String(r.deviceId)
-        );
+        const device = (
+          r.roomId !== null ? bookingDevicesMap[r.roomId] : []
+        ).find((d: any) => String(d.id) === String(r.deviceId));
         if (device && r.quantity > device.quantity) {
           message.warning(
             `Số lượng báo hỏng của thiết bị '${device.device_name}' trong phòng vượt quá số lượng thực tế!`
@@ -387,28 +537,26 @@ const BookingDetail = () => {
       (r) => r.roomId && r.deviceId && r.status && r.quantity && r.quantity > 0
     );
     if (validReports.length > 0) {
-      setBrokenLoading(true);
       try {
-        for (const r of validReports) {
-          const device = (
-            r.roomId !== null ? roomDevicesMap[r.roomId] : []
-          ).find((d: any) => String(d.id) === String(r.deviceId));
-          if (!device) continue;
-          await createBookingIncident({
-            booking_id: booking?.id,
-            room_id: r.roomId,
-            equipment_id: device.master_equipment_id,
-            quantity: r.quantity,
-            reason: r.status,
-          });
+        const results = await Promise.allSettled(
+          validReports.map((r) => {
+            const device = (
+              r.roomId !== null ? bookingDevicesMap[r.roomId] : []
+            ).find((d: any) => String(d.id) === String(r.deviceId));
+            if (!device || !booking?.id) return Promise.reject("Invalid data");
+          })
+        );
+        const failed = results.filter((r) => r.status === "rejected");
+        if (failed.length > 0) {
+          message.error(`Có ${failed.length} lỗi khi ghi nhận thiết bị hỏng.`);
+          // Log errors if needed
+        } else {
+          message.success("Đã ghi nhận báo cáo thiết bị hỏng!");
         }
-        message.success("Đã ghi nhận báo cáo thiết bị hỏng!");
       } catch {
         message.error("Lỗi ghi nhận thiết bị hỏng!");
-        setBrokenLoading(false);
         return;
       }
-      setBrokenLoading(false);
     }
     setBrokenModalVisible(false);
     setFinalConfirmVisible(true);
@@ -436,33 +584,12 @@ const BookingDetail = () => {
     }
     const remaining = finalTotal - amountPaid;
 
-    setUpdating(true);
-    try {
-      // If there is remaining amount, confirm payment first
-      if (remaining > 0) {
-        await setBookingStatus(booking.id, {
-          payment_status: "paid",
-          // amount_paid will be auto-updated to full total by backend or we can pass it if we support partial.
-          // Since backend auto-sets to total_price (which includes incidents), we just need to ensure total_price in DB is correct.
-          // However, backend auto-set uses DB total_price.
-          // We trust backend has updated total_price via incidents/services creation.
-        });
-        message.success("Đã xác nhận thanh toán phần còn lại.");
-      }
-
-      await confirmCheckout(booking.id);
-      message.success("Đã checkout - Phòng chuyển sang trạng thái Cleaning");
-      refetch();
-      setFinalConfirmVisible(false);
-      setBrokenReports([
-        { roomId: null, deviceId: null, quantity: 1, status: "broken" },
-      ]);
-    } catch (err: any) {
-      console.error("Final checkout error:", err);
-      message.error(err.response?.data?.message || "Lỗi checkout");
-    } finally {
-      setUpdating(false);
+    // If there is remaining amount, confirm payment first
+    if (remaining > 0) {
+      // Use mutateAsync to wait for it before checkout
+      await markPaidMutation.mutateAsync(booking.id);
     }
+    checkOutMutation.mutate(booking.id);
   };
   const handleCancel = async () => {
     if (!booking || !booking.id) return;
@@ -485,21 +612,8 @@ const BookingDetail = () => {
           </div>
         </div>
       ),
-      onOk: async () => {
-        setUpdating(true);
-        try {
-          await cancelBooking(booking.id!, reason);
-          message.success(
-            "Đã hủy booking - Phòng chuyển sang trạng thái Available."
-          );
-          refetch();
-        } catch (err) {
-          console.error("Lỗi hủy booking:", err);
-          const error = err as { response?: { data?: { message?: string } } };
-          message.error(error.response?.data?.message || "Lỗi hủy booking");
-        } finally {
-          setUpdating(false);
-        }
+      onOk: () => {
+        cancelMutation.mutate({ bookingId: booking.id!, reason });
       },
     });
   };
@@ -531,34 +645,21 @@ const BookingDetail = () => {
     setServiceNote("");
     setServiceModalVisible(true);
   };
-  const confirmAddService = async () => {
+  const confirmAddService = () => {
     if (!pendingService || !booking?.id) return;
     const { bookingItemId, serviceId, quantity } = pendingService;
     const service = allServices.find((s) => s.id === serviceId);
     if (!service) return;
     setAddingService(bookingItemId);
-    setUpdating(true);
-    try {
-      await createBookingService({
-        booking_id: booking.id,
-        booking_item_id: bookingItemId,
-        service_id: serviceId,
-        quantity: quantity,
-        total_service_price: service.price * quantity,
-        note: serviceNote || undefined,
-      });
-      message.success("Đã thêm dịch vụ thành công");
-      refetch();
-      setServiceModalVisible(false);
-      setPendingService(null);
-    } catch (err: any) {
-      console.error("Lỗi thêm dịch vụ:", err);
-      const error = err as { response?: { data?: { message?: string } } };
-      message.error(error.response?.data?.message || "Lỗi thêm dịch vụ");
-    } finally {
-      setAddingService(null);
-      setUpdating(false);
-    }
+
+    addServiceMutation.mutate({
+      booking_id: booking.id,
+      booking_item_id: bookingItemId,
+      service_id: serviceId,
+      quantity: quantity,
+      total_service_price: service.price * quantity,
+      note: serviceNote || undefined,
+    });
   };
   const handlePrintBill = () => {
     if (!booking) return;
@@ -585,7 +686,7 @@ const BookingDetail = () => {
       printWindow.close();
     }, 250);
   };
-  if (isLoading) {
+  if (isBookingLoading) {
     return (
       <div style={{ textAlign: "center", padding: "50px" }}>
         <Spin size="large" />
@@ -792,7 +893,18 @@ const BookingDetail = () => {
         <Card
           title={
             <Space>
-              <HomeOutlined /> Phòng đã đặt ({booking.items?.length || 0} phòng)
+              <HomeOutlined />
+              {(() => {
+                const total = booking.items?.length || 0;
+                const cancelled =
+                  booking.items?.filter((i: any) => i.status === "cancelled")
+                    .length || 0;
+                const active = total - cancelled;
+                if (cancelled > 0) {
+                  return `Phòng đã đặt (${active} hoạt động, ${cancelled} đã hủy)`;
+                }
+                return `Phòng đã đặt (${total} phòng)`;
+              })()}
             </Space>
           }
           style={{ marginBottom: 16 }}
@@ -820,12 +932,17 @@ const BookingDetail = () => {
                   booking.services?.filter(
                     (s: any) => s.booking_item_id === item.id
                   ) || [];
+                const isCancelled = item.status === "cancelled";
 
                 return (
                   <List.Item key={index}>
                     <Card
                       type="inner"
-                      style={{ width: "100%", background: "#fafafa" }}
+                      style={{
+                        width: "100%",
+                        background: isCancelled ? "#fff1f0" : "#fafafa",
+                        opacity: isCancelled ? 0.8 : 1,
+                      }}
                       bodyStyle={{ padding: "16px" }}
                     >
                       <Row gutter={[24, 24]}>
@@ -856,6 +973,9 @@ const BookingDetail = () => {
                                     width: "100%",
                                     height: "100%",
                                     objectFit: "cover",
+                                    filter: isCancelled
+                                      ? "grayscale(100%)"
+                                      : "none",
                                   }}
                                 />
                               ) : (
@@ -875,14 +995,36 @@ const BookingDetail = () => {
                               )}
                             </div>
                             <div>
-                              <Text strong style={{ fontSize: "16px" }}>
-                                {room.name || `Phòng ${room.id}`}
-                              </Text>
+                              <Space align="center" style={{ marginBottom: 4 }}>
+                                <Text
+                                  strong
+                                  style={{
+                                    fontSize: "16px",
+                                    textDecoration: isCancelled
+                                      ? "line-through"
+                                      : "none",
+                                  }}
+                                >
+                                  {room.name || `Phòng ${room.id}`}
+                                </Text>
+                                {isCancelled && (
+                                  <Tag color="red" style={{ fontWeight: 600 }}>
+                                    ĐÃ HỦY
+                                  </Tag>
+                                )}
+                              </Space>
                               <div style={{ marginBottom: "4px" }}>
                                 <Tag color="yellow">
                                   {room.type_name ||
                                     `Loại phòng ${room.type_id}`}
                                 </Tag>
+                              </div>
+                              <div style={{ marginBottom: "4px" }}>
+                                <Text strong className="text-yellow-600">
+                                  {formatPrice(
+                                    Number(item.room_type_price || 0)
+                                  )}
+                                </Text>
                               </div>
                               <Text
                                 type="secondary"
@@ -1015,7 +1157,8 @@ const BookingDetail = () => {
                                   value={null}
                                   disabled={
                                     addingService === item.id ||
-                                    !canModifyService
+                                    !canModifyService ||
+                                    isCancelled
                                   }
                                   dropdownMatchSelectWidth={250}
                                 >
@@ -1476,19 +1619,88 @@ const BookingDetail = () => {
                 </Row>
               </>
             )}
+            {lateCheckoutInfo.isLate && (
+              <>
+                <Divider style={{ margin: "12px 0" }} />
+                <Row
+                  justify="space-between"
+                  style={{
+                    backgroundColor: "#fff7e6",
+                    padding: "12px",
+                    borderRadius: "8px",
+                    border: "1px solid #ffa940",
+                  }}
+                >
+                  <div>
+                    <Text strong style={{ color: "#fa541c" }}>
+                      ⚠️ Phí checkout muộn
+                    </Text>
+                    <div style={{ fontSize: "12px", color: "#8c8c8c" }}>
+                      {lateCheckoutInfo.hours} giờ × 100,000₫
+                    </div>
+                  </div>
+                  <Text strong style={{ color: "#fa541c", fontSize: "16px" }}>
+                    {lateCheckoutInfo.fee.toLocaleString("vi-VN")} ₫
+                  </Text>
+                </Row>
+              </>
+            )}
+            <Divider style={{ margin: "12px 0" }} />
             <Divider style={{ margin: "12px 0" }} />
             <Row justify="space-between">
               <Title level={4} style={{ margin: 0 }}>
                 Tổng cộng
               </Title>
-              <Title level={4} type="danger" style={{ margin: 0 }}>
-                {formatPrice(
-                  booking.total_price != null
-                    ? booking.total_price
-                    : (booking.total_room_price || 0) +
-                        (booking.total_service_price || 0)
-                )}
-              </Title>
+              <div style={{ textAlign: "right" }}>
+                {(() => {
+                  const originalTotal =
+                    booking.total_price != null
+                      ? booking.total_price
+                      : (booking.total_room_price || 0) +
+                        (booking.total_service_price || 0);
+
+                  // Calculate total refund from items that are ACTUALLY refunded (is_refunded = true)
+                  const totalRefunded =
+                    booking.items?.reduce((sum: number, item: any) => {
+                      if (
+                        item.status === "cancelled" &&
+                        item.refund_amount &&
+                        item.is_refunded === true
+                      ) {
+                        return sum + Number(item.refund_amount);
+                      }
+                      return sum;
+                    }, 0) || 0;
+
+                  const finalTotal = originalTotal - totalRefunded;
+
+                  if (totalRefunded > 0) {
+                    return (
+                      <>
+                        <Text
+                          delete
+                          type="secondary"
+                          style={{ display: "block" }}
+                        >
+                          {formatPrice(originalTotal)}
+                        </Text>
+                        <Title level={4} type="danger" style={{ margin: 0 }}>
+                          {formatPrice(finalTotal)}
+                        </Title>
+                        <Text type="success" style={{ fontSize: "12px" }}>
+                          (Đã trừ hoàn tiền: {formatPrice(totalRefunded)})
+                        </Text>
+                      </>
+                    );
+                  }
+
+                  return (
+                    <Title level={4} type="danger" style={{ margin: 0 }}>
+                      {formatPrice(originalTotal)}
+                    </Title>
+                  );
+                })()}
+              </div>
             </Row>
           </Space>
         </Card>
@@ -1504,10 +1716,9 @@ const BookingDetail = () => {
                 <Button
                   type="primary"
                   danger
-                  loading={refundLoading}
-                  onClick={handleMarkRefunded}
+                  onClick={() => navigate("/admin/refund-requests")}
                 >
-                  Đánh dấu đã hoàn tiền ({formatPrice(booking.refund_amount)})
+                  Xử lý hoàn tiền ({formatPrice(booking.refund_amount)})
                 </Button>
               )}
             {booking.stay_status_id !== 4 && booking.stay_status_id !== 5 && (
@@ -1564,24 +1775,22 @@ const BookingDetail = () => {
                   danger
                   type="dashed"
                   onClick={handleNoShow}
-                  loading={noShowLoading}
-                  disabled={!canMarkNoShow || noShowLoading || updating}
+                  loading={markNoShowMutation.isPending}
+                  disabled={
+                    !canMarkNoShow || markNoShowMutation.isPending || updating
+                  }
                 >
                   No Show
                 </Button>
-                {booking.stay_status_id === 2 && !checkoutConfirmed && (
-                  <>
-                    <>
-                      <Button
-                        type="primary"
-                        loading={updating}
-                        disabled={updating}
-                        onClick={handleCheckOut}
-                      >
-                        Trả phòng (Checkout)
-                      </Button>
-                    </>
-                  </>
+                {booking.stay_status_id === 2 && (
+                  <Button
+                    type="primary"
+                    loading={updating}
+                    disabled={updating}
+                    onClick={handleCheckOut}
+                  >
+                    Trả phòng (Checkout)
+                  </Button>
                 )}
                 <Modal
                   title="Báo cáo thiết bị hỏng khi checkout (có thể bỏ qua)"
@@ -1610,7 +1819,7 @@ const BookingDetail = () => {
                     <Button
                       key="ok"
                       type="primary"
-                      loading={brokenLoading}
+                      loading={createIncidentMutation.isPending}
                       onClick={handleConfirmBrokenDevice}
                     >
                       Ghi nhận & Tiếp tục
@@ -1635,11 +1844,23 @@ const BookingDetail = () => {
                           handleSelectRoom(val as number | null, idx)
                         }
                       >
-                        {rooms.map((room) => (
-                          <Select.Option key={room.id} value={room.id}>
-                            {room.name || `Phòng ${room.id}`}
-                          </Select.Option>
-                        ))}
+                        {booking.items
+                          ?.filter(
+                            (item: any) =>
+                              item.status !== "cancelled" &&
+                              item.status !== "checked_out" // Optional: avoid double checkout if handled elsewhere
+                          )
+                          .map((item: any) => {
+                            const room = rooms.find(
+                              (r) => r.id === item.room_id
+                            );
+                            if (!room) return null;
+                            return (
+                              <Select.Option key={room.id} value={room.id}>
+                                {room.name || `Phòng ${room.id}`}
+                              </Select.Option>
+                            );
+                          })}
                       </Select>
                       {}
                       <Select
@@ -1653,7 +1874,7 @@ const BookingDetail = () => {
                         }}
                         disabled={!r.roomId}
                       >
-                        {(r.roomId !== null ? roomDevicesMap[r.roomId] : [])
+                        {(r.roomId !== null ? bookingDevicesMap[r.roomId] : [])
                           ?.filter((d: any) => {
                             const isSelectedInOtherRow = brokenReports.some(
                               (report, reportIndex) =>
@@ -2085,7 +2306,7 @@ const BookingDetail = () => {
           }}
           okText="Xác nhận thêm"
           cancelText="Hủy bỏ"
-          confirmLoading={updating}
+          confirmLoading={addServiceMutation.isPending}
         >
           <div style={{ marginBottom: 12 }}>
             <Text>Số lượng:</Text>

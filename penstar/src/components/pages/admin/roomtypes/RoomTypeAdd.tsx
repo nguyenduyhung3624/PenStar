@@ -12,11 +12,10 @@ import {
   Col,
 } from "antd";
 import QuillEditor from "@/components/common/QuillEditor";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { createRoomType } from "@/services/roomTypeApi";
 import { uploadRoomTypeImage } from "@/services/roomTypeImagesApi";
-import { getMasterEquipments } from "@/services/masterEquipmentsApi";
-import { upsertDeviceStandard } from "@/services/roomTypeEquipmentsAdminApi";
+import { updateDeviceStandards } from "@/services/roomTypeEquipmentsAdminApi";
 import type { RcFile } from "antd/lib/upload";
 import RoomTypeEquipmentSelector, {
   type EquipmentSelection,
@@ -32,10 +31,9 @@ const RoomTypeAdd: React.FC = () => {
   >([]);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { data: equipmentList = [] } = useQuery({
-    queryKey: ["master-equipments"],
-    queryFn: getMasterEquipments,
-  });
+
+  // Removed master equipments query
+
   const uploadSelectedFiles = async (roomTypeId: number) => {
     if (thumb) {
       try {
@@ -57,16 +55,17 @@ const RoomTypeAdd: React.FC = () => {
     setExtras([]);
   };
   const saveEquipments = async (roomTypeId: number) => {
-    for (const eq of selectedEquipments) {
-      try {
-        await upsertDeviceStandard({
-          room_type_id: roomTypeId,
-          master_equipment_id: eq.equipment_id,
+    try {
+      await updateDeviceStandards(
+        roomTypeId,
+        selectedEquipments.map((eq) => ({
+          name: eq.name,
           quantity: eq.quantity,
-        });
-      } catch (e) {
-        console.error("Error saving equipment:", eq.equipment_name, e);
-      }
+          price: eq.price,
+        }))
+      );
+    } catch (e) {
+      console.error("Error saving equipments:", e);
     }
   };
   return (
@@ -98,9 +97,7 @@ const RoomTypeAdd: React.FC = () => {
               extra_child_fee: values.extra_child_fee
                 ? Number(values.extra_child_fee)
                 : 0,
-              child_age_limit: values.child_age_limit
-                ? Number(values.child_age_limit)
-                : 12,
+              child_age_limit: 12, // Default 12, UI removed request
               thumbnail: PLACEHOLDER_THUMBNAIL,
               price: values.price ? Number(values.price) : 0,
               bed_type: values.bed_type,
@@ -151,18 +148,91 @@ const RoomTypeAdd: React.FC = () => {
                   placeholder="1000000"
                 />
               </Form.Item>
+
               <Form.Item
                 name="capacity"
-                label="Sức chứa tối đa"
+                label="Sức chứa tối đa (Max Capacity)"
                 rules={[{ required: true }]}
-                tooltip="Tổng số người tối đa (người lớn + trẻ em)"
+                tooltip="Tổng số người tối đa (người lớn + trẻ em) được phép ở trong phòng"
               >
                 <InputNumber
                   style={{ width: "100%" }}
                   min={1}
-                  placeholder="2"
+                  placeholder="Ví dụ: 3"
                 />
               </Form.Item>
+
+              {/* Extra Pricing Details */}
+              <div className="bg-gray-50 p-4 rounded mb-4 border border-gray-100">
+                <div className="font-semibold mb-3 text-gray-700">
+                  Cấu hình chi tiết (Người & Phụ thu)
+                </div>
+                <div className="text-xs text-gray-500 mb-3">
+                  * Nếu không điền, hệ thống sẽ sử dụng giá trị mặc định (Người
+                  gốc = 2, Phụ thu = 0).
+                </div>
+                <Row gutter={16}>
+                  <Col span={6}>
+                    <Form.Item
+                      name="base_adults"
+                      label="NL (gốc)"
+                      initialValue={2}
+                      tooltip="Số người lớn tiêu chuẩn trong giá phòng"
+                    >
+                      <InputNumber style={{ width: "100%" }} min={1} />
+                    </Form.Item>
+                  </Col>
+                  <Col span={6}>
+                    <Form.Item
+                      name="base_children"
+                      label="TE (gốc)"
+                      initialValue={1}
+                      tooltip="Số trẻ em tiêu chuẩn trong giá phòng"
+                    >
+                      <InputNumber style={{ width: "100%" }} min={0} />
+                    </Form.Item>
+                  </Col>
+                  <Col span={6}>
+                    <Form.Item
+                      name="extra_adult_fee"
+                      label="Phụ thu NL"
+                      initialValue={0}
+                      tooltip="Phụ thu cho mỗi người lớn vượt quá số lượng gốc"
+                    >
+                      <InputNumber
+                        style={{ width: "100%" }}
+                        min={0}
+                        formatter={(value) =>
+                          `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                        }
+                        parser={(value) =>
+                          Number(value?.replace(/\$\s?|(,*)/g, "")) as any
+                        }
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={6}>
+                    <Form.Item
+                      name="extra_child_fee"
+                      label="Phụ thu TE"
+                      initialValue={0}
+                      tooltip="Phụ thu cho mỗi trẻ em vượt quá số lượng gốc"
+                    >
+                      <InputNumber
+                        style={{ width: "100%" }}
+                        min={0}
+                        formatter={(value) =>
+                          `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                        }
+                        parser={(value) =>
+                          Number(value?.replace(/\$\s?|(,*)/g, "")) as any
+                        }
+                      />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              </div>
+
               <Form.Item name="free_amenities" label="Tiện nghi phòng">
                 <Select
                   mode="tags"
@@ -174,7 +244,6 @@ const RoomTypeAdd: React.FC = () => {
               {}
               <Form.Item label="Thiết bị tiêu chuẩn">
                 <RoomTypeEquipmentSelector
-                  equipmentList={equipmentList}
                   value={selectedEquipments}
                   onChange={setSelectedEquipments}
                 />

@@ -92,10 +92,9 @@ export const checkRoomTypeNameExists = async (
 };
 export interface RoomTypeEquipment {
   id: number;
-  equipment_id: number;
-  equipment_name: string;
-  equipment_type: string;
+  name: string;
   quantity: number;
+  price: number;
 }
 export const getRoomTypeEquipments = async (
   roomTypeId: number | string

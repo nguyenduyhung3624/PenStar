@@ -141,7 +141,7 @@ const HomePage = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {roomTypes?.slice(0, 6).map((roomType: RoomType) => (
+            {roomTypes?.map((roomType: RoomType) => (
               <div
                 key={roomType.id}
                 className="group bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 flex flex-col"
@@ -194,32 +194,7 @@ const HomePage = () => {
             ))}
           </div>
 
-          <div className="text-center mt-12">
-            <Button
-              size="large"
-              onClick={() => {
-                // Default search: Checkin tomorrow, Checkout day after tomorrow
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                const dayAfterTomorrow = new Date(tomorrow);
-                dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
-
-                navigate("/rooms/search-results", {
-                  state: {
-                    searchParams: {
-                      check_in: tomorrow.toISOString().split("T")[0],
-                      check_out: dayAfterTomorrow.toISOString().split("T")[0],
-                      status: "available",
-                      booking_statuses: [1, 2, 6],
-                    },
-                  },
-                });
-              }}
-              className="border-yellow-600 text-yellow-600 hover:text-yellow-700 hover:border-yellow-700 font-medium px-8"
-            >
-              Xem Tất Cả Phòng
-            </Button>
-          </div>
+          {/* Button "Xem Tất Cả Phòng" removed */}
         </div>
       </section>
 

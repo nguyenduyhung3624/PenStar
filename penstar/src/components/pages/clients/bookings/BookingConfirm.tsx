@@ -645,9 +645,13 @@ const BookingConfirm = () => {
                 Phòng được giữ đến 18:00 ngày nhận phòng trừ khi có thông báo
                 trước.
               </li>
-              <li>Thời gian nhận phòng: 14:00 - Trả phòng: 12:00.</li>
+              <li>Thời gian nhận phòng: 14:00 - Trả phòng: 15:00.</li>
               <li>
-                Nhận phòng sớm hoặc trả phòng muộn có thể phát sinh phí bổ sung.
+                <strong>Phí trả phòng muộn:</strong> Sau 15:00 ngày checkout,
+                phí 100,000₫/giờ sẽ được tính tự động.
+              </li>
+              <li>
+                Nhận phòng sớm có thể phát sinh phí bổ sung (liên hệ lễ tân).
               </li>
             </ul>
           </section>
@@ -667,16 +671,12 @@ const BookingConfirm = () => {
             <h3 className="font-bold text-lg text-gray-800 mb-2">
               3. Chính sách hủy phòng & hoàn tiền
             </h3>
-            <ul className="list-disc pl-5 space-y-1 text-gray-600">
-              <li>
-                Hủy trước 24 giờ so với ngày nhận phòng: Hoàn 100% tiền phòng.
-              </li>
-              <li>
-                Hủy trong vòng 24 giờ trước ngày nhận phòng: Không hoàn tiền.
-              </li>
-              <li>Không đến (No-show): Không hoàn tiền.</li>
-              <li>Yêu cầu hoàn tiền sẽ được xử lý trong 3-5 ngày làm việc.</li>
-            </ul>
+            <li>Chỉ hoàn tiền khi đơn chưa được xác nhận bởi admin.</li>
+            <li>
+              Số tiền hoàn lại bằng 80% tổng giá trị đơn đặt phòng (phí dịch vụ
+              20%).
+            </li>
+            <li>Yêu cầu hoàn tiền sẽ được xử lý trong 3-5 ngày làm việc.</li>
           </section>
           <section>
             <h3 className="font-bold text-lg text-gray-800 mb-2">

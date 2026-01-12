@@ -60,6 +60,7 @@ interface SelectedRoom {
   roomTypeId: number;
   numAdults: number;
   numChildren: number;
+  numBabies: number;
   basePrice: number;
   extraAdultFees: number;
   extraChildFees: number;
@@ -143,9 +144,13 @@ const AdminWalkInBooking = () => {
           extraChildrenCount: 0,
         };
       }
-      const basePrice = roomType.price || 0;
-      const baseAdults = roomType.base_adults || 2;
-      const baseChildren = roomType.base_children || 0;
+      const basePrice = Number(roomType.price) || 0;
+      // Fallback: If base_adults is not set, use capacity or default to 2
+      const baseAdults =
+        roomType.base_adults !== undefined && roomType.base_adults !== null
+          ? Number(roomType.base_adults)
+          : Number(roomType.capacity) || 2;
+      const baseChildren = Number(roomType.base_children) || 0;
       const extraAdultFee = Number(roomType.extra_adult_fee) || 0;
       const extraChildFee = Number(roomType.extra_child_fee) || 0;
 
@@ -183,6 +188,7 @@ const AdminWalkInBooking = () => {
         roomTypeId: defaultRoomType.id,
         numAdults: 1,
         numChildren: 0,
+        numBabies: 0,
         ...fees,
       },
     ]);
@@ -244,6 +250,21 @@ const AdminWalkInBooking = () => {
         if (unselected.length > 0) {
           message.error("Vui lòng chọn số phòng cụ thể cho tất cả các mục");
           return;
+        }
+
+        // Validate Capacity
+        for (const room of selectedRooms) {
+          const roomType = roomTypes.find((rt) => rt.id === room.roomTypeId);
+          const rObj = allRooms.find((r) => r.id === room.roomId);
+          const roomName = rObj ? rObj.name : roomType?.name || "Phòng";
+          const capacity = roomType?.capacity || 2;
+          const totalGuests = room.numAdults + room.numChildren;
+          if (totalGuests > capacity) {
+            message.error(
+              `${roomName}: Tổng số khách (${totalGuests}) vượt quá sức chứa tối đa (${capacity})`
+            );
+            return;
+          }
         }
       } else if (currentStep === 1) {
         // Validate Step 2: Customer Info
@@ -311,6 +332,7 @@ const AdminWalkInBooking = () => {
           extra_children_count: room.extraChildrenCount,
           num_adults: room.numAdults,
           num_children: room.numChildren,
+          num_babies: room.numBabies || 0,
         })),
       };
 
@@ -427,6 +449,14 @@ const AdminWalkInBooking = () => {
             addonBefore="Trẻ"
             style={{ width: 100 }}
           />
+          <InputNumber
+            min={0}
+            max={3}
+            value={record.numBabies}
+            onChange={(v) => handleUpdateRoom(record.id, "numBabies", v || 0)}
+            addonBefore="Bé"
+            style={{ width: 100 }}
+          />
         </Space>
       ),
     },
@@ -434,11 +464,32 @@ const AdminWalkInBooking = () => {
       title: "Giá tạm tính",
       key: "total",
       align: "right" as const,
-      render: (_: any, record: SelectedRoom) => (
-        <Text strong style={{ color: "#d97706" }}>
-          {(record.totalPrice * (nights || 1)).toLocaleString("vi-VN")} ₫
-        </Text>
-      ),
+      render: (_: any, record: SelectedRoom) => {
+        const total = Math.round(record.totalPrice * (nights || 1));
+        const base = Math.round(record.basePrice * (nights || 1));
+        const extraAdult = Math.round(record.extraAdultFees * (nights || 1));
+        const extraChild = Math.round(record.extraChildFees * (nights || 1));
+        const hasExtra = extraAdult > 0 || extraChild > 0;
+
+        return (
+          <div className="flex flex-col items-end">
+            <Text strong style={{ color: "#d97706" }}>
+              {total.toLocaleString("vi-VN")} ₫
+            </Text>
+            {hasExtra && (
+              <div className="flex flex-col items-end text-[10px] text-gray-500">
+                <span>Gốc: {base.toLocaleString("vi-VN")}</span>
+                {extraAdult > 0 && (
+                  <span>+ NL: {extraAdult.toLocaleString("vi-VN")}</span>
+                )}
+                {extraChild > 0 && (
+                  <span>+ TE: {extraChild.toLocaleString("vi-VN")}</span>
+                )}
+              </div>
+            )}
+          </div>
+        );
+      },
     },
     {
       key: "action",

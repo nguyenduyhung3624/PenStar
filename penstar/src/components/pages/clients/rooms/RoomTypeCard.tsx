@@ -486,6 +486,15 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                 <span>{roomType?.view_direction}</span>
                               </span>
                             )}
+                            <span
+                              className="flex items-center gap-1"
+                              style={{ color: "#666", fontSize: "13px" }}
+                            >
+                              <UserOutlined />
+                              <span>
+                                Tối đa {roomType?.capacity || 2} khách
+                              </span>
+                            </span>
                           </div>
                           {}
                           <div
@@ -750,6 +759,8 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                           maxOccupancy - currentAdults
                         );
                         const maxBabies = 3;
+                        const fees = calculateRoomExtraFees(roomIndex);
+
                         return (
                           <div
                             key={roomIndex}
@@ -770,6 +781,35 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                 >
                                   Chọn số người phòng {roomIndex + 1}
                                 </div>
+                                {fees.totalExtraFees > 0 && (
+                                  <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-100">
+                                    <div className="font-semibold text-orange-600 mb-1">
+                                      Phụ thu:{" "}
+                                      {new Intl.NumberFormat("vi-VN").format(
+                                        fees.totalExtraFees
+                                      )}
+                                      đ
+                                    </div>
+                                    {fees.extraAdults > 0 && (
+                                      <div>
+                                        {fees.extraAdults} NL x{" "}
+                                        {new Intl.NumberFormat("vi-VN").format(
+                                          Number(roomType?.extra_adult_fee)
+                                        )}
+                                        đ
+                                      </div>
+                                    )}
+                                    {fees.extraChildren > 0 && (
+                                      <div>
+                                        {fees.extraChildren} TE x{" "}
+                                        {new Intl.NumberFormat("vi-VN").format(
+                                          Number(roomType?.extra_child_fee)
+                                        )}
+                                        đ
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                               </Col>
                               <Col xs={6} sm={6}>
                                 <label
@@ -1181,19 +1221,8 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                     }}
                                   >
                                     <Text strong style={{ fontSize: "14px" }}>
-                                      {eq.equipment_name}
+                                      {eq.name}
                                     </Text>
-                                    <Tag
-                                      color={
-                                        eq.equipment_type === "furniture"
-                                          ? "orange"
-                                          : "yellow"
-                                      }
-                                    >
-                                      {eq.equipment_type === "furniture"
-                                        ? "Nội thất"
-                                        : "Thiết bị"}
-                                    </Tag>
                                   </div>
                                   <div
                                     style={{ fontSize: "12px", color: "#666" }}

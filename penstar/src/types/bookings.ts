@@ -75,6 +75,7 @@ export type Booking = {
   discount_value?: number;
   promo_code?: string;
   items: BookingItem[];
+  payment_proof_image?: string;
   amount_paid?: number;
   services?: BookingService[];
   created_at?: string;

@@ -425,7 +425,7 @@ export const cancelBooking = async (req, res) => {
     if (!userId) {
       return res.error(ERROR_MESSAGES.UNAUTHORIZED, null, 401);
     }
-    const isStaffOrAbove = userRoleId && userRoleId >= 2;
+    const isStaffOrAbove = userRoleId === 1;
     const result = await modelCancelBooking(
       id,
       userId,
@@ -486,21 +486,28 @@ export const calculateLateFee = async (req, res) => {
     // Check current time
     const now = new Date();
 
-    // Standard Checkout Time: 12:00 PM.
-    const standardCheckoutTime = new Date(now);
-    standardCheckoutTime.setHours(12, 0, 0, 0);
+    // Get the actual checkout date/time from booking
+    const itemsRes = await pool.query(
+      "SELECT check_out FROM booking_items WHERE booking_id = $1 ORDER BY check_out DESC LIMIT 1",
+      [id]
+    );
 
-    // Limit: 15:00 PM.
-    const limitTime = new Date(now);
-    limitTime.setHours(15, 0, 0, 0);
+    if (!itemsRes.rows[0]) {
+      return res.error("Không tìm thấy thông tin checkout", null, 404);
+    }
 
-    // If Now <= 12:00, no fee.
+    const checkoutDate = new Date(itemsRes.rows[0].check_out);
+
+    // Standard Checkout Time: 15:00 on checkout date
+    const standardCheckoutTime = new Date(checkoutDate);
+    standardCheckoutTime.setHours(15, 0, 0, 0);
+
+    // If Now <= checkout date at 15:00, no fee
     if (now <= standardCheckoutTime) {
       return res.success({ lateFee: 0, hoursLate: 0 }, "Chưa quá giờ checkout");
     }
 
-    // Logic: If late, charge 100k/hour.
-    // Calculate hours late.
+    // Calculate hours late from checkout date 15:00
     const diffMs = now - standardCheckoutTime;
     const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
 

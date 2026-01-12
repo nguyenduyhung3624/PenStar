@@ -30,6 +30,8 @@ const SignIn = () => {
         return;
       }
       try {
+        message.success("Đăng nhập thành công");
+
         try {
           localStorage.setItem("penstar_token", token);
           console.debug(
@@ -56,7 +58,6 @@ const SignIn = () => {
         console.debug("loginWithToken failed", e);
         localStorage.setItem("penstar_token", token);
       }
-      message.success("Đăng nhập thành công");
       try {
         console.debug(
           "[SignIn] final localStorage token:",
@@ -75,6 +76,7 @@ const SignIn = () => {
       setError(errMsg);
       message.error(errMsg);
     },
+
     onSettled: () => setLoading(false),
   });
   const submit = (e: React.FormEvent) => {

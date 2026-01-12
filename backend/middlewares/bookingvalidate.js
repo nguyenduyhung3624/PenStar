@@ -5,6 +5,13 @@ const validateCheckInDate = (value, helpers) => {
   const checkInDate = moment.tz(value, TIMEZONE).startOf("day");
   const now = moment.tz(TIMEZONE);
   const today = now.clone().startOf("day");
+
+  // Skip time validation for admin/offline bookings
+  const bookingMethod = helpers.prefs.context?.booking_method;
+  if (bookingMethod === "offline") {
+    return value;
+  }
+
   if (checkInDate.isBefore(today)) {
     return helpers.message("Ngày check-in không được là ngày trong quá khứ.");
   }
@@ -184,24 +191,15 @@ export const validateBookingCreate = (req, res, next) => {
       .json({ success: false, message: "items hoặc rooms_config is required" });
   }
   const MAX_GUESTS_DEFAULT = 4;
-  if (
-    req.body.num_adults !== undefined ||
-    req.body.num_children !== undefined
-  ) {
-    const numAdults = req.body.num_adults || 0;
-    const numChildren = req.body.num_children || 0;
-    const totalGuests = numAdults + numChildren;
-    if (totalGuests > MAX_GUESTS_DEFAULT) {
-      return res.status(400).json({
-        success: false,
-        message: `Tổng số người (${totalGuests}) vượt quá giới hạn tối đa ${MAX_GUESTS_DEFAULT} người (không bao gồm em bé). Vui lòng chọn lại.`,
-      });
-    }
-  }
-  if (Array.isArray(items)) {
-    for (const item of items) {
-      const numAdults = item.num_adults || 0;
-      const numChildren = item.num_children || 0;
+  const isOffline = req.body.booking_method === "offline";
+
+  if (!isOffline) {
+    if (
+      req.body.num_adults !== undefined ||
+      req.body.num_children !== undefined
+    ) {
+      const numAdults = req.body.num_adults || 0;
+      const numChildren = req.body.num_children || 0;
       const totalGuests = numAdults + numChildren;
       if (totalGuests > MAX_GUESTS_DEFAULT) {
         return res.status(400).json({
@@ -210,22 +208,36 @@ export const validateBookingCreate = (req, res, next) => {
         });
       }
     }
-  }
-  if (Array.isArray(rooms_config)) {
-    for (const config of rooms_config) {
-      const numAdults = config.num_adults || 0;
-      const numChildren = config.num_children || 0;
-      const totalGuests = numAdults + numChildren;
-      if (totalGuests > MAX_GUESTS_DEFAULT) {
-        return res.status(400).json({
-          success: false,
-          message: `Tổng số người (${totalGuests}) vượt quá giới hạn tối đa ${MAX_GUESTS_DEFAULT} người (không bao gồm em bé). Vui lòng chọn lại.`,
-        });
+    if (Array.isArray(items)) {
+      for (const item of items) {
+        const numAdults = item.num_adults || 0;
+        const numChildren = item.num_children || 0;
+        const totalGuests = numAdults + numChildren;
+        if (totalGuests > MAX_GUESTS_DEFAULT) {
+          return res.status(400).json({
+            success: false,
+            message: `Tổng số người (${totalGuests}) vượt quá giới hạn tối đa ${MAX_GUESTS_DEFAULT} người (không bao gồm em bé). Vui lòng chọn lại.`,
+          });
+        }
+      }
+    }
+    if (Array.isArray(rooms_config)) {
+      for (const config of rooms_config) {
+        const numAdults = config.num_adults || 0;
+        const numChildren = config.num_children || 0;
+        const totalGuests = numAdults + numChildren;
+        if (totalGuests > MAX_GUESTS_DEFAULT) {
+          return res.status(400).json({
+            success: false,
+            message: `Tổng số người (${totalGuests}) vượt quá giới hạn tối đa ${MAX_GUESTS_DEFAULT} người (không bao gồm em bé). Vui lòng chọn lại.`,
+          });
+        }
       }
     }
   }
   const { value, error } = bookingCreateSchema.validate(req.body, {
     abortEarly: true,
+    context: { booking_method: req.body.booking_method },
   });
   if (error) {
     console.log("❌ Validation error:", error.details[0].message);

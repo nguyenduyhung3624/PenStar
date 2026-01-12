@@ -1,21 +1,20 @@
 import React from "react";
-import { Select, Table, InputNumber, Button, message } from "antd";
-import { DeleteOutlined } from "@ant-design/icons";
+import { Table, InputNumber, Button, Input } from "antd";
+import { DeleteOutlined, PlusOutlined } from "@ant-design/icons";
 
 export interface EquipmentSelection {
-  equipment_id: number;
-  equipment_name: string;
+  id?: number | string; // temp id for key
+  name: string;
   quantity: number;
+  price: number;
 }
 
 interface RoomTypeEquipmentSelectorProps {
-  equipmentList: { id: number; name: string; type: string }[];
   value?: EquipmentSelection[];
   onChange?: (value: EquipmentSelection[]) => void;
 }
 
 const RoomTypeEquipmentSelector: React.FC<RoomTypeEquipmentSelectorProps> = ({
-  equipmentList,
   value = [],
   onChange,
 }) => {
@@ -23,53 +22,74 @@ const RoomTypeEquipmentSelector: React.FC<RoomTypeEquipmentSelectorProps> = ({
     onChange?.(changedValue);
   };
 
-  const addEquipment = (equipmentId: number) => {
-    const equipment = equipmentList.find((e) => e.id === equipmentId);
-    if (!equipment) return;
-
-    if (value.some((e) => e.equipment_id === equipmentId)) {
-      message.warning("Thiết bị này đã được chọn");
-      return;
-    }
-
+  const addEquipment = () => {
     const newItem: EquipmentSelection = {
-      equipment_id: equipment.id,
-      equipment_name: equipment.name,
+      id: Date.now(),
+      name: "",
       quantity: 1,
+      price: 0,
     };
-
     triggerChange([...value, newItem]);
   };
 
-  const removeEquipment = (equipmentId: number) => {
-    triggerChange(value.filter((e) => e.equipment_id !== equipmentId));
+  const removeEquipment = (index: number) => {
+    const newValue = [...value];
+    newValue.splice(index, 1);
+    triggerChange(newValue);
   };
 
-  const updateQuantity = (equipmentId: number, val: number) => {
-    const newValue = value.map((e) =>
-      e.equipment_id === equipmentId ? { ...e, quantity: val } : e
-    );
+  const updateItem = (
+    index: number,
+    field: keyof EquipmentSelection,
+    val: any
+  ) => {
+    const newValue = [...value];
+    newValue[index] = { ...newValue[index], [field]: val };
     triggerChange(newValue);
   };
 
   const columns = [
     {
-      title: "Thiết bị",
-      dataIndex: "equipment_name",
-      key: "equipment_name",
+      title: "Tên thiết bị",
+      dataIndex: "name",
+      key: "name",
+      render: (text: string, record: EquipmentSelection, index: number) => (
+        <Input
+          value={text}
+          onChange={(e) => updateItem(index, "name", e.target.value)}
+          placeholder="Nhập tên thiết bị"
+        />
+      ),
     },
     {
       title: "Số lượng",
       dataIndex: "quantity",
       key: "quantity",
-      width: 150,
-      render: (_: any, record: EquipmentSelection) => (
+      width: 100,
+      render: (val: number, _: any, index: number) => (
         <InputNumber
           min={1}
-          value={record.quantity}
-          onChange={(val) => updateQuantity(record.equipment_id, val || 1)}
-          size="small"
+          value={val}
+          onChange={(v) => updateItem(index, "quantity", v || 1)}
           style={{ width: "100%" }}
+        />
+      ),
+    },
+    {
+      title: "Đơn giá",
+      dataIndex: "price",
+      key: "price",
+      width: 150,
+      render: (val: number, _: any, index: number) => (
+        <InputNumber
+          min={0}
+          value={val}
+          onChange={(v) => updateItem(index, "price", v || 0)}
+          style={{ width: "100%" }}
+          formatter={(value) =>
+            `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+          }
+          parser={(value) => Number(value?.replace(/\$\s?|(,*)/g, "") || 0)}
         />
       ),
     },
@@ -77,47 +97,37 @@ const RoomTypeEquipmentSelector: React.FC<RoomTypeEquipmentSelectorProps> = ({
       title: "",
       key: "action",
       width: 50,
-      render: (_: any, record: EquipmentSelection) => (
+      render: (_: any, __: any, index: number) => (
         <Button
           type="text"
           danger
           icon={<DeleteOutlined />}
-          onClick={() => removeEquipment(record.equipment_id)}
+          onClick={() => removeEquipment(index)}
         />
       ),
     },
   ];
 
   return (
-    <>
-      <div style={{ marginBottom: 12 }}>
-        <Select
-          placeholder="Chọn thiết bị để thêm"
-          style={{ width: "100%" }}
-          showSearch
-          optionFilterProp="children"
-          onChange={(val) => val !== undefined && addEquipment(val)}
-          value={undefined}
-        >
-          {equipmentList
-            .filter((eq) => !value.some((s) => s.equipment_id === eq.id))
-            .map((eq) => (
-              <Select.Option key={eq.id} value={eq.id}>
-                {eq.name} ({eq.type})
-              </Select.Option>
-            ))}
-        </Select>
-      </div>
-      {value.length > 0 && (
-        <Table
-          dataSource={value}
-          rowKey="equipment_id"
-          size="small"
-          pagination={false}
-          columns={columns}
-        />
-      )}
-    </>
+    <div>
+      <Table
+        dataSource={value}
+        rowKey={(record) => record.id || Math.random()}
+        size="small"
+        pagination={false}
+        columns={columns}
+        footer={() => (
+          <Button
+            type="dashed"
+            onClick={addEquipment}
+            block
+            icon={<PlusOutlined />}
+          >
+            Thêm thiết bị
+          </Button>
+        )}
+      />
+    </div>
   );
 };
 

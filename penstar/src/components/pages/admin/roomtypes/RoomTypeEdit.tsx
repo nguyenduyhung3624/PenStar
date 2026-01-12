@@ -24,8 +24,8 @@ import {
   getImagesByRoomType,
   deleteRoomTypeImage,
 } from "@/services/roomTypeImagesApi";
-import { getMasterEquipments } from "@/services/masterEquipmentsApi";
-import { upsertDeviceStandard } from "@/services/roomTypeEquipmentsAdminApi";
+// Removed getMasterEquipments import
+import { updateDeviceStandards } from "@/services/roomTypeEquipmentsAdminApi";
 import type { RcFile } from "antd/lib/upload";
 import type { RoomTypeImage } from "@/types/roomTypeImage";
 import RoomTypeEquipmentSelector, {
@@ -64,10 +64,7 @@ const RoomTypeEdit = () => {
     enabled: !!id,
   });
 
-  const { data: equipmentList = [] } = useQuery({
-    queryKey: ["master-equipments"],
-    queryFn: getMasterEquipments,
-  });
+  // Removed master equipments query
 
   const { data: existingStandards = [] } = useQuery({
     queryKey: ["roomtype_standards", id],
@@ -104,11 +101,14 @@ const RoomTypeEdit = () => {
 
   useEffect(() => {
     if (existingStandards.length > 0 && selectedEquipments.length === 0) {
-      const selections: EquipmentSelection[] = existingStandards.map((std) => ({
-        equipment_id: std.equipment_id,
-        equipment_name: std.equipment_name,
-        quantity: std.quantity,
-      }));
+      const selections: EquipmentSelection[] = existingStandards.map(
+        (std: any) => ({
+          id: std.id,
+          name: std.name, // Was equipment_name, now name in API response (see model)
+          quantity: std.quantity,
+          price: std.price || 0,
+        })
+      );
       setSelectedEquipments(selections);
     }
   }, [existingStandards]);
@@ -159,9 +159,7 @@ const RoomTypeEdit = () => {
         extra_child_fee: values.extra_child_fee
           ? Number(values.extra_child_fee)
           : undefined,
-        child_age_limit: values.child_age_limit
-          ? Number(values.child_age_limit)
-          : undefined,
+        // child_age_limit removed from UI
         price: values.price ? Number(values.price) : undefined,
         bed_type: values.bed_type,
         view_direction: values.view_direction,
@@ -201,16 +199,17 @@ const RoomTypeEdit = () => {
       }
 
       // 4. Handle Equipments
-      for (const eq of selectedEquipments) {
-        try {
-          await upsertDeviceStandard({
-            room_type_id: Number(id),
-            master_equipment_id: eq.equipment_id,
-            quantity: eq.quantity,
-          });
-        } catch (e) {
-          console.error("Error saving equipment:", eq.equipment_name, e);
-        }
+      try {
+        await updateDeviceStandards(
+          Number(id),
+          selectedEquipments.map((e) => ({
+            name: e.name,
+            quantity: e.quantity,
+            price: e.price,
+          }))
+        );
+      } catch (e) {
+        console.error("Error saving equipments:", e);
       }
 
       message.success("Cập nhật loại phòng thành công");
@@ -299,7 +298,6 @@ const RoomTypeEdit = () => {
 
               <Form.Item label="Thiết bị tiêu chuẩn">
                 <RoomTypeEquipmentSelector
-                  equipmentList={equipmentList}
                   value={selectedEquipments}
                   onChange={setSelectedEquipments}
                 />
@@ -372,16 +370,6 @@ const RoomTypeEdit = () => {
                           Number(value?.replace(/\$\s?|(,*)/g, "")) as any
                         }
                       />
-                    </Form.Item>
-                  </Col>
-                </Row>
-                <Row>
-                  <Col span={6}>
-                    <Form.Item
-                      name="child_age_limit"
-                      label="Tuổi trẻ em tối đa"
-                    >
-                      <InputNumber style={{ width: "100%" }} min={0} />
                     </Form.Item>
                   </Col>
                 </Row>

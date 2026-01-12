@@ -69,14 +69,6 @@ const FloorList = () => {
           >
             Sửa
           </Button>
-          <Popconfirm
-            title="Bạn có chắc muốn xoá?"
-            onConfirm={() => deleteMut.mutate(record.id)}
-          >
-            <Button type="primary" danger>
-              Xoá
-            </Button>
-          </Popconfirm>
         </Space>
       ),
     },

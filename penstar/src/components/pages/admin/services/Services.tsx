@@ -154,24 +154,6 @@ const ServiceList = () => {
           >
             Sửa
           </Button>
-          <Popconfirm
-            title="Xác nhận xóa"
-            description="Bạn có chắc muốn xóa dịch vụ này?"
-            onConfirm={() => deleteMut.mutate(record.id)}
-            okText="Xóa"
-            cancelText="Hủy"
-            okButtonProps={{ danger: true }}
-          >
-            <Button
-              type="primary"
-              danger
-              size="small"
-              icon={<DeleteOutlined />}
-              loading={deleteMut.isPending}
-            >
-              Xóa
-            </Button>
-          </Popconfirm>
         </Space>
       ),
     },

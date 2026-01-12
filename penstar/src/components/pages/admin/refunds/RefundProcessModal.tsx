@@ -160,6 +160,9 @@ const RefundProcessModal: React.FC<RefundProcessModalProps> = ({
           <span className="text-red-500 font-bold text-lg">
             {formatCurrency(request.amount)}
           </span>
+          <div className="text-xs text-gray-500 mt-1">
+            *Lưu ý: Chính sách hoàn tiền là 80% giá trị phòng (phí hủy 20%)
+          </div>
         </Descriptions.Item>
         <Descriptions.Item label="Trạng thái">
           {getStatusTag(request.status)}

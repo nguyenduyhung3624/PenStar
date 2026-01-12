@@ -261,6 +261,19 @@ const BookingDetailClient: React.FC = () => {
                 ),
               },
               {
+                title: "Khách",
+                key: "guests",
+                render: (_, item) => {
+                  const parts = [];
+                  if (item.num_adults > 0) parts.push(`${item.num_adults} NL`);
+                  if (item.num_children > 0)
+                    parts.push(`${item.num_children} TE`);
+                  if ((item.num_babies ?? 0) > 0)
+                    parts.push(`${item.num_babies} Bé`);
+                  return <Text>{parts.join(", ")}</Text>;
+                },
+              },
+              {
                 title: "Thời gian",
                 key: "dates",
                 render: (_, item) => (

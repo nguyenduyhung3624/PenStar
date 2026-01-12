@@ -112,17 +112,18 @@ export const cancelBookingItemController = async (req, res) => {
     // Cancel the item
     const cancelled = await modelCancelBookingItem(id, cancel_reason);
 
-    // Calculate refund amount for this item
+    // Calculate refund amount for this item (Policy: 80% refund)
     const itemTotal =
-      (Number(item.room_type_price) || 0) +
-      (Number(item.extra_adult_fees) || 0) +
-      (Number(item.extra_child_fees) || 0) +
-      (Number(item.extra_fees) || 0);
+      ((Number(item.room_type_price) || 0) +
+        (Number(item.extra_adult_fees) || 0) +
+        (Number(item.extra_child_fees) || 0) +
+        (Number(item.extra_fees) || 0)) *
+      0.8;
 
     // Update the item refund_amount
     await pool.query(
       "UPDATE booking_items SET refund_amount = $2 WHERE id = $1",
-      [id, itemTotal]
+      [id, Math.floor(itemTotal)]
     );
 
     res.success(

@@ -524,7 +524,7 @@ export const cancelBooking = async (
       let nonRefundable = false;
       if (refundPolicy && Object.keys(refundPolicy).length > 0) {
         refundable = refundPolicy.refundable ?? false;
-        refundPercent = refundPolicy.refund_percent ?? 0;
+        refundPercent = 80; // Enforce 80% refund policy
         deadline = refundPolicy.refund_deadline_hours ?? 24;
         nonRefundable = refundPolicy.non_refundable ?? false;
       }

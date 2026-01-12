@@ -55,31 +55,6 @@ export const createIncident = async (data) => {
     );
   }
 
-  // Get room type to validate equipment authorization
-  const roomTypeRes = await pool.query(
-    `SELECT type_id FROM rooms WHERE id = $1`,
-    [room_id]
-  );
-  if (!roomTypeRes.rows.length) {
-    throw new Error("Phòng không tồn tại");
-  }
-  const room_type_id = roomTypeRes.rows[0].type_id;
-
-  // Check if equipment is authorized for this room type
-  const authorizedEquipmentRes = await pool.query(
-    `SELECT quantity FROM room_type_equipments
-     WHERE room_type_id = $1 AND equipment_type_id = $2`,
-    [room_type_id, equipment_id]
-  );
-
-  if (authorizedEquipmentRes.rows.length === 0) {
-    throw new Error(
-      "Thiết bị này không nằm trong cấu hình tiêu chuẩn của loại phòng này"
-    );
-  }
-
-  const standardQuantity = authorizedEquipmentRes.rows[0].quantity;
-
   const eqRes = await pool.query(
     `SELECT compensation_price FROM master_equipments WHERE id = $1`,
     [equipment_id]
@@ -88,7 +63,7 @@ export const createIncident = async (data) => {
   const amount = compensation_price * quantity;
 
   console.log(
-    `[createIncident] Checking device: room_id=${room_id}, equipment_id=${equipment_id}, standard_qty=${standardQuantity}`
+    `[createIncident] Checking device: room_id=${room_id}, equipment_id=${equipment_id}`
   );
 
   const deviceRes = await pool.query(
@@ -114,12 +89,6 @@ export const createIncident = async (data) => {
     throw new Error("Số lượng báo hỏng vượt quá số lượng thực tế trong phòng");
   }
 
-  // Validate against room type standard quantity
-  if (quantity > standardQuantity) {
-    throw new Error(
-      `Số lượng báo hỏng vượt quá tiêu chuẩn loại phòng (tối đa ${standardQuantity})`
-    );
-  }
   const now = new Date();
   const result = await pool.query(
     `INSERT INTO booking_incidents (booking_id, room_id, equipment_id, quantity, reason, amount, compensation_price, created_at, status)
