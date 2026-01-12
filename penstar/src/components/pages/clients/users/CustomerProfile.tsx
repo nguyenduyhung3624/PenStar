@@ -268,30 +268,6 @@ const CustomerProfile: React.FC = () => {
             </div>
           )}
         </Card>
-        {}
-        <Card className="mt-6 shadow-lg">
-          <Title level={4} className="mb-4">
-            Thao tác nhanh
-          </Title>
-          <Space direction="vertical" className="w-full">
-            <Button
-              type="default"
-              block
-              size="large"
-              onClick={() => navigate("/bookings")}
-            >
-              Xem đặt phòng của tôi
-            </Button>
-            <Button
-              type="default"
-              block
-              size="large"
-              onClick={() => navigate("/rooms")}
-            >
-              Tìm phòng
-            </Button>
-          </Space>
-        </Card>
       </div>
     </div>
   );

@@ -22,5 +22,5 @@ router.get("/me", requireAuth, async (req, res) => {
   }
 });
 router.get("/", requireAuth, requireRole("admin"), listUsers);
-router.put("/:id", requireAuth, requireRole("admin"), updateUserController);
+router.put("/:id", requireAuth, updateUserController);
 export default router;
