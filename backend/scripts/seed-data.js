@@ -353,6 +353,9 @@ const pool = new Pool({
   user: process.env.DB_USER,
   password: String(process.env.DB_PASSWORD || ""),
   database: process.env.DB_NAME,
+  ssl: process.env.DB_HOST?.includes("prisma.io")
+    ? { rejectUnauthorized: false }
+    : false,
 });
 
 // ============= SEEDING FUNCTIONS =============

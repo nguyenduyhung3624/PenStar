@@ -3,16 +3,22 @@ import path from "path";
 import pg from "pg";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
-dotenv.config();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Load .env from backend directory
+dotenv.config({ path: path.join(__dirname, "../.env") });
 const { Pool } = pg;
 const pool = new Pool({
   host: process.env.DB_HOST,
   port: process.env.DB_PORT,
   user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
+  password: String(process.env.DB_PASSWORD || ""),
   database: process.env.DB_NAME,
+  ssl: process.env.DB_HOST?.includes("prisma.io")
+    ? { rejectUnauthorized: false }
+    : false,
 });
 async function migrate() {
   const client = await pool.connect();
@@ -35,7 +41,7 @@ async function migrate() {
     const files = fs
       .readdirSync(migrationsDir)
       .filter((file) => file.endsWith(".sql"))
-      .sort(); 
+      .sort();
     for (const file of files) {
       if (!executedMigrationNames.has(file)) {
         console.log(`➡️  Running migration: ${file}`);
