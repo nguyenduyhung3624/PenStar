@@ -16,7 +16,7 @@ router.get("/:id", getBookingServiceById);
 router.post(
   "/",
   requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   validateBookingServiceCreate,
   createBookingService
 );

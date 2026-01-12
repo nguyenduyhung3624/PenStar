@@ -14,14 +14,14 @@ const router = express.Router();
 router.post(
   "/roomtype/:roomTypeId/upload",
   requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   uploadMiddleware.single("file"),
   uploadImageForRoomType
 );
 router.get("/", getAllRoomTypeImages);
 router.get("/roomtype/:roomTypeId", getImagesByRoomType); 
 router.get("/:id", getRoomTypeImage);
-router.post("/", requireAuth, requireRole("staff"), createImage);
-router.put("/:id", requireAuth, requireRole("staff"), updateImage);
-router.delete("/:id", requireAuth, requireRole("staff"), deleteImage);
+router.post("/", requireAuth, requireRole("admin"), createImage);
+router.put("/:id", requireAuth, requireRole("admin"), updateImage);
+router.delete("/:id", requireAuth, requireRole("admin"), deleteImage);
 export default router;

@@ -2,7 +2,7 @@ import express from "express";
 import * as controller from "../controllers/roomdevicescontroller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.js";
 const router = express.Router();
-router.use(requireAuth, requireRole("staff"));
+router.use(requireAuth, requireRole("admin"));
 router.put("/:id/restore-status", controller.restoreDeviceStatus);
 router.get("/", controller.getDevices); 
 router.get("/:id", controller.getDeviceById); 

@@ -52,7 +52,7 @@ serviceRouter.get("/:id", getServiceById);
 serviceRouter.post(
   "/",
   requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   upload.fields([
     { name: "image", maxCount: 1 },
     { name: "thumbnail_file", maxCount: 1 },
@@ -63,7 +63,7 @@ serviceRouter.post(
 serviceRouter.put(
   "/:id",
   requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   upload.fields([
     { name: "image", maxCount: 1 },
     { name: "thumbnail_file", maxCount: 1 },
@@ -71,5 +71,5 @@ serviceRouter.put(
   validateServiceUpdate,
   updateService
 );
-serviceRouter.delete("/:id", requireAuth, requireRole("staff"), deleteService);
+serviceRouter.delete("/:id", requireAuth, requireRole("admin"), deleteService);
 export default serviceRouter;

@@ -21,6 +21,6 @@ router.get("/me", requireAuth, async (req, res) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 });
-router.get("/", requireAuth, requireRole("manager"), listUsers);
-router.put("/:id", requireAuth, requireRole("manager"), updateUserController);
+router.get("/", requireAuth, requireRole("admin"), listUsers);
+router.put("/:id", requireAuth, requireRole("admin"), updateUserController);
 export default router;

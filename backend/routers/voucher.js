@@ -72,7 +72,7 @@ router.get("/details/:id", optionalAuth, async (req, res) => {
 router.get(
   "/admin/all",
   requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   async (req, res) => {
     try {
       const vouchers = await DiscountCodesModel.list();
@@ -86,7 +86,7 @@ router.get(
     }
   }
 );
-router.post("/", requireAuth, requireRole("manager"), async (req, res) => {
+router.post("/", requireAuth, requireRole("admin"), async (req, res) => {
   try {
     const voucher = await DiscountCodesModel.create(req.body);
     res.success(voucher, "Tạo voucher thành công", 201);
@@ -98,7 +98,7 @@ router.post("/", requireAuth, requireRole("manager"), async (req, res) => {
     res.error("Lỗi tạo voucher", err.message, 400);
   }
 });
-router.put("/:id", requireAuth, requireRole("manager"), async (req, res) => {
+router.put("/:id", requireAuth, requireRole("admin"), async (req, res) => {
   try {
     const { id } = req.params;
     const updated = await DiscountCodesModel.updateById(id, req.body);
@@ -117,7 +117,7 @@ router.put("/:id", requireAuth, requireRole("manager"), async (req, res) => {
 router.patch(
   "/update-status/:id",
   requireAuth,
-  requireRole("manager"),
+  requireRole("admin"),
   async (req, res) => {
     try {
       const { id } = req.params;

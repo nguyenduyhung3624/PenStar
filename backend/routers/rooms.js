@@ -23,13 +23,13 @@ roomsRouter.get("/search-all", searchAllRooms);
 roomsRouter.get(
   "/occupied",
   requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   getOccupiedRoomsController
 );
 roomsRouter.get(
   "/stats",
   requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   getRoomStatsController
 );
 roomsRouter.get("/", getRooms);
@@ -55,7 +55,7 @@ roomsRouter.get("/check-name", async (req, res) => {
 roomsRouter.get(
   "/:id/bookings",
   requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   validateRoomIdParam,
   getRoomBookingHistoryController
 );
@@ -63,14 +63,14 @@ roomsRouter.get("/:id", validateRoomIdParam, getRoomID);
 roomsRouter.post(
   "/",
   requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   validateRoomCreate,
   createRoom
 );
 roomsRouter.put(
   "/:id",
   requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   validateRoomIdParam,
   validateRoomUpdate,
   updateRoom
@@ -78,7 +78,7 @@ roomsRouter.put(
 roomsRouter.delete(
   "/:id",
   requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   validateRoomIdParam,
   deleteRoom
 );

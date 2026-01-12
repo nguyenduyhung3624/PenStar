@@ -22,10 +22,10 @@ router.get(
 router.post(
   "/",
   requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   validateBookingItemCreate,
   createBookingItem
 );
-router.delete("/:id", requireAuth, requireRole("staff"), deleteBookingItem);
+router.delete("/:id", requireAuth, requireRole("admin"), deleteBookingItem);
 router.patch("/:id/cancel", requireAuth, cancelBookingItemController);
 export default router;

@@ -9,37 +9,36 @@ router.post("/apply", requireAuth, DiscountCodesController.applyCode);
 router.post(
   "/add",
   requireAuth,
-  requireRole("manager"),
+  requireRole("admin"),
   DiscountCodesController.create
 );
 router.get(
   "/list",
-  requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   DiscountCodesController.list
 );
 router.get(
   "/id/:id",
   requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   DiscountCodesController.findById
 );
 router.get(
   "/id/:id/usage-history",
   requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   DiscountCodesController.getUsageHistory
 );
 router.put(
   "/:id",
   requireAuth,
-  requireRole("manager"),
+  requireRole("admin"),
   DiscountCodesController.updateById
 );
 router.post(
   "/delete-id",
   requireAuth,
-  requireRole("manager"),
+  requireRole("admin"),
   DiscountCodesController.deleteById
 );
 export default router;

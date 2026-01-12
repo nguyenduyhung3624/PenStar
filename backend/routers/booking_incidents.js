@@ -2,7 +2,7 @@ import express from "express";
 import * as controller from "../controllers/booking_incidentscontroller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.js";
 const router = express.Router();
-router.use(requireAuth, requireRole("staff"));
+router.use(requireAuth, requireRole("admin"));
 router.get("/", controller.getIncidentsByBooking);
 router.get("/all", controller.getAllIncidents);
 router.get("/room", controller.getIncidentsByRoom);
