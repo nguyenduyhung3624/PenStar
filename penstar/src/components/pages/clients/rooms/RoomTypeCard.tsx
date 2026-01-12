@@ -1,5 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable react-hooks/rules-of-hooks */
 import React, { useState, useMemo, useEffect } from "react";
 import {
   Button,
@@ -9,85 +7,84 @@ import {
   Alert,
   Modal,
   Select,
-  Tooltip,
+  Tabs,
+  Card,
+  Tag,
+  Typography,
+  Divider,
 } from "antd";
 import {
   LeftOutlined,
   RightOutlined,
   UserOutlined,
-  CalendarOutlined,
   CoffeeOutlined,
   ToolOutlined,
+  HomeOutlined,
 } from "@ant-design/icons";
-import { getAmenityIcon } from "@/utils/amenities";
+import { FIXED_AMENITIES } from "@/utils/amenities";
 import type { RoomTypeCardProps } from "@/types/roomBooking";
 import {
   getRoomTypeEquipments,
   type RoomTypeEquipment,
 } from "@/services/roomTypeApi";
+import { getServices, type Services } from "@/services/servicesApi";
 
+const { Title, Text } = Typography;
 const { Panel } = Collapse;
-
 const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
   ({ roomType, roomsInType, onSelectRoomType, roomsConfig }) => {
-    if (!roomType) return null;
-
-    const thumbnail = roomType.thumbnail || "/placeholder-room.jpg";
+    const thumbnail = roomType?.thumbnail || "/placeholder-room.jpg";
     const [isExpanded, setIsExpanded] = useState(false);
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [amenitiesModalOpen, setAmenitiesModalOpen] = useState(false);
     const [policyModalOpen, setPolicyModalOpen] = useState(false);
     const [equipments, setEquipments] = useState<RoomTypeEquipment[]>([]);
-    // const isInitialExpansion = React.useRef(false); // Removed: unused
+    const [services, setServices] = useState<Services[]>([]);
+    const [, setLoadingServices] = useState(false);
 
-    // Fetch thiết bị chuẩn của loại phòng
     useEffect(() => {
-      if (roomType.id) {
-        getRoomTypeEquipments(roomType.id).then(setEquipments);
+      if (amenitiesModalOpen && services.length === 0) {
+        setLoadingServices(true);
+        getServices()
+          .then((data) => setServices(data))
+          .catch((err) => console.error("Failed to fetch services", err))
+          .finally(() => setLoadingServices(false));
       }
-    }, [roomType.id]);
-
-    // Khởi tạo mảng độc lập cho từng phòng
-
+    }, [amenitiesModalOpen, services.length]);
+    useEffect(() => {
+      if (roomType?.id) {
+        getRoomTypeEquipments(roomType?.id).then(setEquipments);
+      }
+    }, [roomType?.id]);
     const maxSelectableRooms = roomsInType.filter(
       (room) => room.is_available !== false && room.status === "available"
     ).length;
     const [selectedRoomsCount, setSelectedRoomsCount] = useState(0);
     const prevRoomsConfigLength = React.useRef(0);
-
-    // Sync selectedRoomsCount với roomsConfig từ parent (chỉ khi bị xóa từ bên ngoài)
     React.useEffect(() => {
       const currentRoomTypeCount = roomsConfig.filter(
-        (config) => config.room_type_id === roomType.id
+        (config) => config.room_type_id === roomType?.id
       ).length;
-
-      console.log("🔄 Sync:", roomType.name, {
+      console.log("🔄 Sync:", roomType?.name, {
         current: currentRoomTypeCount,
         prev: prevRoomsConfigLength.current,
         selected: selectedRoomsCount,
       });
-
-      // Chỉ sync khi roomsConfig giảm từ bên ngoài (bị xóa)
       if (currentRoomTypeCount < prevRoomsConfigLength.current) {
         console.log("✅ Reset to:", currentRoomTypeCount);
         setSelectedRoomsCount(currentRoomTypeCount);
-
-        // Sync lại guest data từ roomsConfig
         const currentConfigs = roomsConfig.filter(
-          (config) => config.room_type_id === roomType.id
+          (config) => config.room_type_id === roomType?.id
         );
         setNumAdultsList(currentConfigs.map((c) => c.num_adults || 1));
         setNumChildrenList(currentConfigs.map((c) => c.num_children || 0));
         setChildrenAgesList(currentConfigs.map(() => []));
       }
       prevRoomsConfigLength.current = currentRoomTypeCount;
-    }, [roomsConfig, roomType.id, roomType.name, selectedRoomsCount]);
-    // Guest arrays are always synced with selectedRoomsCount
+    }, [roomsConfig, roomType?.id, roomType?.name, selectedRoomsCount]);
     const [numAdultsList, setNumAdultsList] = useState<number[]>([]);
     const [numChildrenList, setNumChildrenList] = useState<number[]>([]);
     const [childrenAgesList, setChildrenAgesList] = useState<number[][]>([]);
-
-    // Sync guest arrays when selectedRoomsCount changes
     React.useEffect(() => {
       setNumAdultsList((prev) => {
         const arr = [...prev];
@@ -116,31 +113,22 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
         }
       });
     }, [selectedRoomsCount]);
-
     const suitableRooms = useMemo(() => {
-      // Filter rooms that are available AND not booked for the selected dates
       return roomsInType.filter(
         (room) => room.is_available !== false && room.status === "available"
       );
     }, [roomsInType]);
-
-    // Calculate extra fees for a specific room
     const calculateRoomExtraFees = (roomIndex: number) => {
       const numAdults = numAdultsList[roomIndex] || 0;
       const numChildren = numChildrenList[roomIndex] || 0;
-      // Em bé KHÔNG tính phụ phí
-
-      const baseAdults = roomType.base_adults || 0;
-      const baseChildren = roomType.base_children || 0;
-      const extraAdultFee = Number(roomType.extra_adult_fee) || 0;
-      const extraChildFee = Number(roomType.extra_child_fee) || 0;
-
+      const baseAdults = roomType?.base_adults || 0;
+      const baseChildren = roomType?.base_children || 0;
+      const extraAdultFee = Number(roomType?.extra_adult_fee) || 0;
+      const extraChildFee = Number(roomType?.extra_child_fee) || 0;
       const extraAdults = Math.max(0, numAdults - baseAdults);
       const extraChildren = Math.max(0, numChildren - baseChildren);
-
       const adultFees = extraAdults * extraAdultFee;
       const childFees = extraChildren * extraChildFee;
-
       console.log(`💰 Phòng ${roomIndex + 1}:`, {
         numAdults,
         numChildren,
@@ -153,7 +141,6 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
         adultFees,
         childFees,
       });
-
       return {
         extraAdults,
         extraChildren,
@@ -162,31 +149,29 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
         totalExtraFees: adultFees + childFees,
       };
     };
-
-    // Tự động cập nhật sidebar khi có thay đổi
     React.useEffect(() => {
       if (selectedRoomsCount > 0) {
         const newRoomsConfig = Array.from({
           length: selectedRoomsCount,
         }).map((_, idx) => {
           const fees = calculateRoomExtraFees(idx);
-          const basePrice = roomType.price || 0; // Lấy giá từ room_types
+          const basePrice = roomType?.price || 0;
           const totalPrice = basePrice + fees.totalExtraFees;
           return {
             room_id: suitableRooms[idx]?.id || 0,
-            room_type_id: roomType.id,
+            room_type_id: roomType?.id || 0,
             num_adults: numAdultsList[idx] || 1,
             num_children: numChildrenList[idx] || 0,
             num_babies:
               childrenAgesList[idx]?.filter((age) => age <= 5).length || 0,
-            price: totalPrice, // Giá đã bao gồm phụ phí
-            base_price: basePrice, // Giá gốc từ room_types
-            extra_fees: fees.totalExtraFees, // Tổng phụ phí
-            extra_adult_fees: fees.adultFees, // Phụ phí người lớn
-            extra_child_fees: fees.childFees, // Phụ phí trẻ em
-            extra_adults_count: fees.extraAdults, // Số người lớn thêm
-            extra_children_count: fees.extraChildren, // Số trẻ em thêm
-            quantity: 1, // Bổ sung trường quantity cho đúng type
+            price: totalPrice,
+            base_price: basePrice,
+            extra_fees: fees.totalExtraFees,
+            extra_adult_fees: fees.adultFees,
+            extra_child_fees: fees.childFees,
+            extra_adults_count: fees.extraAdults,
+            extra_children_count: fees.extraChildren,
+            quantity: 1,
           };
         });
         onSelectRoomType(
@@ -194,7 +179,6 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
           newRoomsConfig
         );
       } else {
-        // Nếu chọn 0 phòng, xóa khỏi sidebar
         onSelectRoomType([], []);
       }
     }, [
@@ -203,20 +187,16 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
       numChildrenList,
       childrenAgesList,
       suitableRooms,
-      roomType.id,
-      roomType.price,
-      roomType.base_adults,
-      roomType.base_children,
-      roomType.extra_adult_fee,
-      roomType.extra_child_fee,
+      roomType?.id,
+      roomType?.price,
+      roomType?.base_adults,
+      roomType?.base_children,
+      roomType?.extra_adult_fee,
+      roomType?.extra_child_fee,
     ]);
-
-    // Chỉ block/cảnh báo khi số phòng chọn vượt quá số phòng trống
     const isDisabled = selectedRoomsCount > maxSelectableRooms;
     const showNotEnoughRoomsWarning = selectedRoomsCount > maxSelectableRooms;
-    // Kiểm tra xem có phòng nào trống không
     const noRoomsAvailable = maxSelectableRooms === 0;
-
     return (
       <>
         <div
@@ -238,7 +218,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
               header={
                 <div>
                   <Row gutter={16} align="middle">
-                    {/* Phần hình ảnh bên trái */}
+                    {}
                     <Col xs={24} md={11}>
                       <div
                         style={{
@@ -247,14 +227,14 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                           alignItems: "center",
                         }}
                       >
-                        {/* Nút trái - ngoài ảnh */}
-                        {roomType.images && roomType.images.length > 1 && (
+                        {}
+                        {roomType?.images && roomType?.images.length > 1 && (
                           <div
                             onClick={(e) => {
                               e.stopPropagation();
                               setCurrentImageIndex((prev) =>
                                 prev === 0
-                                  ? roomType.images!.length - 1
+                                  ? roomType?.images!.length - 1
                                   : prev - 1
                               );
                             }}
@@ -279,8 +259,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                             <LeftOutlined style={{ fontSize: "14px" }} />
                           </div>
                         )}
-
-                        {/* Ảnh */}
+                        {}
                         <div
                           style={{
                             width: "100%",
@@ -288,48 +267,76 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                             overflow: "hidden",
                           }}
                         >
-                          {roomType.images && roomType.images.length > 0 ? (
-                            <img
-                              src={
-                                roomType.images[currentImageIndex].startsWith(
-                                  "http"
-                                )
-                                  ? roomType.images[currentImageIndex]
-                                  : `http://localhost:5000${roomType.images[currentImageIndex]}`
+                          {roomType?.images && roomType?.images.length > 0 ? (
+                            (() => {
+                              const imgPath =
+                                roomType?.images[currentImageIndex];
+                              let src = imgPath;
+                              if (src && !src.startsWith("http")) {
+                                const apiUrl =
+                                  import.meta.env.VITE_BASE_URL ||
+                                  import.meta.env.VITE_API_URL ||
+                                  "http://localhost:5001";
+                                const baseUrl = apiUrl
+                                  .replace(/\/api\/?$/, "")
+                                  .replace(/\/$/, "");
+                                src =
+                                  baseUrl +
+                                  (src.startsWith("/") ? "" : "/") +
+                                  src;
                               }
-                              alt={`${roomType.name} - ${currentImageIndex + 1}`}
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                                display: "block",
-                              }}
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src =
-                                  "https://via.placeholder.com/400x180?text=No+Image";
-                              }}
-                            />
+                              return (
+                                <img
+                                  src={src}
+                                  alt={`${roomType?.name} - ${currentImageIndex + 1}`}
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                    display: "block",
+                                  }}
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.src =
+                                      "https://via.placeholder.com/400x180?text=No+Image";
+                                  }}
+                                />
+                              );
+                            })()
                           ) : thumbnail ? (
-                            <img
-                              src={
-                                thumbnail.startsWith("http")
-                                  ? thumbnail
-                                  : `http://localhost:5000${thumbnail}`
+                            (() => {
+                              let src = thumbnail;
+                              if (src && !src.startsWith("http")) {
+                                const apiUrl =
+                                  import.meta.env.VITE_BASE_URL ||
+                                  import.meta.env.VITE_API_URL ||
+                                  "http://localhost:5001";
+                                const baseUrl = apiUrl
+                                  .replace(/\/api\/?$/, "")
+                                  .replace(/\/$/, "");
+                                src =
+                                  baseUrl +
+                                  (src.startsWith("/") ? "" : "/") +
+                                  src;
                               }
-                              alt={roomType.name || "Room"}
-                              style={{
-                                width: "100%",
-                                height: "100%",
-                                objectFit: "cover",
-                                display: "block",
-                              }}
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src =
-                                  "https://via.placeholder.com/400x180?text=No+Image";
-                              }}
-                            />
+                              return (
+                                <img
+                                  src={src}
+                                  alt={roomType?.name || "Room"}
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                    display: "block",
+                                  }}
+                                  onError={(e) => {
+                                    const target = e.target as HTMLImageElement;
+                                    target.src =
+                                      "https://via.placeholder.com/400x180?text=No+Image";
+                                  }}
+                                />
+                              );
+                            })()
                           ) : (
                             <div
                               style={{
@@ -346,14 +353,13 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                             </div>
                           )}
                         </div>
-
-                        {/* Nút phải - ngoài ảnh */}
-                        {roomType.images && roomType.images.length > 1 && (
+                        {}
+                        {roomType?.images && roomType?.images.length > 1 && (
                           <div
                             onClick={(e) => {
                               e.stopPropagation();
                               setCurrentImageIndex((prev) =>
-                                prev === roomType.images!.length - 1
+                                prev === roomType?.images!.length - 1
                                   ? 0
                                   : prev + 1
                               );
@@ -381,8 +387,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                         )}
                       </div>
                     </Col>
-
-                    {/* Phần nội dung bên phải */}
+                    {}
                     <Col xs={24} md={13}>
                       <div
                         style={{
@@ -393,9 +398,9 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                           justifyContent: "space-between",
                         }}
                       >
-                        {/* Phần thông tin trên */}
+                        {}
                         <div>
-                          {/* Tên phòng */}
+                          {}
                           <h3
                             style={{
                               color: "#333",
@@ -405,10 +410,9 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                               marginBottom: "8px",
                             }}
                           >
-                            {roomType.name || "Loại phòng"}
+                            {roomType?.name || "Loại phòng"}
                           </h3>
-
-                          {/* Thông tin giường, diện tích, hướng nhìn */}
+                          {}
                           <div
                             className="flex gap-3 items-center"
                             style={{ marginBottom: "8px" }}
@@ -418,7 +422,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                               style={{ color: "#666", fontSize: "13px" }}
                             >
                               <span>
-                                {roomType.bed_type || "1 giường queen size"}
+                                {roomType?.bed_type || "1 giường queen size"}
                               </span>
                             </span>
                             <span
@@ -451,10 +455,10 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                   <path d="M9 3v18M15 3v18M3 9h18M3 15h18" />
                                 </svg>
                               </span>
-                              <span>{roomType.room_size || 30} m²</span>
+                              <span>{roomType?.room_size || 30} m²</span>
                             </span>
-                            {/* Hiển thị hướng nhìn nếu có */}
-                            {roomType.view_direction && (
+                            {}
+                            {roomType?.view_direction && (
                               <span
                                 className="flex items-center gap-1"
                                 style={{ color: "#666", fontSize: "13px" }}
@@ -479,12 +483,11 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                     <path d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10Z" />
                                   </svg>
                                 </span>
-                                <span>{roomType.view_direction}</span>
+                                <span>{roomType?.view_direction}</span>
                               </span>
                             )}
                           </div>
-
-                          {/* Icon tiện nghi */}
+                          {}
                           <div
                             className="flex gap-3 items-center"
                             style={{ marginBottom: "10px" }}
@@ -507,8 +510,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                             </a>
                           </div>
                         </div>
-
-                        {/* Giá và nút chọn phòng - ở dưới cùng */}
+                        {}
                         <div className="flex items-end justify-between">
                           <div>
                             <div
@@ -536,7 +538,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                 }}
                               >
                                 {new Intl.NumberFormat("vi-VN").format(
-                                  Number(roomType.price) || 0
+                                  Number(roomType?.price) || 0
                                 )}{" "}
                                 VND
                               </span>
@@ -597,13 +599,13 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
               key="1"
               className="bg-white"
             >
-              {/* Nội dung mở rộng */}
+              {}
               <div
                 className="bg-white"
                 style={{ borderTop: "1px dashed #e0e0e0" }}
               >
                 <div style={{ padding: "24px" }}>
-                  {/* Thông tin giá và max adults */}
+                  {}
                   <div
                     style={{
                       display: "flex",
@@ -612,85 +614,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                       marginBottom: "12px",
                     }}
                   >
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: "8px",
-                      }}
-                    >
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                        }}
-                      >
-                        <UserOutlined
-                          style={{ fontSize: "14px", color: "#666" }}
-                        />
-                        <span style={{ fontSize: "14px", color: "#666" }}>
-                          +
-                        </span>
-                        <span
-                          style={{
-                            fontSize: "14px",
-                            color: "#333",
-                            fontWeight: "500",
-                          }}
-                        >
-                          {roomType.base_adults ?? roomType.capacity ?? 2} Người
-                          lớn
-                        </span>
-                      </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                        }}
-                      >
-                        <CoffeeOutlined
-                          style={{ fontSize: "13px", color: "#666" }}
-                        />
-                        <span style={{ fontSize: "13px", color: "#666" }}>
-                          Đã bao gồm ăn sáng
-                        </span>
-                      </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "6px",
-                        }}
-                      >
-                        <CalendarOutlined
-                          style={{ fontSize: "13px", color: "#666" }}
-                        />
-                        <span style={{ fontSize: "13px", color: "#666" }}>
-                          Không hoàn trả phí khi hủy phòng
-                        </span>
-                      </div>
-                      <Button
-                        type="link"
-                        size="small"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPolicyModalOpen(true);
-                        }}
-                        style={{
-                          fontSize: "13px",
-                          padding: "0",
-                          height: "auto",
-                          color: "#1890ff",
-                          textAlign: "left",
-                        }}
-                      >
-                        Xem chi tiết &gt;
-                      </Button>
-                    </div>
-
-                    <div style={{ textAlign: "right" }}>
+                    <div style={{ textAlign: "right" }} className="invisible">
                       <div
                         style={{
                           color: "#f5a623",
@@ -699,7 +623,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                         }}
                       >
                         {new Intl.NumberFormat("vi-VN").format(
-                          Number(roomType.price) || 0
+                          Number(roomType?.price) || 0
                         )}{" "}
                         VND
                         <span
@@ -714,7 +638,6 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                         </span>
                       </div>
                     </div>
-
                     <div>
                       <select
                         aria-label="Chọn số lượng phòng"
@@ -740,7 +663,6 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                           { length: Math.min(maxSelectableRooms, 5) },
                           (_, i) => i + 1
                         ).map((num) => {
-                          // Hiển thị chi tiết phòng sẽ được chọn
                           const roomNames = suitableRooms
                             .slice(0, num)
                             .map(
@@ -755,7 +677,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                           );
                         })}
                       </select>
-                      {/* Hiển thị chi tiết phòng đã chọn */}
+                      {}
                       {selectedRoomsCount > 0 && (
                         <div
                           style={{
@@ -791,7 +713,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                       )}
                     </div>
                   </div>{" "}
-                  {/* Cảnh báo nếu không đủ phòng */}
+                  {}
                   {showNotEnoughRoomsWarning && (
                     <Alert
                       message="Không thể đặt loại phòng này"
@@ -809,7 +731,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                       className="mb-6"
                     />
                   )}
-                  {/* Phần chọn số khách - hiển thị form cho từng phòng */}
+                  {}
                   {selectedRoomsCount > 0 &&
                     Array.from({ length: selectedRoomsCount }).map(
                       (_, roomIndex) => {
@@ -818,10 +740,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                         const currentBabies =
                           childrenAgesList[roomIndex]?.filter((age) => age <= 5)
                             .length || 0;
-                        const maxOccupancy = roomType.capacity || 4;
-
-                        // Em bé KHÔNG tính vào capacity
-                        // Người lớn và trẻ em: tối đa 3 mỗi loại, tổng không quá capacity
+                        const maxOccupancy = roomType?.capacity || 4;
                         const maxAdultsOptions = Math.min(
                           3,
                           maxOccupancy - currentChildren
@@ -831,7 +750,6 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                           maxOccupancy - currentAdults
                         );
                         const maxBabies = 3;
-
                         return (
                           <div
                             key={roomIndex}
@@ -853,7 +771,6 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                   Chọn số người phòng {roomIndex + 1}
                                 </div>
                               </Col>
-
                               <Col xs={6} sm={6}>
                                 <label
                                   style={{
@@ -873,8 +790,6 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                     const newList = [...numAdultsList];
                                     newList[roomIndex] = value;
                                     setNumAdultsList(newList);
-
-                                    // Điều chỉnh trẻ em nếu vượt quá capacity
                                     const total = value + currentChildren;
                                     if (
                                       total > maxOccupancy &&
@@ -901,7 +816,6 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                   )}
                                 />
                               </Col>
-
                               <Col xs={6} sm={6}>
                                 <label
                                   style={{
@@ -931,7 +845,6 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                   )}
                                 />
                               </Col>
-
                               <Col xs={6} sm={6}>
                                 <label
                                   style={{
@@ -972,254 +885,341 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
             </Panel>
           </Collapse>
         </div>
-        {/* Modal Tiện nghi */}
+        {}
         <Modal
-          title={null}
+          title={
+            <div style={{ fontSize: 20, fontWeight: 700 }}>
+              {roomType?.name}
+            </div>
+          }
           open={amenitiesModalOpen}
           onCancel={() => setAmenitiesModalOpen(false)}
           footer={null}
-          width={700}
-          closeIcon={
-            <div
-              style={{
-                width: "40px",
-                height: "40px",
-                borderRadius: "50%",
-                background: "rgba(255, 255, 255, 0.9)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "24px",
-                fontWeight: "normal",
-                cursor: "pointer",
-              }}
-            >
-              ×
-            </div>
-          }
+          width={1000}
+          centered
+          styles={{ body: { padding: "0 24px 24px 24px" } }}
         >
-          {/* Thông tin tổng quan phòng */}
-          <div style={{ display: "flex", gap: 24, marginBottom: 24 }}>
-            {/* Ảnh đại diện */}
-            <div style={{ flex: "0 0 180px" }}>
-              <img
-                src={
-                  roomType.images && roomType.images.length > 0
-                    ? roomType.images[0].startsWith("http")
-                      ? roomType.images[0]
-                      : `http://localhost:5000${roomType.images[0]}`
-                    : roomType.thumbnail?.startsWith("http")
-                      ? roomType.thumbnail
-                      : `http://localhost:5000${roomType.thumbnail}`
-                }
-                alt={roomType.name}
-                style={{
-                  width: 180,
-                  height: 120,
-                  objectFit: "cover",
-                  borderRadius: 8,
-                  background: "#f0f0f0",
-                }}
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.src =
-                    "https://via.placeholder.com/180x120?text=No+Image";
-                }}
-              />
-            </div>
-            {/* Thông tin text */}
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 6 }}>
-                {roomType.name}
-              </div>
-              <div
-                style={{
-                  color: "#666",
-                  fontSize: 14,
-                  marginBottom: 6,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 20,
-                  flexWrap: "wrap",
-                }}
-              >
-                {roomType.bed_type && (
-                  <span
-                    style={{ display: "flex", alignItems: "center", gap: 4 }}
-                  >
-                    {roomType.bed_type}
-                  </span>
-                )}
-                {roomType.room_size && (
-                  <span
-                    style={{ display: "flex", alignItems: "center", gap: 4 }}
-                  >
-                    <span style={{ display: "flex", alignItems: "center" }}>
-                      <svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="#888"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <rect x="3" y="3" width="18" height="18" rx="2" />
-                        <path d="M9 3v18M15 3v18M3 9h18M3 15h18" />
-                      </svg>
-                    </span>
-                    {roomType.room_size} m²
-                  </span>
-                )}
-                {roomType.view_direction && (
-                  <span
-                    style={{ display: "flex", alignItems: "center", gap: 4 }}
-                  >
-                    <span style={{ display: "flex", alignItems: "center" }}>
-                      <svg
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="#888"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <circle cx="12" cy="12" r="3.2" />
-                        <path d="M22 12c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2s10 4.477 10 10Z" />
-                      </svg>
-                    </span>
-                    {roomType.view_direction}
-                  </span>
-                )}
-              </div>
-              {roomType.description && (
-                <div
-                  style={{
-                    color: "#444",
-                    fontSize: 14,
-                    marginBottom: 0,
-                    lineHeight: 1.6,
-                    maxHeight: 60,
-                    overflow: "auto",
-                  }}
-                  dangerouslySetInnerHTML={{ __html: roomType.description }}
-                />
-              )}
-            </div>
-          </div>
-          <h2
-            style={{
-              fontSize: 20,
-              fontWeight: 600,
-              marginBottom: 24,
-              color: "#333",
-            }}
-          >
-            Danh sách tiện nghi phòng
-          </h2>
-          <div style={{ display: "flex", gap: 32 }}>
-            {(() => {
-              const allAmenities = [
-                ...(roomType.free_amenities || []),
-                ...(roomType.paid_amenities || []),
-              ];
-              if (allAmenities.length === 0) {
-                return (
-                  <div style={{ color: "#999", fontSize: 13 }}>
-                    Không có thông tin tiện nghi
-                  </div>
-                );
-              }
-              // Chia thành 2 cột
-              const mid = Math.ceil(allAmenities.length / 2);
-              const col1 = allAmenities.slice(0, mid);
-              const col2 = allAmenities.slice(mid);
-              const renderList = (arr: string[]) => (
-                <ul style={{ paddingLeft: 18, listStyle: "none" }}>
-                  {arr.map((amenity: string, idx: number) => (
-                    <li
-                      key={idx}
-                      style={{
-                        marginBottom: 10,
-                        color: "#222",
-                        fontSize: 14,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                      }}
-                    >
-                      <span style={{ fontSize: 18, color: "#222" }}>
-                        {getAmenityIcon(amenity)}
-                      </span>
-                      {amenity}
-                    </li>
-                  ))}
-                </ul>
-              );
-              return (
-                <>
-                  <div style={{ flex: 1 }}>{renderList(col1)}</div>
-                  <div style={{ flex: 1 }}>{renderList(col2)}</div>
-                </>
-              );
-            })()}
-          </div>
+          <Tabs
+            defaultActiveKey="1"
+            items={[
+              {
+                key: "1",
+                label: "Tổng quan",
+                children: (
+                  <div className="py-4">
+                    <Row gutter={[24, 24]}>
+                      <Col span={24} md={10}>
+                        <div
+                          style={{
+                            width: "100%",
+                            height: "300px",
+                            borderRadius: "12px",
+                            overflow: "hidden",
+                            border: "1px solid #f0f0f0",
+                            position: "relative",
+                          }}
+                        >
+                          <img
+                            src={
+                              roomType?.images && roomType?.images.length > 0
+                                ? roomType?.images[0].startsWith("http")
+                                  ? roomType?.images[0]
+                                  : `http://localhost:5001${roomType?.images[0]}`
+                                : roomType?.thumbnail?.startsWith("http")
+                                  ? roomType?.thumbnail
+                                  : `http://localhost:5001${roomType?.thumbnail}`
+                            }
+                            alt={roomType?.name}
+                            style={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                            }}
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src =
+                                "https://via.placeholder.com/600x400?text=No+Image";
+                            }}
+                          />
+                          <div
+                            style={{
+                              position: "absolute",
+                              bottom: 12,
+                              right: 12,
+                              background: "rgba(0,0,0,0.6)",
+                              color: "#fff",
+                              padding: "4px 12px",
+                              borderRadius: "20px",
+                              fontSize: "12px",
+                            }}
+                          >
+                            {roomType?.images?.length || 0} ảnh
+                          </div>
+                        </div>
+                      </Col>
+                      <Col span={24} md={14}>
+                        <Title level={4} style={{ marginTop: 0 }}>
+                          Thông tin phòng
+                        </Title>
+                        <div
+                          style={{
+                            display: "flex",
+                            gap: "16px",
+                            flexWrap: "wrap",
+                            marginBottom: "24px",
+                          }}
+                        >
+                          {roomType?.bed_type && (
+                            <Tag
+                              icon={<UserOutlined />}
+                              color="yellow"
+                              style={{
+                                padding: "6px 12px",
+                                fontSize: "14px",
+                                display: "flex",
+                                alignItems: "center",
+                              }}
+                            >
+                              {roomType?.bed_type}
+                            </Tag>
+                          )}
+                          {roomType?.room_size && (
+                            <Tag
+                              icon={<ToolOutlined />}
+                              color="cyan"
+                              style={{
+                                padding: "6px 12px",
+                                fontSize: "14px",
+                                display: "flex",
+                                alignItems: "center",
+                              }}
+                            >
+                              {roomType?.room_size} m²
+                            </Tag>
+                          )}
+                          {roomType?.view_direction && (
+                            <Tag
+                              icon={<CoffeeOutlined />}
+                              color="green"
+                              style={{
+                                padding: "6px 12px",
+                                fontSize: "14px",
+                                display: "flex",
+                                alignItems: "center",
+                              }}
+                            >
+                              {roomType?.view_direction}
+                            </Tag>
+                          )}
+                        </div>
 
-          {/* Thiết bị trong phòng */}
-          {equipments.length > 0 && (
-            <>
-              <h2
-                style={{
-                  fontSize: 20,
-                  fontWeight: 600,
-                  marginTop: 32,
-                  marginBottom: 16,
-                  color: "#333",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                }}
-              >
-                <ToolOutlined style={{ fontSize: 20 }} />
-                Thiết bị trong phòng
-              </h2>
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 10,
-                }}
-              >
-                {equipments.map((eq) => (
-                  <Tooltip
-                    key={eq.id}
-                    title={`Số lượng: ${eq.min_quantity}${eq.max_quantity > eq.min_quantity ? ` - ${eq.max_quantity}` : ""}`}
-                  >
-                    <span
-                      style={{
-                        display: "inline-block",
-                        padding: "6px 14px",
-                        backgroundColor: "#f5f5f5",
-                        borderRadius: "6px",
-                        fontSize: "14px",
-                        color: "#333",
-                        border: "1px solid #e8e8e8",
-                      }}
-                    >
-                      {eq.equipment_name}
-                    </span>
-                  </Tooltip>
-                ))}
-              </div>
-            </>
-          )}
+                        <div style={{ marginBottom: "24px" }}>
+                          <Title level={5}>Mô tả</Title>
+                          {roomType?.description ? (
+                            <div
+                              style={{
+                                color: "#555",
+                                fontSize: "15px",
+                                lineHeight: 1.6,
+                                maxHeight: "200px",
+                                overflowY: "auto",
+                                padding: "16px",
+                                background: "#f9f9f9",
+                                borderRadius: "8px",
+                              }}
+                              dangerouslySetInnerHTML={{
+                                __html: roomType?.description,
+                              }}
+                            />
+                          ) : (
+                            <Text type="secondary">
+                              Chưa có mô tả chi tiết.
+                            </Text>
+                          )}
+                        </div>
+
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            background: "#fff7e6",
+                            padding: "16px",
+                            borderRadius: "8px",
+                            border: "1px solid #ffe58f",
+                          }}
+                        >
+                          <div>
+                            <Text type="secondary">Giá phòng / đêm</Text>
+                            <div
+                              style={{
+                                fontSize: "24px",
+                                fontWeight: "bold",
+                                color: "#fa8c16",
+                              }}
+                            >
+                              {new Intl.NumberFormat("vi-VN").format(
+                                Number(roomType?.price) || 0
+                              )}{" "}
+                              VND
+                            </div>
+                          </div>
+                          <Button
+                            type="primary"
+                            size="large"
+                            onClick={() => {
+                              setAmenitiesModalOpen(false);
+                              if (!isExpanded) setIsExpanded(true);
+                            }}
+                          >
+                            Đặt ngay
+                          </Button>
+                        </div>
+                      </Col>
+                    </Row>
+                  </div>
+                ),
+              },
+              {
+                key: "2",
+                label: "Tiện nghi & Thiết bị",
+                children: (
+                  <div className="py-4">
+                    <Row gutter={[24, 24]}>
+                      <Col span={24}>
+                        <Title
+                          level={5}
+                          style={{
+                            marginBottom: "16px",
+                            borderLeft: "4px solid #1890ff",
+                            paddingLeft: "12px",
+                          }}
+                        >
+                          Tiện nghi phòng
+                        </Title>
+                        {(() => {
+                          const allAmenities = [
+                            ...(roomType?.free_amenities || []),
+                            ...(roomType?.paid_amenities || []),
+                          ];
+                          if (allAmenities.length === 0) {
+                            return (
+                              <Text type="secondary" italic>
+                                Không có thông tin tiện nghi
+                              </Text>
+                            );
+                          }
+                          return (
+                            <Row gutter={[16, 16]}>
+                              {allAmenities.map((amenity, idx) => (
+                                <Col span={12} md={8} key={idx}>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: "10px",
+                                      padding: "8px",
+                                      background: "#f5f5f5",
+                                      borderRadius: "6px",
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        fontSize: "18px",
+                                        color: "#1890ff",
+                                      }}
+                                    >
+                                      {FIXED_AMENITIES.find(
+                                        (a) => a.value === amenity
+                                      )?.icon || (
+                                        <HomeOutlined
+                                          style={{
+                                            fontSize: "18px",
+                                            color: "#222",
+                                          }}
+                                        />
+                                      )}
+                                    </span>
+                                    <span style={{ fontWeight: 500 }}>
+                                      {amenity}
+                                    </span>
+                                  </div>
+                                </Col>
+                              ))}
+                            </Row>
+                          );
+                        })()}
+                      </Col>
+
+                      <Col span={24}>
+                        <Divider />
+                        <Title
+                          level={5}
+                          style={{
+                            marginBottom: "16px",
+                            borderLeft: "4px solid #52c41a",
+                            paddingLeft: "12px",
+                          }}
+                        >
+                          Thiết bị có sẵn
+                        </Title>
+                        {equipments.length > 0 ? (
+                          <Row gutter={[16, 16]}>
+                            {equipments.map((eq) => (
+                              <Col xs={24} sm={12} md={8} lg={6} key={eq.id}>
+                                <Card
+                                  size="small"
+                                  hoverable
+                                  bodyStyle={{ padding: "12px" }}
+                                >
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      justifyContent: "space-between",
+                                      alignItems: "start",
+                                      marginBottom: "8px",
+                                    }}
+                                  >
+                                    <Text strong style={{ fontSize: "14px" }}>
+                                      {eq.equipment_name}
+                                    </Text>
+                                    <Tag
+                                      color={
+                                        eq.equipment_type === "furniture"
+                                          ? "orange"
+                                          : "yellow"
+                                      }
+                                    >
+                                      {eq.equipment_type === "furniture"
+                                        ? "Nội thất"
+                                        : "Thiết bị"}
+                                    </Tag>
+                                  </div>
+                                  <div
+                                    style={{ fontSize: "12px", color: "#666" }}
+                                  >
+                                    Số lượng: <Text strong>{eq.quantity}</Text>
+                                  </div>
+                                </Card>
+                              </Col>
+                            ))}
+                          </Row>
+                        ) : (
+                          <Text type="secondary" italic>
+                            Chưa có thông tin thiết bị.
+                          </Text>
+                        )}
+                      </Col>
+                    </Row>
+                  </div>
+                ),
+              },
+            ]}
+          />
         </Modal>
-        {/* Modal Chính sách */}
+        {}
         <Modal
-          title={roomType.name.toUpperCase()}
+          title={roomType?.name.toUpperCase()}
           open={policyModalOpen}
           onCancel={() => setPolicyModalOpen(false)}
           footer={[
@@ -1239,71 +1239,25 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
           width={800}
         >
           <div style={{ fontSize: "14px", lineHeight: "1.8" }}>
-            {/* Tiện nghi miễn phí */}
-            {roomType.free_amenities && roomType.free_amenities.length > 0 && (
-              <div style={{ marginBottom: "24px" }}>
-                <div
-                  style={{
-                    fontWeight: "600",
-                    marginBottom: "16px",
-                    fontSize: "16px",
-                    color: "#52c41a",
-                  }}
-                >
-                  Tiện nghi miễn phí
-                </div>
-                <Row gutter={[16, 16]}>
-                  {roomType.free_amenities.map(
-                    (amenity: string, idx: number) => (
-                      <Col span={12} key={`free-${idx}`}>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "10px",
-                            padding: "8px 0",
-                          }}
-                        >
-                          <div
-                            style={{
-                              color: "#52c41a",
-                              width: "24px",
-                              textAlign: "center",
-                            }}
-                          >
-                            {getAmenityIcon(amenity)}
-                          </div>
-                          <span style={{ color: "#333", fontSize: "14px" }}>
-                            {amenity}
-                          </span>
-                        </div>
-                      </Col>
-                    )
-                  )}
-                </Row>
-              </div>
-            )}
-
-            {/* Tiện nghi tính phí */}
-            {roomType.paid_amenities && roomType.paid_amenities.length > 0 && (
-              <div style={{ marginBottom: "24px" }}>
-                <div
-                  style={{
-                    fontWeight: "600",
-                    marginBottom: "16px",
-                    fontSize: "16px",
-                    color: "#f5a623",
-                  }}
-                >
-                  Tiện nghi tính phí
-                </div>
-                <Row gutter={[16, 16]}>
-                  {roomType.paid_amenities.map(
-                    (amenity: string, idx: number) => {
-                      // ...existing code...
-
-                      return (
-                        <Col span={12} key={`paid-${idx}`}>
+            {}
+            {roomType?.free_amenities &&
+              roomType?.free_amenities.length > 0 && (
+                <div style={{ marginBottom: "24px" }}>
+                  <div
+                    style={{
+                      fontWeight: "600",
+                      marginBottom: "16px",
+                      fontSize: "16px",
+                      color: "#333",
+                    }}
+                  >
+                    Tiện nghi phòng
+                  </div>
+                  <Row gutter={[16, 16]}>
+                    {roomType?.free_amenities
+                      .concat(roomType?.paid_amenities || [])
+                      .map((amenity: string, idx: number) => (
+                        <Col span={12} key={`free-${idx}`}>
                           <div
                             style={{
                               display: "flex",
@@ -1314,81 +1268,79 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                           >
                             <div
                               style={{
-                                color: "#f5a623",
+                                color: "#222",
                                 width: "24px",
                                 textAlign: "center",
                               }}
                             >
-                              {getAmenityIcon(amenity)}
+                              {FIXED_AMENITIES.find((a) => a.value === amenity)
+                                ?.icon || (
+                                <HomeOutlined
+                                  style={{ fontSize: "18px", color: "#222" }}
+                                />
+                              )}
                             </div>
                             <span style={{ color: "#333", fontSize: "14px" }}>
                               {amenity}
                             </span>
                           </div>
                         </Col>
-                      );
-                    }
-                  )}
-                </Row>
-              </div>
-            )}
-            {/* Thanh toán */}
-            {roomType.policies?.payment && (
+                      ))}
+                  </Row>
+                </div>
+              )}
+            {}
+            {roomType?.policies?.payment && (
               <div style={{ marginBottom: "16px" }}>
                 <div style={{ fontWeight: "600", marginBottom: "4px" }}>
                   Thanh toán
                 </div>
                 <div style={{ color: "#666" }}>
-                  {typeof roomType.policies.payment === "string"
-                    ? roomType.policies.payment
+                  {typeof roomType?.policies.payment === "string"
+                    ? roomType?.policies.payment
                     : "Thanh toán toàn bộ giá trị tiền đặt phòng."}
                 </div>
               </div>
             )}
-
-            {/* Nhận phòng */}
+            {}
             <div style={{ marginBottom: "8px" }}>
               <strong>Nhận phòng:</strong>{" "}
-              {roomType.policies?.checkin &&
-              typeof roomType.policies.checkin === "string"
-                ? roomType.policies.checkin
+              {roomType?.policies?.checkin &&
+              typeof roomType?.policies.checkin === "string"
+                ? roomType?.policies.checkin
                 : "14:00"}
             </div>
-
-            {/* Trả phòng */}
+            {}
             <div style={{ marginBottom: "16px" }}>
               <strong>Trả phòng:</strong>{" "}
-              {roomType.policies?.checkout &&
-              typeof roomType.policies.checkout === "string"
-                ? roomType.policies.checkout
+              {roomType?.policies?.checkout &&
+              typeof roomType?.policies.checkout === "string"
+                ? roomType?.policies.checkout
                 : "14:00"}
             </div>
-
-            {/* Phụ thu người lớn */}
+            {}
             <div style={{ marginBottom: "8px" }}>
               <strong>Phụ thu người lớn:</strong>{" "}
-              {roomType.extra_adult_fee
-                ? `${new Intl.NumberFormat("vi-VN").format(Number(roomType.extra_adult_fee))} VND /đêm`
+              {roomType?.extra_adult_fee
+                ? `${new Intl.NumberFormat("vi-VN").format(Number(roomType?.extra_adult_fee))} VND /đêm`
                 : "Không có"}
             </div>
-
-            {/* Phụ thu trẻ em */}
+            {}
             <div style={{ marginBottom: "16px" }}>
               <strong>Phụ thu trẻ em:</strong>{" "}
-              {roomType.extra_child_fee
-                ? `${new Intl.NumberFormat("vi-VN").format(Number(roomType.extra_child_fee))} VND /đêm`
+              {roomType?.extra_child_fee
+                ? `${new Intl.NumberFormat("vi-VN").format(Number(roomType?.extra_child_fee))} VND /đêm`
                 : "Không có"}
             </div>
-
-            {/* Chính sách khác */}
-            {roomType.policies?.other_policies &&
-              roomType.policies.other_policies.length > 0 && (
+            {}
+            {roomType?.policies?.other_policies &&
+              roomType?.policies.other_policies.length > 0 && (
                 <div>
                   <div style={{ fontWeight: "600", marginBottom: "4px" }}>
                     Chính sách khác
                   </div>
                   <div style={{ color: "#666" }}>
-                    {roomType.policies.other_policies.map(
+                    {roomType?.policies.other_policies.map(
                       (policy: string, idx: number) => (
                         <div key={idx}>{policy}</div>
                       )
@@ -1402,5 +1354,4 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
     );
   }
 );
-
 export default RoomTypeCard;

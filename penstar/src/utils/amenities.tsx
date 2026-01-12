@@ -5,58 +5,107 @@ import {
   HolderOutlined,
   HomeOutlined,
   PhoneOutlined,
+  DesktopOutlined,
+  SafetyCertificateOutlined,
+  ThunderboltOutlined,
+  SkinOutlined,
+  FireOutlined,
+  RestOutlined,
+  ToolOutlined,
 } from "@ant-design/icons";
 
-const blackIconStyle = { fontSize: "18px", color: "#222" };
-const amenityIconMap = [
+const iconStyle = { fontSize: "18px", color: "#222" };
+
+// Danh sách tiện nghi miễn phí phổ biến khi đặt phòng khách sạn
+export const FIXED_AMENITIES = [
   {
-    keywords: ["wifi", "tốc độ", "internet"],
-    icon: <WifiOutlined style={blackIconStyle} />,
+    value: "WiFi miễn phí",
+    label: "WiFi miễn phí",
+    icon: <WifiOutlined style={iconStyle} />,
   },
   {
-    keywords: ["nước", "suối", "chai"],
-    icon: <CoffeeOutlined style={blackIconStyle} />,
+    value: "Điều hòa nhiệt độ",
+    label: "Điều hòa nhiệt độ",
+    icon: <FireOutlined style={iconStyle} />,
   },
   {
-    keywords: ["bàn chải", "đánh răng", "kem"],
-    icon: <SnippetsOutlined style={blackIconStyle} />,
+    value: "TV màn hình phẳng",
+    label: "TV màn hình phẳng",
+    icon: <DesktopOutlined style={iconStyle} />,
   },
   {
-    keywords: ["dầu", "gội", "sữa tắm"],
-    icon: <HolderOutlined style={blackIconStyle} />,
+    value: "Máy sấy tóc",
+    label: "Máy sấy tóc",
+    icon: <ThunderboltOutlined style={iconStyle} />,
   },
   {
-    keywords: ["khăn", "tắm", "mặt"],
-    icon: <HomeOutlined style={blackIconStyle} />,
+    value: "Dép đi trong phòng",
+    label: "Dép đi trong phòng",
+    icon: <SkinOutlined style={iconStyle} />,
   },
   {
-    keywords: ["dép"],
-    icon: <HomeOutlined style={blackIconStyle} />,
+    value: "Nước suối miễn phí",
+    label: "Nước suối miễn phí",
+    icon: <CoffeeOutlined style={iconStyle} />,
   },
   {
-    keywords: ["minibar", "đồ uống", "gas"],
-    icon: <CoffeeOutlined style={blackIconStyle} />,
+    value: "Bàn chải & kem đánh răng",
+    label: "Bàn chải & kem đánh răng",
+    icon: <SnippetsOutlined style={iconStyle} />,
   },
   {
-    keywords: ["room service", "24/7"],
-    icon: <PhoneOutlined style={blackIconStyle} />,
+    value: "Dầu gội & sữa tắm",
+    label: "Dầu gội & sữa tắm",
+    icon: <HolderOutlined style={iconStyle} />,
   },
   {
-    keywords: ["giặt", "là"],
-    icon: <HomeOutlined style={blackIconStyle} />,
+    value: "Khăn tắm",
+    label: "Khăn tắm",
+    icon: <SkinOutlined style={iconStyle} />,
   },
   {
-    keywords: ["snack", "ăn nhẹ"],
-    icon: <CoffeeOutlined style={blackIconStyle} />,
+    value: "Tủ quần áo",
+    label: "Tủ quần áo",
+    icon: <HomeOutlined style={iconStyle} />,
+  },
+  {
+    value: "Bàn làm việc",
+    label: "Bàn làm việc",
+    icon: <ToolOutlined style={iconStyle} />,
+  },
+  {
+    value: "Dọn phòng hàng ngày",
+    label: "Dọn phòng hàng ngày",
+    icon: <RestOutlined style={iconStyle} />,
+  },
+  {
+    value: "Két an toàn",
+    label: "Két an toàn",
+    icon: <SafetyCertificateOutlined style={iconStyle} />,
+  },
+  {
+    value: "Điện thoại",
+    label: "Điện thoại",
+    icon: <PhoneOutlined style={iconStyle} />,
+  },
+  {
+    value: "Trà & cà phê miễn phí",
+    label: "Trà & cà phê miễn phí",
+    icon: <CoffeeOutlined style={iconStyle} />,
+  },
+  {
+    value: "Bồn tắm",
+    label: "Bồn tắm",
+    icon: <HomeOutlined style={iconStyle} />,
+  },
+  {
+    value: "Vòi sen",
+    label: "Vòi sen",
+    icon: <HomeOutlined style={iconStyle} />,
+  },
+  {
+    value: "Ban công",
+    label: "Ban công",
+    icon: <HomeOutlined style={iconStyle} />,
   },
 ];
-
-export function getAmenityIcon(name: string) {
-  const lowerName = name.toLowerCase();
-  for (const item of amenityIconMap) {
-    if (item.keywords.some((keyword) => lowerName.includes(keyword))) {
-      return item.icon;
-    }
-  }
-  return <HomeOutlined style={blackIconStyle} />;
-}
