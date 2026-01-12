@@ -48,6 +48,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         role_id: decoded.role_id ? Number(decoded.role_id) : undefined,
         role: decoded.role ? String(decoded.role).toLowerCase() : undefined,
       });
+      console.log(decoded);
       setInitialized(true);
     } catch {
       localStorage.removeItem("penstar_token");

@@ -14,6 +14,7 @@ router.post(
 );
 router.get(
   "/list",
+  requireAuth,
   requireRole("admin"),
   DiscountCodesController.list
 );
