@@ -1,0 +1,2 @@
+ALTER TABLE rooms DROP COLUMN IF EXISTS thumbnail;
+DROP TABLE IF EXISTS room_images;
