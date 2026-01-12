@@ -1,219 +1,76 @@
 import { Link, NavLink } from "react-router-dom";
 import { useState } from "react";
 import useAuth from "@/hooks/useAuth";
-
+import {
+  DashboardOutlined,
+  HomeOutlined,
+  AppstoreOutlined,
+  ToolOutlined,
+  BuildOutlined,
+  TeamOutlined,
+  CalendarOutlined,
+  CoffeeOutlined,
+  TagsOutlined,
+  RollbackOutlined,
+} from "@ant-design/icons";
 const Sidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const auth = useAuth();
   const roleName = auth?.getRoleName(auth.user) || "user";
   const isManagerOrAbove = roleName === "manager" || roleName === "admin";
-
   const navItems = [
     {
       to: "/admin",
-      label: "Bảng điều khiển",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-          ></path>
-        </svg>
-      ),
+      label: "Thống kê",
+      icon: <DashboardOutlined className="text-xl" />,
     },
     {
       to: "/admin/rooms",
       label: "Phòng",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h6m-6 4h6m-6 4h6"
-          />
-        </svg>
-      ),
+      icon: <HomeOutlined className="text-xl" />,
     },
     {
       to: "/admin/roomtypes",
       label: "Loại phòng",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M4 6h16M4 12h16M4 18h16"
-          />
-        </svg>
-      ),
+      icon: <AppstoreOutlined className="text-xl" />,
     },
     {
-      to: "/admin/equipments",
-      label: "Thiết bị master",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <rect x="3" y="7" width="18" height="13" rx="2" strokeWidth="2" />
-          <circle cx="12" cy="13.5" r="2.5" strokeWidth="2" />
-          <path d="M16 3v4M8 3v4M3 10h18" strokeWidth="2" />
-        </svg>
-      ),
+      to: "/admin/broken-equipments",
+      label: "Thiết bị hỏng",
+      icon: <ToolOutlined className="text-xl" />,
     },
     {
       to: "/admin/floors",
       label: "Tầng",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M4 6h16M4 12h16M4 18h16"
-          />
-        </svg>
-      ),
+      icon: <BuildOutlined className="text-xl" />,
     },
     {
       to: "/admin/users",
       label: "Người dùng",
-      requireRole: "manager", // Only manager and admin
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-            d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 01-6-6v-1a6 6 0 016-6v-1H3a6 6 0 016 6v1a6 6 0 01-6 6z"
-          ></path>
-        </svg>
-      ),
+      requireRole: "manager",
+      icon: <TeamOutlined className="text-xl" />,
     },
     {
       to: "/admin/bookings",
       label: "Đặt phòng",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-          />
-        </svg>
-      ),
+      icon: <CalendarOutlined className="text-xl" />,
     },
     {
       to: "/admin/services",
       label: "Dịch vụ",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 8c-3 0-5 2-5 5s2 5 5 5 5-2 5-5-2-5-5-5z M12 3v3M12 18v3"
-          />
-        </svg>
-      ),
+      icon: <CoffeeOutlined className="text-xl" />,
     },
     {
       to: "/admin/discount-codes",
       label: "Mã giảm giá",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01M12 6v-1m0-1H8.5m3.5 1H12m0-1h3.5m-3.5 1H12m0 0h.01M12 3v1m0-1c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v.01M12 6v-1m0-1H8.5m3.5 1H12m0-1h3.5m-3.5 1H12m0 0h.01M12 3v1"
-          />
-        </svg>
-      ),
+      icon: <TagsOutlined className="text-xl" />,
     },
     {
       to: "/admin/refund-requests",
       label: "Hoàn tiền",
-      icon: (
-        <svg
-          className="w-6 h-6"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"
-          />
-        </svg>
-      ),
+      icon: <RollbackOutlined className="text-xl" />,
     },
   ];
-
-  const navLinkClasses = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-3 p-3 rounded-lg transition-colors duration-200 w-full ${
-      isActive ? "bg-gray-700 text-white" : "text-gray-300 hover:bg-gray-700"
-    }`;
-
   return (
     <aside
       className={`${
@@ -221,20 +78,18 @@ const Sidebar = () => {
       } min-h-screen bg-gray-800 text-white flex flex-col shadow-lg transition-all duration-200`}
     >
       <div className="p-4 border-b border-gray-700 flex items-center justify-between">
-        <Link to="/admin" className="flex items-center gap-3">
-          <div className="bg-white rounded-full w-9 h-9 flex items-center justify-center text-gray-800 font-bold">
-            QL
-          </div>
+        <Link to="/" className="flex items-center gap-3">
           {!collapsed && (
             <div>
-              <div className="text-lg font-bold">Quản trị hệ thống</div>
-              <div className="text-sm text-gray-400">
-                Xin chào, Quản trị viên
-              </div>
+              <div className="text-lg font-bold uppercase">PenStar Center</div>
+            </div>
+          )}
+          {collapsed && (
+            <div>
+              <div className="text-lg font-bold uppercase">P</div>
             </div>
           )}
         </Link>
-
         <button
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           onClick={() => setCollapsed((s) => !s)}
@@ -271,12 +126,10 @@ const Sidebar = () => {
           )}
         </button>
       </div>
-
       <nav className="flex-1 p-3">
         <ul className="space-y-2">
           {navItems
             .filter((item) => {
-              // Filter out items that require specific roles
               if ("requireRole" in item && item.requireRole === "manager") {
                 return isManagerOrAbove;
               }
@@ -284,7 +137,19 @@ const Sidebar = () => {
             })
             .map((item) => (
               <li key={item.to} className="w-full">
-                <NavLink to={item.to} className={navLinkClasses} end>
+                <NavLink
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 p-3 rounded-lg transition-colors duration-200 w-full ${
+                      isActive ? "bg-gray-800" : "hover:bg-gray-700"
+                    }`
+                  }
+                  style={({ isActive }) => ({
+                    color: isActive ? "#fadb14" : "#ffffff",
+                    fontWeight: isActive ? 500 : 400,
+                  })}
+                  end
+                >
                   <div className="flex items-center justify-center w-6">
                     {item.icon}
                   </div>
@@ -297,5 +162,4 @@ const Sidebar = () => {
     </aside>
   );
 };
-
 export default Sidebar;

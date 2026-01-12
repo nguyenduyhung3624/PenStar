@@ -1,5 +1,4 @@
 import { instance } from "./api";
-
 export const importEquipment = async (data: {
   equipment_id: number;
   quantity: number;
@@ -13,10 +12,7 @@ export const importEquipment = async (data: {
     throw error;
   }
 };
-
-// Alias for compatibility with EquipmentImport.tsx
 export const importEquipmentStock = importEquipment;
-
 export const exportEquipment = async (data: {
   equipment_id: number;
   quantity: number;
@@ -30,7 +26,6 @@ export const exportEquipment = async (data: {
     throw error;
   }
 };
-
 export const transferEquipment = async (data: {
   equipment_id: number;
   quantity: number;
@@ -46,7 +41,6 @@ export const transferEquipment = async (data: {
     throw error;
   }
 };
-
 export const getAllStockLogs = async () => {
   try {
     const res = await instance.get("/equipment-stock-logs/logs/all");

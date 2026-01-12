@@ -1,5 +1,4 @@
 import pool from "../db.js";
-
 export const getRoomTypes = async () => {
   let result;
   try {
@@ -35,17 +34,12 @@ export const getRoomTypes = async () => {
     console.error("Lỗi truy vấn room_types:", err);
     throw err;
   }
-
-  // ...existing code for images, grouping, etc...
-
-  // Map refund policy fields into a nested object for each room type
   const roomTypes = {};
   for (const row of result.rows) {
     if (!roomTypes[row.id]) {
       roomTypes[row.id] = {
         id: row.id,
         name: row.name,
-        // ...existing fields...
         refund_policy:
           row.refundable !== null
             ? {
@@ -59,10 +53,5 @@ export const getRoomTypes = async () => {
       };
     }
   }
-
-  // ...existing code for images, etc...
-
   return Object.values(roomTypes);
 };
-
-// ...other exports (createRoomType, getRoomTypeById, etc) remain unchanged...

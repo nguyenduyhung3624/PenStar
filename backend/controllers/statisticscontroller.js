@@ -37,7 +37,7 @@ export const getStatistics = async (req, res) => {
     );
     const totalBookings = parseInt(bookingsRes.rows[0].count);
     const revenueRes = await safeQuery(
-      `SELECT COALESCE(SUM(total_price), 0) as total 
+      `SELECT COALESCE(SUM(total_price), 0) as total
        FROM bookings b
        WHERE b.created_at >= $1 AND b.created_at <= $2
        AND b.payment_status = 'paid'`,
@@ -56,7 +56,7 @@ export const getStatistics = async (req, res) => {
        FROM bookings b
        JOIN booking_items bi ON bi.booking_id = b.id
        WHERE bi.check_in >= $1 AND bi.check_in <= $2
-       AND b.stay_status_id IN (1, 2, 3)`, 
+       AND b.stay_status_id IN (1, 2, 3)`,
       params,
       [{ count: 0 }]
     );
@@ -66,13 +66,13 @@ export const getStatistics = async (req, res) => {
        FROM bookings b
        JOIN booking_items bi ON bi.booking_id = b.id
        WHERE bi.check_out >= $1 AND bi.check_out <= $2
-       AND b.stay_status_id = 3`, 
+       AND b.stay_status_id = 3`,
       params,
       [{ count: 0 }]
     );
     const countCheckouts = parseInt(checkoutsRes.rows[0].count) || 0;
     const revenueByTimeRes = await safeQuery(
-      `SELECT 
+      `SELECT
         DATE(created_at) as date,
         COALESCE(SUM(total_price), 0) as revenue
        FROM bookings
@@ -84,7 +84,7 @@ export const getStatistics = async (req, res) => {
       []
     );
     const bookingByPaymentMethodRes = await safeQuery(
-      `SELECT 
+      `SELECT
         COALESCE(payment_method, 'unknown') as payment_method,
         COUNT(*) as count
        FROM bookings b
@@ -95,7 +95,7 @@ export const getStatistics = async (req, res) => {
       []
     );
     const recentBookingsRes = await safeQuery(
-      `SELECT 
+      `SELECT
         b.id,
         b.customer_name,
         b.total_price,
@@ -110,7 +110,7 @@ export const getStatistics = async (req, res) => {
       []
     );
     const roomStatusCountRes = await safeQuery(
-      `SELECT 
+      `SELECT
         SUM(CASE WHEN r.status = 'available' THEN 1 ELSE 0 END) as available,
         SUM(CASE WHEN r.status = 'occupied' THEN 1 ELSE 0 END) as occupied,
         SUM(CASE WHEN r.status = 'booked' THEN 1 ELSE 0 END) as reserved,
@@ -129,7 +129,7 @@ export const getStatistics = async (req, res) => {
     const occupancyRate =
       totalRooms > 0 ? ((occupiedRooms / totalRooms) * 100).toFixed(2) : 0;
     const deviceDamageRes = await safeQuery(
-      `SELECT 
+      `SELECT
         COUNT(*) as total_damage_cases,
         COALESCE(SUM(amount), 0) as total_damage_amount
        FROM booking_incidents
@@ -138,9 +138,9 @@ export const getStatistics = async (req, res) => {
       [{ total_damage_cases: 0, total_damage_amount: 0 }]
     );
     const deviceDamageDetailsRes = await safeQuery(
-      `SELECT 
-        bi.id, bi.booking_id, bi.amount, 
-        COALESCE(me.name, 'Thiết bị đã xóa') as equipment_name, 
+      `SELECT
+        bi.id, bi.booking_id, bi.amount,
+        COALESCE(me.name, 'Thiết bị đã xóa') as equipment_name,
         COALESCE(r.name, 'Phòng đã xóa') as room_name
        FROM booking_incidents bi
        LEFT JOIN master_equipments me ON bi.equipment_id = me.id
@@ -150,6 +150,141 @@ export const getStatistics = async (req, res) => {
       [],
       []
     );
+    const serviceRevenueRes = await safeQuery(
+      `SELECT COALESCE(SUM(bs.total_service_price), 0) as total
+       FROM booking_services bs
+       JOIN bookings b ON bs.booking_id = b.id
+       WHERE b.created_at >= $1 AND b.created_at <= $2
+       AND b.payment_status = 'paid'`,
+      params,
+      [{ total: 0 }]
+    );
+    const serviceRevenue = parseFloat(serviceRevenueRes.rows[0].total) || 0;
+
+    const incidentRevenueRes = await safeQuery(
+      `SELECT COALESCE(SUM(bi.amount), 0) as total
+       FROM booking_incidents bi
+       JOIN bookings b ON bi.booking_id = b.id
+       WHERE bi.created_at >= $1 AND bi.created_at <= $2
+       AND b.payment_status = 'paid'`,
+      params,
+      [{ total: 0 }]
+    );
+    const incidentRevenue = parseFloat(incidentRevenueRes.rows[0].total) || 0;
+
+    // Room Revenue is Total - Service - Incident (Approx)
+    // Or we can query booking_items directly if we have room_price there
+    const roomRevenue = Math.max(
+      0,
+      totalRevenue - serviceRevenue - incidentRevenue
+    );
+
+    const topRoomTypesRes = await safeQuery(
+      `SELECT rt.name, COUNT(b.id) as booking_count, SUM(b.total_price) as revenue
+       FROM bookings b
+       JOIN booking_items bi ON bi.booking_id = b.id
+       JOIN rooms r ON bi.room_id = r.id
+       JOIN room_types rt ON r.type_id = rt.id
+       WHERE b.created_at >= $1 AND b.created_at <= $2
+       AND b.payment_status = 'paid'
+       GROUP BY rt.id, rt.name
+       ORDER BY revenue DESC
+       LIMIT 5`,
+      params,
+      []
+    );
+
+    const topServicesRes = await safeQuery(
+      `SELECT s.name, SUM(bs.quantity) as usage_count, SUM(bs.total_service_price) as revenue
+       FROM booking_services bs
+       JOIN services s ON bs.service_id = s.id
+       JOIN bookings b ON bs.booking_id = b.id
+       WHERE b.created_at >= $1 AND b.created_at <= $2
+       AND b.payment_status = 'paid'
+       GROUP BY s.id, s.name
+       ORDER BY revenue DESC
+       LIMIT 5`,
+      params,
+      []
+    );
+
+    const bottomRoomTypesRes = await safeQuery(
+      `SELECT rt.name, COUNT(b.id) as booking_count
+       FROM room_types rt
+       LEFT JOIN rooms r ON r.type_id = rt.id
+       LEFT JOIN booking_items bi ON bi.room_id = r.id
+       LEFT JOIN bookings b ON bi.booking_id = b.id AND b.created_at >= $1 AND b.created_at <= $2 AND b.payment_status = 'paid'
+       GROUP BY rt.id, rt.name
+       ORDER BY booking_count ASC
+       LIMIT 5`,
+      params,
+      []
+    );
+
+    const bottomServicesRes = await safeQuery(
+      `SELECT s.name, COALESCE(SUM(bs.quantity), 0) as usage_count
+       FROM services s
+       LEFT JOIN booking_services bs ON bs.service_id = s.id
+       LEFT JOIN bookings b ON bs.booking_id = b.id AND b.created_at >= $1 AND b.created_at <= $2 AND b.payment_status = 'paid'
+       GROUP BY s.id, s.name
+       ORDER BY usage_count ASC
+       LIMIT 5`,
+      params,
+      []
+    );
+
+    const bookingStatusRes = await safeQuery(
+      `SELECT ss.name, COUNT(b.id) as count
+       FROM bookings b
+       JOIN stay_status ss ON b.stay_status_id = ss.id
+       WHERE b.created_at >= $1 AND b.created_at <= $2
+       GROUP BY ss.id, ss.name`,
+      params,
+      []
+    );
+
+    const dailyOperationsRes = await safeQuery(
+      `SELECT
+        DATE(check_in) as date,
+        COUNT(CASE WHEN check_in >= $1 AND check_in <= $2 THEN 1 END) as checkins,
+        COUNT(CASE WHEN check_out >= $1 AND check_out <= $2 THEN 1 END) as checkouts
+       FROM booking_items
+       GROUP BY DATE(check_in)
+       ORDER BY date ASC`,
+      params,
+      []
+    );
+    // Note: Simplified query for demo. Ideally join checkin/checkout dates separately or union.
+    // For accuracy let's stick to simple aggregate stats for now or separate LineCharts if needed.
+    // Let's refine "dailyOperations" to just return raw checkin/checkout dates to process or separate queries.
+    // Actually, let's calculate simpler KPIs first.
+
+    const cancellationStatsRes = await safeQuery(
+      `SELECT
+            COUNT(*) as total,
+            SUM(CASE WHEN stay_status_id = 5 THEN 1 ELSE 0 END) as cancelled
+         FROM bookings
+         WHERE created_at >= $1 AND created_at <= $2`,
+      params,
+      [{ total: 0, cancelled: 0 }]
+    );
+    const totalForCancel = parseInt(cancellationStatsRes.rows[0].total) || 1;
+    const cancelledCount =
+      parseInt(cancellationStatsRes.rows[0].cancelled) || 0;
+    const cancelRate = ((cancelledCount / totalForCancel) * 100).toFixed(1);
+
+    const stayDurationRes = await safeQuery(
+      `SELECT AVG(check_out::date - check_in::date) as avg_stay
+         FROM booking_items bi
+         JOIN bookings b ON bi.booking_id = b.id
+         WHERE b.created_at >= $1 AND b.created_at <= $2`,
+      params,
+      [{ avg_stay: 0 }]
+    );
+    const avgStay = parseFloat(stayDurationRes.rows[0].avg_stay || 0).toFixed(
+      1
+    );
+
     const formattedPaymentMethods = bookingByPaymentMethodRes.rows.map((r) => ({
       name: r.payment_method,
       value: parseInt(r.count),
@@ -173,6 +308,37 @@ export const getStatistics = async (req, res) => {
           date: r.date,
           revenue: parseFloat(r.revenue),
         })),
+        revenueBreakdown: {
+          room: roomRevenue,
+          service: serviceRevenue,
+          incident: incidentRevenue,
+        },
+        topRoomTypes: topRoomTypesRes.rows.map((r) => ({
+          name: r.name,
+          bookings: parseInt(r.booking_count),
+          revenue: parseFloat(r.revenue),
+        })),
+        bottomRoomTypes: bottomRoomTypesRes.rows.map((r) => ({
+          name: r.name,
+          bookings: parseInt(r.booking_count),
+        })),
+        topServices: topServicesRes.rows.map((r) => ({
+          name: r.name,
+          usage: parseInt(r.usage_count),
+          revenue: parseFloat(r.revenue),
+        })),
+        bottomServices: bottomServicesRes.rows.map((r) => ({
+          name: r.name,
+          usage: parseInt(r.usage_count),
+        })),
+        bookingStatusStats: bookingStatusRes.rows.map((r) => ({
+          name: r.name,
+          value: parseInt(r.count),
+        })),
+        kpi: {
+          cancelRate: parseFloat(cancelRate),
+          avgStay: parseFloat(avgStay),
+        },
         bookingsByPaymentMethod: formattedPaymentMethods,
         paymentMethods: formattedPaymentMethods,
         roomStatusCount: {

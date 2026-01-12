@@ -11,7 +11,6 @@ import { message } from "antd";
 import { getRoles } from "@/services/rolesApi";
 import type { Role } from "@/types/roles";
 import useAuth from "@/hooks/useAuth";
-
 const Userlist = () => {
   const navigate = useNavigate();
   const auth = useAuth();
@@ -19,17 +18,14 @@ const Userlist = () => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 8;
   const [searchTerm, setSearchTerm] = useState<string>("");
-
   const { data: usersRaw, isLoading } = useQuery({
     queryKey: ["users"],
     queryFn: getUsers,
   });
-
   const { data: rolesRaw } = useQuery({
     queryKey: ["roles"],
     queryFn: getRoles,
   });
-
   const roleMap = useMemo(() => {
     const src: Role[] = Array.isArray(rolesRaw)
       ? rolesRaw
@@ -40,24 +36,19 @@ const Userlist = () => {
     });
     return m;
   }, [rolesRaw]);
-  // map role name -> color
   const roleColorMap: Record<string, string> = {
     admin: "red",
-    manager: "blue",
+    manager: "yellow",
     staff: "green",
     customer: "gold",
   };
-
-  // map role name -> Vietnamese
   const roleNameVi: Record<string, string> = {
     admin: "Quản trị viên",
     manager: "Quản lý",
     staff: "Nhân viên",
     customer: "Khách hàng",
   };
-
   const queryClient = useQueryClient();
-
   const banMut = useMutation({
     mutationFn: ({ id, status }: { id: number | string; status: string }) =>
       updateUser(id, { status }),
@@ -67,12 +58,9 @@ const Userlist = () => {
     },
     onError: () => message.error("Cập nhật trạng thái người dùng thất bại"),
   });
-
-  // backend returns { success, message, data } from listUsers controller
   const users: User[] = Array.isArray(usersRaw?.data)
     ? usersRaw.data
     : (usersRaw ?? []);
-
   const filtered = users.filter((u) => {
     const q = String(searchTerm ?? "")
       .trim()
@@ -90,7 +78,6 @@ const Userlist = () => {
         .includes(q)
     );
   });
-
   const columns: ColumnsType<User> = [
     {
       title: "STT",
@@ -121,7 +108,6 @@ const Userlist = () => {
           auth?.getRoleName(auth.user)?.toLowerCase?.() || "";
         const targetUserRole =
           roleMap[Number(record.role_id)]?.toLowerCase?.() || "";
-        // Chặn admin thao tác với admin khác (trừ chính mình)
         const isAdminBlock =
           currentUserRole === "admin" &&
           targetUserRole === "admin" &&
@@ -136,25 +122,11 @@ const Userlist = () => {
             >
               Sửa
             </Button>
-            <Button
-              type="primary"
-              danger
-              onClick={() =>
-                banMut.mutate({
-                  id: record.id,
-                  status: record.status === "banned" ? "active" : "banned",
-                })
-              }
-              disabled={isCurrentUser || isAdminBlock}
-            >
-              {record.status === "banned" ? "Bỏ chặn" : "Chặn"}
-            </Button>
           </Space>
         );
       },
     },
   ];
-
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -187,5 +159,4 @@ const Userlist = () => {
     </div>
   );
 };
-
 export default Userlist;

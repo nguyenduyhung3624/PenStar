@@ -1,17 +1,14 @@
 import pool from "../db.js";
-
 export const getBookingItems = async () => {
   const res = await pool.query("SELECT * FROM booking_items ORDER BY id DESC");
   return res.rows;
 };
-
 export const getBookingItemById = async (id) => {
   const res = await pool.query("SELECT * FROM booking_items WHERE id = $1", [
     id,
   ]);
   return res.rows[0];
 };
-
 export const createBookingItem = async (data) => {
   const {
     booking_id,
@@ -55,7 +52,6 @@ export const createBookingItem = async (data) => {
   );
   return res.rows[0];
 };
-
 export const deleteBookingItem = async (id) => {
   const res = await pool.query(
     "DELETE FROM booking_items WHERE id = $1 RETURNING *",
@@ -63,15 +59,12 @@ export const deleteBookingItem = async (id) => {
   );
   return res.rows[0];
 };
-
-/**
- * Get all booking items for a booking
- */
 export const getByBookingId = async (bookingId) => {
   const res = await pool.query(
     `SELECT bi.*,
             r.name as room_name,
             rt.name as room_type_name,
+            rt.thumbnail as room_type_image,
             rt.price as room_type_price_base
      FROM booking_items bi
      LEFT JOIN rooms r ON bi.room_id = r.id
@@ -82,10 +75,6 @@ export const getByBookingId = async (bookingId) => {
   );
   return res.rows;
 };
-
-/**
- * Cancel a booking item (room)
- */
 export const cancelBookingItem = async (id, cancelReason = null) => {
   const res = await pool.query(
     `UPDATE booking_items
@@ -98,10 +87,6 @@ export const cancelBookingItem = async (id, cancelReason = null) => {
   );
   return res.rows[0];
 };
-
-/**
- * Update booking item status
- */
 export const updateItemStatus = async (id, status) => {
   const res = await pool.query(
     `UPDATE booking_items SET status = $2 WHERE id = $1 RETURNING *`,
@@ -109,10 +94,6 @@ export const updateItemStatus = async (id, status) => {
   );
   return res.rows[0];
 };
-
-/**
- * Check if booking has any active items
- */
 export const hasActiveItems = async (bookingId) => {
   const res = await pool.query(
     `SELECT COUNT(*) as count FROM booking_items
@@ -121,16 +102,13 @@ export const hasActiveItems = async (bookingId) => {
   );
   return parseInt(res.rows[0].count) > 0;
 };
-
-/**
- * Get booking items with refund request info
- */
 export const getItemsWithRefundInfo = async (bookingId) => {
   const res = await pool.query(
     `SELECT bi.*,
             r.name as room_name,
             rt.name as room_type_name,
             rt.price as room_type_price_base,
+            rt.thumbnail as room_type_image,
             rr.id as refund_request_id,
             rr.status as refund_status,
             rr.amount as refund_amount_requested,

@@ -7,52 +7,40 @@ import { getRoles } from "@/services/rolesApi";
 import type { User } from "@/types/users";
 import type { Role } from "@/types/roles";
 import useAuth from "@/hooks/useAuth";
-
 const UserEdit = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
   const auth = useAuth();
-
   const currentUserId = auth?.user?.id;
   const currentUserRole = auth?.getRoleName(auth.user) || "";
   const isAdmin = currentUserRole.toLowerCase() === "admin";
-
-  // Fetch all users to get the specific user
   const { data: usersRaw, isLoading: usersLoading } = useQuery({
     queryKey: ["users"],
     queryFn: getUsers,
   });
-
   const { data: rolesRaw, isLoading: rolesLoading } = useQuery({
     queryKey: ["roles"],
     queryFn: getRoles,
   });
-
   const users: User[] = Array.isArray(usersRaw?.data)
     ? usersRaw.data
     : (usersRaw ?? []);
-
   const user = users.find((u) => String(u.id) === String(id));
   const isCurrentUser = user?.id === currentUserId;
-
   const roles: Role[] = Array.isArray(rolesRaw)
     ? rolesRaw
     : (rolesRaw?.data ?? []);
-
   const targetUserRole =
     roles.find((r) => r.id === user?.role_id)?.name?.toLowerCase?.() || "";
-  // Chặn admin đổi role của admin khác (không phải chính mình)
   const isAdminBlock = isAdmin && targetUserRole === "admin" && !isCurrentUser;
-
   const roleColorMap: Record<string, string> = {
     admin: "red",
-    manager: "blue",
+    manager: "yellow",
     staff: "green",
     customer: "gold",
   };
-
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string | number; data: Partial<User> }) =>
       updateUser(id, data),
@@ -68,25 +56,18 @@ const UserEdit = () => {
       );
     },
   });
-
   const handleSubmit = (values: Record<string, unknown>) => {
     if (!id) return;
-
-    // Prepare update data
     const updateData: Partial<User> = {
       full_name: values.full_name as string,
       email: values.email as string,
       phone: values.phone as string,
     };
-
-    // Only include role_id if admin and it changed
     if (isAdmin && values.role_id !== undefined) {
       updateData.role_id = values.role_id as number;
     }
-
     updateMutation.mutate({ id, data: updateData });
   };
-
   if (usersLoading || rolesLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -94,7 +75,6 @@ const UserEdit = () => {
       </div>
     );
   }
-
   if (!user) {
     return (
       <div className="p-6">
@@ -111,7 +91,6 @@ const UserEdit = () => {
       </div>
     );
   }
-
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
@@ -129,7 +108,6 @@ const UserEdit = () => {
           <Tag color="orange">Đang chỉnh sửa hồ sơ của bạn</Tag>
         )}
       </div>
-
       <Card>
         <Form
           form={form}
@@ -149,7 +127,6 @@ const UserEdit = () => {
           >
             <Input placeholder="Nhập họ tên" />
           </Form.Item>
-
           <Form.Item
             label="Email"
             name="email"
@@ -160,11 +137,9 @@ const UserEdit = () => {
           >
             <Input placeholder="Nhập email" />
           </Form.Item>
-
           <Form.Item label="Phone" name="phone" rules={[{ required: false }]}>
             <Input placeholder="Nhập số điện thoại" />
           </Form.Item>
-
           <Form.Item
             label="Vai trò"
             name="role_id"
@@ -194,7 +169,6 @@ const UserEdit = () => {
               ))}
             </Select>
           </Form.Item>
-
           {isCurrentUser && (
             <div className="bg-yellow-50 border border-yellow-200 rounded p-4 mb-4">
               <p className="text-yellow-800 text-sm m-0">
@@ -203,7 +177,6 @@ const UserEdit = () => {
               </p>
             </div>
           )}
-
           <Form.Item className="mb-0">
             <div className="flex gap-3">
               <Button
@@ -224,5 +197,4 @@ const UserEdit = () => {
     </div>
   );
 };
-
 export default UserEdit;

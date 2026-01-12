@@ -74,19 +74,14 @@ export const updateRoom = async (req, res) => {
   try {
     const isBooked = await hasActiveBookings(numericId);
     if (isBooked) {
-      const allowedFields = [
-        "status",
-        "description",
-        "long_description",
-        "thumbnail",
-      ];
+      const allowedFields = ["status", "description", "long_description"];
       const requestedFields = Object.keys(req.body);
       const hasRestrictedField = requestedFields.some(
         (field) => !allowedFields.includes(field)
       );
       if (hasRestrictedField) {
         return res.error(
-          "Phòng đang có booking active. Chỉ có thể sửa: trạng thái, mô tả, hình ảnh",
+          "Phòng đang có booking active. Chỉ có thể sửa: trạng thái, mô tả",
           null,
           400
         );

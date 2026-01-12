@@ -1,26 +1,20 @@
 import instance from "./api";
-
-// --- Sub-Interfaces ---
-
 export interface RoomStatus {
   id: number;
   name: string;
   status: string;
   room_type: string;
 }
-
 export interface FloorRooms {
   floor_id: number;
   floor_name: string;
   rooms: RoomStatus[];
 }
-
 export interface BookingByRoomType {
   roomTypeId: number;
   roomTypeName: string;
   count: number;
 }
-
 export interface DeviceDamageDetail {
   id: number;
   booking_id: number;
@@ -32,14 +26,12 @@ export interface DeviceDamageDetail {
   reason: string;
   created_at: string;
 }
-
 export interface RoomStatusCount {
   available: number;
   occupied: number;
   reserved: number;
   maintenance: number;
 }
-
 export interface ArrivalDepartureItem {
   bookingId: number;
   customerName: string;
@@ -52,18 +44,44 @@ export interface ArrivalDepartureItem {
   roomName: string;
   roomTypeName: string;
 }
-
 export interface PaymentMethodCount {
   paymentMethod: string;
   name?: string;
   count?: number;
   value?: number;
 }
-
-// --- Main Statistics Interface ---
-
+export interface RevenueBreakdown {
+  room: number;
+  service: number;
+  incident: number;
+}
+export interface TopRoomType {
+  name: string;
+  bookings: number;
+  revenue: number;
+}
+export interface TopService {
+  name: string;
+  usage: number;
+  revenue: number;
+}
+export interface BottomRoomType {
+  name: string;
+  bookings: number;
+}
+export interface BottomService {
+  name: string;
+  usage: number;
+}
+export interface BookingStatusStat {
+  name: string;
+  value: number;
+}
+export interface KPI {
+  cancelRate: number;
+  avgStay: number;
+}
 export interface Statistics {
-  // 1. General Stats
   period: string;
   totalUsers: number;
   totalBookings: number;
@@ -72,30 +90,25 @@ export interface Statistics {
   occupiedRooms: number;
   occupancyRate: number;
   totalRevenue: number;
-
-  // 2. Counts
+  revenueBreakdown?: RevenueBreakdown;
+  topRoomTypes?: TopRoomType[];
+  bottomRoomTypes?: BottomRoomType[];
+  topServices?: TopService[];
+  bottomServices?: BottomService[];
+  bookingStatusStats?: BookingStatusStat[];
+  kpi?: KPI;
   todayCheckins: number;
   todayCheckouts: number;
   countCheckins: number;
   countCheckouts: number;
   pendingBookings: number;
-
-  // 3. Room Status
   roomStatusCount: RoomStatusCount;
-
-  // 4. Arrivals / Departures
   todayArrivals: ArrivalDepartureItem[];
   todayDepartures: ArrivalDepartureItem[];
-
-  // 5. Payment Methods
   bookingsByPaymentMethod: PaymentMethodCount[];
   paymentMethods: Array<{ name: string; value: number }>;
-
-  // 6. Room Type & Floor
   bookingsByRoomType: BookingByRoomType[];
   roomsByFloor: FloorRooms[];
-
-  // 7. Revenue Chart
   revenueChart: Array<{
     date: string;
     revenue: number;
@@ -104,8 +117,6 @@ export interface Statistics {
     month: string;
     revenue: number;
   }>;
-
-  // 8. Recent Bookings
   bookingsByStatus: Array<{
     statusId: number;
     statusName: string;
@@ -120,8 +131,6 @@ export interface Statistics {
     email: string;
     payment_status: string;
   }>;
-
-  // 9. Damage
   recentDamage: Array<{
     id: number;
     room: string;
@@ -135,14 +144,10 @@ export interface Statistics {
     details: DeviceDamageDetail[];
   };
 }
-
-// --- API Function ---
-
 export const getStatistics = async (
   startDate: string,
   endDate: string
 ): Promise<Statistics> => {
-  // ✅ FIX: Sửa start_date -> startDate để khớp với Backend Controller
   const response = await instance.get("/statistics", {
     params: {
       startDate: startDate,

@@ -9,7 +9,6 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import useAuth from "@/hooks/useAuth";
-
 const AppHeader = () => {
   const [scrolled, setScrolled] = useState(false);
   const authRaw = useAuth();
@@ -17,25 +16,19 @@ const AppHeader = () => {
   const auth = authRaw as AuthShape;
   const isLogged = !!auth?.token;
   const navigate = useNavigate();
-
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
     };
-
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  // We rely on AuthProvider to update auth state across the app.
-
   const handleLogout = () => {
     try {
       if (auth && typeof auth.logout === "function") {
         auth.logout();
         message.success("Đã đăng xuất");
       } else {
-        // fallback
         localStorage.removeItem("penstar_token");
         message.success("Đã đăng xuất");
         navigate("/");
@@ -44,18 +37,17 @@ const AppHeader = () => {
       console.error(e);
     }
   };
-
   return (
     <header
       className={`bg-white text-gray-800 sticky top-0 z-50 transition-all duration-300 border-b border-gray-200 ${
-        scrolled ? "shadow-md py-2" : "py-3"
+        scrolled ? "shadow-md py-2" : "py-4"
       }`}
     >
       <div
         className="container mx-auto px-4 flex items-center relative"
         style={{ minHeight: 72 }}
       >
-        {/* Left: Slogan */}
+        {}
         <div className="flex flex-col justify-center z-10 min-w-[180px]">
           <div className="text-xl font-bold text-gray-800 leading-tight">
             Khách sạn Penstar
@@ -64,8 +56,7 @@ const AppHeader = () => {
             Trải nghiệm thoải mái, tiện nghi hiện đại
           </div>
         </div>
-
-        {/* Center: Logo only */}
+        {}
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0 flex flex-col items-center">
           <Link to="/">
             <img
@@ -76,8 +67,7 @@ const AppHeader = () => {
             />
           </Link>
         </div>
-
-        {/* Right: Profile/Avatar and mobile booking button */}
+        {}
         <div className="flex items-center gap-3 flex-shrink-0 ml-auto z-10">
           {isLogged ? (
             <Dropdown
@@ -144,5 +134,4 @@ const AppHeader = () => {
     </header>
   );
 };
-
 export default AppHeader;

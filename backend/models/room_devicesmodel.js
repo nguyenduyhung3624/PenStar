@@ -1,6 +1,4 @@
 import pool from "../db.js";
-
-// Lấy tất cả thiết bị theo room_id (không còn room_type_id)
 export const getDevices = async ({ room_id = null } = {}) => {
   let query = "SELECT * FROM room_devices WHERE 1=1";
   const params = [];
@@ -17,7 +15,6 @@ export const getDeviceById = async (id) => {
   ]);
   return result.rows[0];
 };
-
 export const createDevice = async (data) => {
   try {
     const {
@@ -28,8 +25,6 @@ export const createDevice = async (data) => {
       images = null,
       quantity = 1,
     } = data;
-
-    // Lấy thông tin thiết bị master
     const master = await pool.query(
       "SELECT * FROM master_equipments WHERE id = $1",
       [master_equipment_id]
@@ -37,8 +32,6 @@ export const createDevice = async (data) => {
     if (!master.rows[0]) throw new Error("Thiết bị master không tồn tại");
     const device_name = master.rows[0].name;
     const device_type = master.rows[0].type;
-
-    // Kiểm tra trùng thiết bị master trong phòng
     if (room_id && master_equipment_id) {
       const check = await pool.query(
         `SELECT * FROM room_devices WHERE room_id = $1 AND master_equipment_id = $2`,
@@ -48,7 +41,6 @@ export const createDevice = async (data) => {
         throw new Error("Phòng đã có thiết bị này, chỉ được cập nhật số lượng");
       }
     }
-
     const result = await pool.query(
       `INSERT INTO room_devices (master_equipment_id, device_name, device_type, status, room_id, note, images, quantity)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
@@ -63,7 +55,6 @@ export const createDevice = async (data) => {
         quantity,
       ]
     );
-    // Lấy tên phòng để ghi log rõ ràng
     let roomName = "";
     if (room_id) {
       const roomRes = await pool.query("SELECT name FROM rooms WHERE id = $1", [
@@ -71,7 +62,6 @@ export const createDevice = async (data) => {
       ]);
       roomName = roomRes.rows[0]?.name || String(room_id);
     }
-    // Ghi log lịch sử tạo thiết bị
     const { createStockLog } = await import("./equipment_stock_logsmodel.js");
     await createStockLog({
       equipment_id: master_equipment_id,
@@ -86,23 +76,18 @@ export const createDevice = async (data) => {
     throw err;
   }
 };
-
 export const updateDevice = async (id, data) => {
   console.log("[updateDevice] id:", id, "data:", data);
-  // Luôn kiểm tra số lượng tiêu chuẩn nếu có truyền quantity
   if (data.quantity !== undefined) {
-    // Lấy dữ liệu cũ
     const old = await pool.query(`SELECT * FROM room_devices WHERE id = $1`, [
       id,
     ]);
     const device = old.rows[0];
-    // Lấy room_type_id
     const roomRes = await pool.query(
       `SELECT type_id FROM rooms WHERE id = $1`,
       [device.room_id]
     );
     const room_type_id = roomRes.rows[0]?.type_id;
-    // Lấy số lượng tiêu chuẩn (min/max)
     let standard = null;
     if (room_type_id && device.master_equipment_id) {
       const { getStandardQuantity } = await import(
@@ -135,9 +120,7 @@ export const updateDevice = async (id, data) => {
       );
     }
   }
-  // Nếu chỉ truyền quantity (sửa tồn kho), chỉ update quantity
   if (Object.keys(data).length === 1 && data.quantity !== undefined) {
-    // Lấy dữ liệu cũ
     const old = await pool.query(`SELECT * FROM room_devices WHERE id = $1`, [
       id,
     ]);
@@ -145,7 +128,6 @@ export const updateDevice = async (id, data) => {
       `UPDATE room_devices SET quantity = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *`,
       [data.quantity, id]
     );
-    // Ghi log lịch sử sửa thiết bị
     const { createStockLog } = await import("./equipment_stock_logsmodel.js");
     await createStockLog({
       equipment_id: id,
@@ -154,10 +136,8 @@ export const updateDevice = async (id, data) => {
     });
     return result.rows[0];
   }
-  // Nếu truyền nhiều trường, update đầy đủ
   const { device_name, device_type, status, room_id, note, images, quantity } =
     data;
-  // Lấy dữ liệu cũ
   const old = await pool.query(`SELECT * FROM room_devices WHERE id = $1`, [
     id,
   ]);
@@ -176,10 +156,9 @@ export const updateDevice = async (id, data) => {
     [device_name, device_type, status, room_id, note, images, quantity, id]
   );
   console.log("[updateDevice] update result:", result.rows[0]);
-  // Ghi log lịch sử sửa thiết bị
   const { createStockLog } = await import("./equipment_stock_logsmodel.js");
   await createStockLog({
-    equipment_id: old.rows[0]?.master_equipment_id, // dùng id master
+    equipment_id: old.rows[0]?.master_equipment_id, 
     type: "device",
     action: "update",
     quantity: result.rows[0]?.quantity ?? old.rows[0]?.quantity ?? 1,
@@ -187,9 +166,7 @@ export const updateDevice = async (id, data) => {
   });
   return result.rows[0];
 };
-
 export const deleteDevice = async (id) => {
-  // Lấy dữ liệu cũ
   const old = await pool.query(`SELECT * FROM room_devices WHERE id = $1`, [
     id,
   ]);
@@ -197,7 +174,6 @@ export const deleteDevice = async (id) => {
     "DELETE FROM room_devices WHERE id = $1 RETURNING *",
     [id]
   );
-  // Ghi log lịch sử xóa thiết bị
   const { createStockLog } = await import("./equipment_stock_logsmodel.js");
   await createStockLog({
     equipment_id: id,
@@ -206,10 +182,8 @@ export const deleteDevice = async (id) => {
   });
   return result.rows[0];
 };
-
-// Điều chuyển thiết bị giữa 2 phòng
 export const transferDevice = async ({
-  equipment_id, // đây là master_equipment_id
+  equipment_id, 
   quantity,
   from_room_id,
   to_room_id,
@@ -218,22 +192,16 @@ export const transferDevice = async ({
     throw new Error("Thiếu thông tin điều chuyển");
   if (from_room_id === to_room_id)
     throw new Error("Không thể chuyển thiết bị sang chính phòng hiện tại");
-
-  // Kiểm tra tồn kho phòng đi - sử dụng master_equipment_id
   const fromRes = await pool.query(
     `SELECT * FROM room_devices WHERE room_id = $1 AND master_equipment_id = $2`,
     [from_room_id, equipment_id]
   );
   if (!fromRes.rows[0] || fromRes.rows[0].quantity < quantity)
     throw new Error("Không đủ tồn kho phòng đi");
-
-  // Trừ tồn kho phòng đi
   await pool.query(
     `UPDATE room_devices SET quantity = quantity - $1 WHERE room_id = $2 AND master_equipment_id = $3`,
     [quantity, from_room_id, equipment_id]
   );
-
-  // Cộng tồn kho phòng đến (nếu chưa có thì tạo mới)
   const toRes = await pool.query(
     `SELECT * FROM room_devices WHERE room_id = $1 AND master_equipment_id = $2`,
     [to_room_id, equipment_id]
@@ -244,7 +212,6 @@ export const transferDevice = async ({
       [quantity, to_room_id, equipment_id]
     );
   } else {
-    // Lấy thông tin thiết bị từ phòng đi để clone sang phòng đến
     const {
       device_name,
       device_type,
@@ -268,8 +235,6 @@ export const transferDevice = async ({
       ]
     );
   }
-
-  // Ghi log điều chuyển
   const { createStockLog } = await import("./equipment_stock_logsmodel.js");
   await createStockLog({
     equipment_id: equipment_id,
@@ -280,6 +245,5 @@ export const transferDevice = async ({
     to_room_id: to_room_id,
     note: `Điều chuyển ${quantity} thiết bị từ phòng ${from_room_id} sang phòng ${to_room_id}`,
   });
-
   return true;
 };

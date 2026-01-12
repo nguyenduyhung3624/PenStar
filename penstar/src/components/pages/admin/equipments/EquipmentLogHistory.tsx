@@ -1,10 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery } from "@tanstack/react-query";
 import { getAllStockLogs } from "@/services/equipmentStockLogsApi";
 import { Card, Table, Tag } from "antd";
 import { useEffect, useState } from "react";
 import { getMasterEquipments } from "@/services/masterEquipmentsApi";
-
 function getActionTag(a: string) {
   let viAction = "";
   switch (a) {
@@ -38,7 +36,7 @@ function getActionTag(a: string) {
         a === "create"
           ? "green"
           : a === "update"
-            ? "blue"
+            ? "yellow"
             : a === "delete"
               ? "red"
               : a === "import"
@@ -54,7 +52,6 @@ function getActionTag(a: string) {
     </Tag>
   );
 }
-
 const EquipmentLogHistory = () => {
   const searchParams = new URLSearchParams(window.location.search);
   const equipmentId = searchParams.get("equipment_id");
@@ -63,12 +60,9 @@ const EquipmentLogHistory = () => {
     queryFn: getAllStockLogs,
   });
   const [masterEquipments, setMasterEquipments] = useState<any[]>([]);
-
   useEffect(() => {
     getMasterEquipments().then(setMasterEquipments);
   }, []);
-
-  // Map equipment_id sang tên thiết bị
   const equipmentMap = masterEquipments.reduce(
     (acc, eq) => {
       acc[eq.id] = eq.name;
@@ -76,13 +70,11 @@ const EquipmentLogHistory = () => {
     },
     {} as Record<number, string>
   );
-
   const filteredData = equipmentId
     ? data.filter(
         (log: any) => String(log.equipment_id) === String(equipmentId)
       )
     : data;
-
   const columns = [
     {
       title: "STT",
@@ -96,7 +88,6 @@ const EquipmentLogHistory = () => {
       key: "equipment_id",
       width: 180,
       render: (_: any, record: any) => {
-        // Ưu tiên tên thiết bị nếu có
         if (record.equipment_name) return record.equipment_name;
         if (record.name) return record.name;
         return equipmentMap[record.equipment_id] || `#${record.equipment_id}`;
@@ -124,11 +115,8 @@ const EquipmentLogHistory = () => {
     },
     { title: "Ghi chú", dataIndex: "note", key: "note" },
   ];
-
-  // Phân trang
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-
   return (
     <Card
       title={
@@ -158,5 +146,4 @@ const EquipmentLogHistory = () => {
     </Card>
   );
 };
-
 export default EquipmentLogHistory;

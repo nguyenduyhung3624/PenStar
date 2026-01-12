@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -31,19 +30,13 @@ import {
 import RefundRequestModal from "./RefundRequestModal";
 import dayjs from "dayjs";
 import type { Booking, BookingItem } from "@/types/bookings";
-
 const { Title, Text } = Typography;
-
 const BookingDetailClient: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-
-  // Refund modal state
   const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<BookingItem | null>(null);
-
-  // Fetch Booking Detail
   const {
     data: booking,
     isLoading,
@@ -53,15 +46,11 @@ const BookingDetailClient: React.FC = () => {
     queryFn: () => getBookingById(Number(id)),
     enabled: !!id,
   });
-
-  // Fetch Booking Items
   const { data: items = [], refetch: refetchItems } = useQuery<BookingItem[]>({
     queryKey: ["booking-items", id],
     queryFn: () => getBookingItemsWithRefund(Number(id)),
     enabled: !!id,
   });
-
-  // Cancel Entire Booking Mutation
   const cancelBookingMutation = useMutation({
     mutationFn: (reason: string) => cancelBooking(Number(id), reason),
     onSuccess: () => {
@@ -74,35 +63,30 @@ const BookingDetailClient: React.FC = () => {
       message.error(err?.response?.data?.message || "Lỗi hủy đơn");
     },
   });
-
-  // Cancel Single Item Mutation
   const cancelItemMutation = useMutation({
     mutationFn: (itemId: number) =>
       cancelBookingItem(itemId, "Khách hàng yêu cầu hủy phòng lẻ"),
     onSuccess: () => {
       message.success("Đã hủy phòng thành công!");
-      refetch();
-      refetchItems();
-      queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+      queryClient.refetchQueries({ queryKey: ["booking-detail", id] });
+      queryClient.refetchQueries({ queryKey: ["booking-items", id] });
+      queryClient.refetchQueries({ queryKey: ["my-bookings"] });
     },
     onError: (err: any) => {
       message.error(err?.response?.data?.message || "Lỗi hủy phòng");
     },
   });
-
   const handleOpenRefundModal = (item: BookingItem) => {
     setSelectedItem(item);
     setRefundModalOpen(true);
   };
-
   const formatPrice = (price?: number) =>
     new Intl.NumberFormat("vi-VN").format(price || 0) + "đ";
-
-  // Helpers for Tags
   const getStatusTag = (statusId: number) => {
     const config: Record<number, { color: string; label: string }> = {
+      // ... existing code ...
       6: { color: "orange", label: "Chờ xác nhận" },
-      1: { color: "blue", label: "Đã xác nhận" },
+      1: { color: "yellow", label: "Đã xác nhận" },
       2: { color: "green", label: "Đã Check-in" },
       3: { color: "cyan", label: "Đã Check-out" },
       4: { color: "red", label: "Đã hủy" },
@@ -111,7 +95,6 @@ const BookingDetailClient: React.FC = () => {
     const c = config[statusId] || { color: "default", label: "Không rõ" };
     return <Tag color={c.color}>{c.label}</Tag>;
   };
-
   const getPaymentTag = (status: string, isRefunded: boolean) => {
     if (isRefunded)
       return (
@@ -127,32 +110,25 @@ const BookingDetailClient: React.FC = () => {
     const c = config[status] || { color: "default", label: status };
     return <Tag color={c.color}>{c.label}</Tag>;
   };
-
   const getRefundStatusTag = (status?: string) => {
     if (!status) return null;
     const config: Record<string, { color: string; label: string }> = {
       pending: { color: "orange", label: "Đang chờ duyệt" },
-      approved: { color: "blue", label: "Đã duyệt" },
+      approved: { color: "yellow", label: "Đã duyệt" },
       completed: { color: "green", label: "Đã hoàn tiền" },
       rejected: { color: "red", label: "Từ chối" },
     };
     const c = config[status] || { color: "default", label: status };
     return <Tag color={c.color}>{c.label}</Tag>;
   };
-
-  // Logic to determine if actions are allowed
   const allowCancelBooking =
-    (booking?.stay_status_id === 6 || booking?.stay_status_id === 1) &&
-    // booking?.payment_status !== "paid" && // Cho phép hủy kể cả đã thanh toán (để hoàn tiền sau) hoặc chặn tùy policy. Tạm cho hủy.
-    true;
-
+    (booking?.stay_status_id === 6 || booking?.stay_status_id === 1) && true;
   const canCancelItem = (item: BookingItem) => {
     return (
       (booking?.stay_status_id === 6 || booking?.stay_status_id === 1) &&
       item.status === "active"
     );
   };
-
   const canRequestRefund = (item: BookingItem) => {
     return (
       item.status === "cancelled" &&
@@ -160,14 +136,12 @@ const BookingDetailClient: React.FC = () => {
       booking?.payment_status === "paid"
     );
   };
-
   if (isLoading)
     return (
       <div className="flex justify-center p-12">
         <Spin size="large" />
       </div>
     );
-
   if (!booking)
     return (
       <div className="p-8 text-center">
@@ -177,7 +151,6 @@ const BookingDetailClient: React.FC = () => {
         </Button>
       </div>
     );
-
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-8">
       <Button
@@ -187,7 +160,6 @@ const BookingDetailClient: React.FC = () => {
       >
         Quay lại danh sách
       </Button>
-
       <Card>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
           <div>
@@ -206,9 +178,7 @@ const BookingDetailClient: React.FC = () => {
             )}
           </Space>
         </div>
-
         <Divider />
-
         <Descriptions
           title="Thông tin chung"
           bordered
@@ -218,7 +188,7 @@ const BookingDetailClient: React.FC = () => {
             {booking.customer_name}
           </Descriptions.Item>
           <Descriptions.Item label="Tổng tiền">
-            <Text strong className="text-blue-600 text-lg">
+            <Text strong className="text-yellow-600 text-lg">
               {formatPrice(booking.total_price)}
             </Text>
           </Descriptions.Item>
@@ -229,12 +199,10 @@ const BookingDetailClient: React.FC = () => {
             {booking.notes || "Không có"}
           </Descriptions.Item>
         </Descriptions>
-
         <div className="mt-8">
           <div className="flex justify-between items-center mb-4">
             <Title level={4}>Danh sách phòng</Title>
           </div>
-
           <Table
             dataSource={items}
             rowKey="id"
@@ -246,13 +214,35 @@ const BookingDetailClient: React.FC = () => {
               {
                 title: "Phòng / Loại phòng",
                 key: "room",
+                width: "35%",
                 render: (_, item) => (
-                  <Space direction="vertical" size={0}>
-                    <Text strong delete={item.status === "cancelled"}>
-                      {item.room_name}
-                    </Text>
-                    <Text type="secondary">{item.room_type_name}</Text>
-                  </Space>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "12px",
+                      alignItems: "center",
+                    }}
+                  >
+                    {item.room_type_image && (
+                      <Image
+                        src={item.room_type_image}
+                        alt={item.room_type_name}
+                        width={80}
+                        style={{
+                          borderRadius: "8px",
+                          objectFit: "cover",
+                          height: "50px",
+                        }}
+                        preview={{ mask: "Xem" }}
+                      />
+                    )}
+                    <Space direction="vertical" size={0}>
+                      <Text strong delete={item.status === "cancelled"}>
+                        {item.room_name}
+                      </Text>
+                      <Text type="secondary">{item.room_type_name}</Text>
+                    </Space>
+                  </div>
                 ),
               },
               {
@@ -272,12 +262,13 @@ const BookingDetailClient: React.FC = () => {
               {
                 title: "Đơn giá",
                 key: "price",
+                align: "right",
                 render: (_, item) => {
                   const total =
-                    (item.room_type_price || 0) +
-                    (item.extra_adult_fees || 0) +
-                    (item.extra_child_fees || 0) +
-                    (item.extra_fees || 0);
+                    (Number(item.room_type_price) || 0) +
+                    (Number(item.extra_adult_fees) || 0) +
+                    (Number(item.extra_child_fees) || 0) +
+                    (Number(item.extra_fees) || 0);
                   return (
                     <Text delete={item.status === "cancelled"}>
                       {formatPrice(total)}
@@ -307,11 +298,9 @@ const BookingDetailClient: React.FC = () => {
                     import.meta.env.VITE_BASE_URL ||
                     "http://localhost:5001/api";
                   const baseUrl = apiBase.replace(/\/api\/?$/, "");
-
                   const imageUrl = item.receipt_image?.startsWith("http")
                     ? item.receipt_image
                     : `${baseUrl}${item.receipt_image}`;
-
                   return item.receipt_image ? (
                     <Image src={imageUrl} width={50} className="rounded" />
                   ) : null;
@@ -326,7 +315,9 @@ const BookingDetailClient: React.FC = () => {
                       <Popconfirm
                         title="Bạn có chắc muốn hủy phòng này?"
                         description="Hành động này sẽ hủy phòng lẻ này khỏi booking."
-                        onConfirm={() => cancelItemMutation.mutate(item.id)}
+                        onConfirm={() =>
+                          item.id && cancelItemMutation.mutate(item.id)
+                        }
                         okText="Hủy phòng"
                         cancelText="Quay lại"
                         okButtonProps={{ danger: true }}
@@ -358,8 +349,7 @@ const BookingDetailClient: React.FC = () => {
             ]}
           />
         </div>
-
-        {/* Global Actions */}
+        {}
         <div className="mt-8 flex justify-end gap-4 p-4 bg-gray-50 rounded-lg">
           {allowCancelBooking && (
             <Popconfirm
@@ -383,7 +373,6 @@ const BookingDetailClient: React.FC = () => {
               </Button>
             </Popconfirm>
           )}
-
           {booking.payment_status === "unpaid" &&
             booking.stay_status_id !== 4 && (
               <Button
@@ -398,7 +387,6 @@ const BookingDetailClient: React.FC = () => {
             )}
         </div>
       </Card>
-
       <RefundRequestModal
         open={refundModalOpen}
         bookingId={booking.id}
@@ -409,12 +397,12 @@ const BookingDetailClient: React.FC = () => {
           setSelectedItem(null);
         }}
         onSuccess={() => {
-          refetchItems();
+          queryClient.invalidateQueries({ queryKey: ["booking-detail", id] });
+          queryClient.invalidateQueries({ queryKey: ["booking-items", id] });
           queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
         }}
       />
     </div>
   );
 };
-
 export default BookingDetailClient;

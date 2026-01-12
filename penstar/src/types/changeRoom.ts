@@ -4,7 +4,6 @@ export interface CurrentRoomInfo {
   price: number;
   type_id: number;
 }
-
 export interface RoomItemState {
   bookingItemId: number;
   currentRoom: CurrentRoomInfo;
@@ -13,20 +12,16 @@ export interface RoomItemState {
   numAdults: number;
   numChildren: number;
 }
-
 export interface LocationState {
   bookingId?: number;
-  // Hỗ trợ cả 2 trường hợp: 1 phòng hoặc nhiều phòng
   bookingItemId?: number;
   currentRoom?: CurrentRoomInfo;
   checkIn?: string;
   checkOut?: string;
   numAdults?: number;
   numChildren?: number;
-  // Nhiều phòng
   items?: RoomItemState[];
 }
-
 export interface ChangeRoomModalProps {
   visible: boolean;
   onClose: () => void;

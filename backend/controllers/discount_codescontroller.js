@@ -8,7 +8,7 @@ export const DiscountCodesController = {
   async checkCode(req, res) {
     try {
       const { code, total } = req.body;
-      const userId = req.user?.id; 
+      const userId = req.user?.id;
       if (!code) {
         return res.error(ERROR_MESSAGES.INVALID_INPUT, null, 400);
       }
@@ -164,6 +164,31 @@ export const DiscountCodesController = {
       res.success(validCodes);
     } catch (err) {
       console.error("suggestForBooking error:", err);
+      res.error(ERROR_MESSAGES.INTERNAL_ERROR, err.message, 500);
+    }
+  },
+  async getAvailableVouchers(req, res) {
+    try {
+      const now = new Date();
+      let codes = await DiscountCodesModel.list();
+      const availableCodes = [];
+      for (const code of codes) {
+        if (code.status !== DISCOUNT_STATUS.ACTIVE) continue;
+        if (code.start_date && new Date(code.start_date) > now) continue;
+        if (code.end_date && new Date(code.end_date) < now) continue;
+
+        const totalUsage = await DiscountCodesModel.getTotalUsageCount(code.id);
+        if (code.max_uses && totalUsage >= code.max_uses) continue;
+
+        availableCodes.push({
+          ...code,
+          remaining_uses: code.max_uses ? code.max_uses - totalUsage : null,
+          total_usage: totalUsage,
+        });
+      }
+      res.success(availableCodes);
+    } catch (err) {
+      console.error("getAvailableVouchers error:", err);
       res.error(ERROR_MESSAGES.INTERNAL_ERROR, err.message, 500);
     }
   },

@@ -1,99 +1,89 @@
 import type { RoomSearchParams } from "@/types/room";
 import RoomSearchBar from "@/components/common/RoomSearchBar";
-import { useState } from "react";
-
-// Import images from assets
 import bannerImage from "@/assets/images/banner-tin-tuc-uu-dai_1686539225_1686815922.jpg";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { getRoomTypes } from "@/services/roomTypeApi";
+import { getServices } from "@/services/servicesApi";
+import { fetchDiscountCodes } from "@/services/discountApi";
+import { getImageUrl } from "@/utils/imageUtils";
+import { Tag, Button, message, Modal, Descriptions } from "antd";
+import { CopyOutlined, CheckCircleOutlined } from "@ant-design/icons";
+import { useState } from "react";
+import type { RoomType } from "@/types/roomtypes";
 
 const HomePage = () => {
   const navigate = useNavigate();
-  const [currentSlide, setCurrentSlide] = useState(0);
+  const [selectedRoom, setSelectedRoom] = useState<RoomType | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const destinations = [
-    [
-      {
-        name: "TP HỒ CHÍ MINH",
-        image:
-          "https://images.unsplash.com/photo-1583417319070-4a69db38a482?w=600",
-        span: "single",
-      },
-      {
-        name: "ĐÀ NẴNG",
-        images: [
-          "https://images.unsplash.com/photo-1552733407-5d5c46c3bb3b?w=600",
-          "https://images.unsplash.com/photo-1548013146-72479768bada?w=600",
-        ],
-        span: "double",
-      },
-      {
-        name: "LÀO CAI",
-        image:
-          "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=600",
-        span: "single",
-      },
-      {
-        name: "KHÁNH HÒA",
-        image:
-          "https://images.unsplash.com/photo-1559592413-7cec4d0cae2b?w=600",
-        span: "single",
-      },
-      {
-        name: "QUẢNG NINH",
-        images: [
-          "https://images.unsplash.com/photo-1528127269322-539801943592?w=600",
-          "https://images.unsplash.com/photo-1694142941971-4d15ff0c2ab3?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8UXUlRTElQkElQTNuZyUyME5pbmh8ZW58MHx8MHx8fDA%3D",
-        ],
-        span: "double",
-      },
-    ],
-    [
-      {
-        name: "HÀ NỘI",
-        image:
-          "https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=600",
-        span: "single",
-      },
-      {
-        name: "NGHỆ AN",
-        image:
-          "https://images.unsplash.com/photo-1552733407-5d5c46c3bb3b?w=600",
-        span: "single",
-      },
-      {
-        name: "PHÚ QUỐC",
-        image:
-          "https://images.unsplash.com/photo-1589394815804-964ed0be2eb5?w=600",
-        span: "single",
-      },
-      {
-        name: "NHA TRANG",
-        image:
-          "https://images.unsplash.com/photo-1689326232193-d55f0b7965eb?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Nnx8bmhhJTIwdHJhbmd8ZW58MHx8MHx8fDA%3D",
-        span: "single",
-      },
-      {
-        name: "HUẾ",
-        image:
-          "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=600",
-        span: "single",
-      },
-    ],
+  const FREE_SERVICES = [
+    "Bữa sáng miễn phí",
+    "Truy cập Wifi tốc độ cao",
+    "Sử dụng hồ bơi vô cực",
+    "Phòng tập Gym hiện đại",
+    "Nước uống chào mừng",
+    "Dịch vụ dọn phòng 24/7",
   ];
 
-  const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % destinations.length);
+  // Fetch Room Types
+  const { data: roomTypes = [] } = useQuery({
+    queryKey: ["roomTypes"],
+    queryFn: getRoomTypes,
+  });
+
+  // Fetch Services
+  const { data: services = [] } = useQuery({
+    queryKey: ["services"],
+    queryFn: getServices,
+  });
+
+  // Fetch Discount Codes
+  const { data: discountCodes = [] } = useQuery({
+    queryKey: ["discountCodes"],
+    queryFn: fetchDiscountCodes,
+  });
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(price);
   };
 
-  const prevSlide = () => {
-    setCurrentSlide(
-      (prev) => (prev - 1 + destinations.length) % destinations.length
-    );
+  const activeDiscounts = Array.isArray(discountCodes)
+    ? discountCodes.filter((code) => {
+        const now = new Date();
+        const start = new Date(code.start_date);
+        const end = new Date(code.end_date);
+        const isActive = code.status === "active" && now >= start && now <= end;
+        return (
+          isActive &&
+          (code.max_uses > 0 ||
+            code.max_uses === null ||
+            code.max_uses === undefined)
+        );
+      })
+    : [];
+
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    message.success(`Đã sao chép mã: ${code}`);
+  };
+
+  const showRoomDetail = (room: RoomType) => {
+    setSelectedRoom(room);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedRoom(null);
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Hero Section with Banner Image */}
+    <div className="min-h-screen bg-white pb-20">
+      {/* Hero Section */}
       <section className="relative flex flex-col items-stretch justify-end overflow-visible p-0">
         <div className="w-full relative h-[500px]">
           <img
@@ -101,17 +91,23 @@ const HomePage = () => {
             alt="PenStar Banner"
             className="w-full h-full object-cover"
           />
-          {/* Lớp phủ nhẹ để tăng tương phản nếu cần */}
-          <div className="absolute inset-0 bg-black/5 pointer-events-none"></div>
+          <div className="absolute inset-0 bg-black/20 pointer-events-none"></div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-white pointer-events-none">
+            <h1 className="text-4xl md:text-5xl font-bold mb-4 drop-shadow-lg">
+              Trải Nghiệm Đẳng Cấp
+            </h1>
+            <p className="text-xl md:text-2xl font-light drop-shadow-md">
+              Tại PenStar Hotel
+            </p>
+          </div>
         </div>
 
-        {/* Search Bar Wrapper */}
+        {/* Search Bar */}
         <div
           className="absolute left-1/2 bottom-0 w-full flex justify-center z-20"
           style={{ transform: "translate(-50%, 50%)" }}
         >
           <div className="w-full max-w-6xl px-4">
-            {/* Box trắng chứa SearchBar: Tăng padding và bo góc */}
             <div>
               <RoomSearchBar
                 onSearch={(params: RoomSearchParams) => {
@@ -129,549 +125,307 @@ const HomePage = () => {
         </div>
       </section>
 
-      {/* Features Section - Tăng margin-top (mt-32) để tránh bị Search Bar che */}
-      <section className="py-12 mt-32 bg-white">
+      {/* Featured Room Types */}
+      <section className="pt-32 pb-16 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-            {/* Feature 1 */}
-            <div className="group text-center">
-              <div className="w-20 h-20 border-2 border-gray-300 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:border-blue-500 transition-all duration-300">
-                <svg
-                  className="w-10 h-10 text-gray-600 group-hover:text-blue-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-sm font-semibold text-gray-700 leading-tight">
-                Đảm bảo giá tốt nhất
-              </h3>
-            </div>
-
-            {/* Feature 2 */}
-            <div className="group text-center">
-              <div className="w-20 h-20 border-2 border-gray-300 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:border-blue-500 transition-all duration-300">
-                <svg
-                  className="w-10 h-10 text-gray-600 group-hover:text-blue-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-sm font-semibold text-gray-700 leading-tight">
-                Nhiều điểm đến lựa chọn
-              </h3>
-            </div>
-
-            {/* Feature 3 */}
-            <div className="group text-center">
-              <div className="w-20 h-20 border-2 border-gray-300 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:border-blue-500 transition-all duration-300">
-                <svg
-                  className="w-10 h-10 text-gray-600 group-hover:text-blue-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-sm font-semibold text-gray-700 leading-tight">
-                Đảm bảo chất lượng phục vụ
-              </h3>
-            </div>
-
-            {/* Feature 4 */}
-            <div className="group text-center">
-              <div className="w-20 h-20 border-2 border-gray-300 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:border-blue-500 transition-all duration-300">
-                <svg
-                  className="w-10 h-10 text-gray-600 group-hover:text-blue-500"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-sm font-semibold text-gray-700 leading-tight">
-                Hỗ trợ khách hàng nhanh chóng
-              </h3>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Ưu Đãi Section */}
-      <section className="py-16 bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold mb-2">
-              <span className="text-gray-400">ƯU ĐÃI</span>{" "}
-              <span className="text-gray-800">DÀNH CHO BẠN</span>
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-3 text-gray-800">
+              HẠNG PHÒNG <span className="text-yellow-600">NỔI BẬT</span>
             </h2>
+            <p className="text-gray-500 max-w-2xl mx-auto">
+              Khám phá không gian nghỉ dưỡng sang trọng và tiện nghi bậc nhất.
+              Lựa chọn hạng phòng phù hợp nhất cho kỳ nghỉ của bạn.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              {
-                tag: "HẾT PHÒNG",
-                tagColor: "bg-yellow-500",
-                image:
-                  "https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600",
-                title:
-                  "HỆ NGHỈ NGHỈ PENSTAR 2N1Đ + Ăn sáng 2N + Tour Khu Di tích",
-                price: "1.000.000 VNĐ",
-                duration: "2 ngày 1 đêm",
-              },
-              {
-                tag: "ƯU ĐÃI",
-                tagColor: "bg-yellow-500",
-                image:
-                  "https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=600",
-                title:
-                  "KHÁM PHÁ DU LỊCH - 1 ĐÊM Khách sạn PENSTAR + Ăn sáng buffet",
-                price: "1.500.000 VNĐ",
-                duration: "2 ngày 1 đêm",
-              },
-              {
-                tag: "ƯU ĐÃI",
-                tagColor: "bg-yellow-500",
-                image:
-                  "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=600",
-                title: "COMBO NGHỈ DƯỠNG - Khách sạn PENSTAR + Ăn sáng buffet",
-                price: "1.500.000 VNĐ",
-                duration: "2 ngày 1 đêm",
-              },
-            ].map((deal, idx) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {roomTypes?.slice(0, 6).map((roomType: RoomType) => (
               <div
-                key={idx}
-                className="bg-white overflow-hidden shadow-md hover:shadow-xl transition-all border border-gray-200"
+                key={roomType.id}
+                className="group bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 flex flex-col"
               >
-                <div className="relative">
+                <div className="relative h-64 overflow-hidden">
                   <img
-                    src={deal.image}
-                    alt={deal.title}
-                    className="w-full h-48 object-cover"
+                    src={getImageUrl(roomType.thumbnail)}
+                    alt={roomType.name}
+                    className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500 cursor-pointer"
+                    onClick={() => showRoomDetail(roomType)}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        "https://via.placeholder.com/600x400?text=PenStar+Hotel";
+                    }}
                   />
-                  <span
-                    className={`absolute top-3 left-3 ${deal.tagColor} text-white px-3 py-1 text-xs font-bold`}
-                  >
-                    {deal.tag}
-                  </span>
+                  <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-sm font-bold text-yellow-600 shadow-sm">
+                    {roomType.capacity} Người
+                  </div>
                 </div>
-                <div className="p-4">
-                  <h3 className="text-sm font-semibold text-gray-800 mb-3 line-clamp-2 min-h-[40px]">
-                    {deal.title}
+                <div className="p-6 flex-1 flex flex-col">
+                  <h3
+                    className="text-xl font-bold text-gray-800 mb-2 group-hover:text-yellow-600 transition-colors cursor-pointer"
+                    onClick={() => showRoomDetail(roomType)}
+                  >
+                    {roomType.name}
                   </h3>
-                  <div className="flex items-center justify-between">
-                    <span className="text-lg font-bold text-red-600">
-                      {deal.price}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {deal.duration}
-                    </span>
+                  <p className="text-gray-500 text-sm mb-4 line-clamp-2 flex-1">
+                    {roomType.description}
+                  </p>
+                  <div className="flex items-end justify-between mt-auto">
+                    <div>
+                      <div className="text-xs text-gray-400">Giá chỉ từ</div>
+                      <div className="text-lg font-bold text-red-600">
+                        {formatPrice(roomType.price || 0)}
+                        <span className="text-xs text-gray-400 font-normal">
+                          /đêm
+                        </span>
+                      </div>
+                    </div>
+                    <Button
+                      type="primary"
+                      className="bg-yellow-600 hover:bg-yellow-500 border-none shadow-md font-semibold"
+                      onClick={() => showRoomDetail(roomType)}
+                    >
+                      Chi tiết
+                    </Button>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-          <div className="text-center mt-8">
-            <button className="px-6 py-2 border border-yellow-500 text-yellow-600 hover:bg-yellow-50 transition font-medium">
-              Xem nhiều →
-            </button>
+
+          <div className="text-center mt-12">
+            <Button
+              size="large"
+              onClick={() => {
+                // Default search: Checkin tomorrow, Checkout day after tomorrow
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                const dayAfterTomorrow = new Date(tomorrow);
+                dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
+
+                navigate("/rooms/search-results", {
+                  state: {
+                    searchParams: {
+                      check_in: tomorrow.toISOString().split("T")[0],
+                      check_out: dayAfterTomorrow.toISOString().split("T")[0],
+                      status: "available",
+                      booking_statuses: [1, 2, 6],
+                    },
+                  },
+                });
+              }}
+              className="border-yellow-600 text-yellow-600 hover:text-yellow-700 hover:border-yellow-700 font-medium px-8"
+            >
+              Xem Tất Cả Phòng
+            </Button>
           </div>
         </div>
       </section>
 
-      {/* Combo Section */}
+      {/* Hotel Services */}
       <section className="py-16 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold mb-2">
-              <span className="text-gray-400">COMBO</span>{" "}
-              <span className="text-gray-800">GIÁ TỐT</span>
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-3 text-gray-800">
+              DỊCH VỤ & <span className="text-yellow-600">TIỆN NGHI</span>
             </h2>
+            <p className="text-gray-500 max-w-2xl mx-auto">
+              Tận hưởng trọn vẹn kỳ nghỉ với các dịch vụ đẳng cấp 5 sao.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              {
-                discount: "-30%",
-                image:
-                  "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=600",
-                title:
-                  "Combo nghỉ dưỡng 3N2Đ - Ẩm thực + Dịch vụ spa + Tour tham quan",
-                price: "1.850.000 VNĐ",
-              },
-              {
-                discount: "-30%",
-                image:
-                  "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=600",
-                title:
-                  "Combo nghỉ dưỡng 3N2Đ - Ẩm thực + Dịch vụ spa + Tour tham quan",
-                price: "1.850.000 VNĐ",
-              },
-              {
-                discount: "-30%",
-                image:
-                  "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?w=600",
-                title:
-                  "Combo nghỉ dưỡng 3N2Đ - Ẩm thực + Dịch vụ spa + Tour tham quan",
-                price: "1.850.000 VNĐ",
-              },
-            ].map((combo, idx) => (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {services.slice(0, 8).map((service) => (
               <div
-                key={idx}
-                className="bg-white overflow-hidden shadow-md hover:shadow-xl transition-all"
+                key={service.id}
+                className="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition-all text-center group border border-gray-100"
               >
-                <div className="relative">
-                  <img
-                    src={combo.image}
-                    alt={combo.title}
-                    className="w-full h-48 object-cover"
-                  />
-                  <span className="absolute top-3 left-3 bg-red-600 text-white px-3 py-1 text-sm font-bold">
-                    {combo.discount}
-                  </span>
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-yellow-50 flex items-center justify-center group-hover:bg-yellow-100 transition-colors overflow-hidden">
+                  {service.thumbnail ? (
+                    <img
+                      src={getImageUrl(service.thumbnail)}
+                      alt={service.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Tag className="text-2xl text-yellow-500 border-none bg-transparent">
+                      ★
+                    </Tag>
+                  )}
                 </div>
-                <div className="p-4">
-                  <h3 className="text-sm font-semibold text-gray-800 mb-3 line-clamp-2 min-h-[40px]">
-                    {combo.title}
-                  </h3>
-                  <div className="mb-2">
-                    <span className="text-lg font-bold text-orange-500">
-                      {combo.price}
+                <h4 className="font-bold text-gray-800 mb-1 group-hover:text-yellow-600 transition-colors">
+                  {service.name}
+                </h4>
+                <p className="text-xs text-gray-500 line-clamp-2 mb-2">
+                  {service.description}
+                </p>
+                <div className="text-yellow-600 font-semibold text-sm">
+                  {formatPrice(service.price)}
+                  {service.unit && (
+                    <span className="text-gray-400 font-normal text-xs">
+                      /{service.unit}
                     </span>
-                  </div>
-                  <div className="flex items-center text-xs text-gray-500">
-                    <svg
-                      className="w-4 h-4 mr-1"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                      />
-                    </svg>
-                    <span>10000 người quan tâm</span>
-                  </div>
+                  )}
                 </div>
               </div>
             ))}
           </div>
-          <div className="text-center mt-8">
-            <button className="px-6 py-2 border border-yellow-500 text-yellow-600 hover:bg-yellow-50 transition font-medium">
-              Xem nhiều →
-            </button>
-          </div>
         </div>
       </section>
 
-      {/* Điểm Đến Section - Carousel Style */}
-      <section className="py-16 bg-white">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold mb-2">
-              <span className="text-gray-400">ĐIỂM ĐẾN</span>{" "}
-              <span className="text-gray-800">NỔI BẬT</span>
-            </h2>
-          </div>
-
-          <div className="relative">
-            {/* Previous Button */}
-            <button
-              onClick={prevSlide}
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white p-3 shadow-lg transition-all"
-              aria-label="Previous"
-            >
-              <svg
-                className="w-6 h-6 text-gray-800"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-            </button>
-
-            {/* Next Button */}
-            <button
-              onClick={nextSlide}
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/90 hover:bg-white p-3 shadow-lg transition-all"
-              aria-label="Next"
-            >
-              <svg
-                className="w-6 h-6 text-gray-800"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </button>
-
-            {/* Carousel Container */}
-            <div className="overflow-hidden">
-              <div
-                className="flex transition-transform duration-500 ease-in-out"
-                style={{ transform: `translateX(-${currentSlide * 100}%)` }}
-              >
-                {destinations.map((slide, slideIdx) => (
-                  <div key={slideIdx} className="w-full flex-shrink-0">
-                    <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                      {slide.map((dest, idx) => (
-                        <div
-                          key={idx}
-                          className={
-                            dest.span === "double"
-                              ? "md:col-span-1"
-                              : "md:col-span-1"
-                          }
-                        >
-                          {dest.images ? (
-                            // Split layout for locations with 2 images
-                            <div className="grid grid-rows-2 gap-4 h-64">
-                              <div className="relative group cursor-pointer overflow-hidden shadow-md hover:shadow-xl transition-all">
-                                <img
-                                  src={dest.images[0]}
-                                  alt={dest.name}
-                                  className="w-full h-full object-cover"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end">
-                                  <div className="p-3 w-full">
-                                    <div className="flex items-center text-white">
-                                      <svg
-                                        className="w-3 h-3 mr-1"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                                        />
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                                        />
-                                      </svg>
-                                      <h3 className="text-xs font-bold">
-                                        {dest.name}
-                                      </h3>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="relative group cursor-pointer overflow-hidden shadow-md hover:shadow-xl transition-all">
-                                <img
-                                  src={dest.images[1]}
-                                  alt={dest.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                            </div>
-                          ) : (
-                            // Single image layout
-                            <div className="relative group cursor-pointer overflow-hidden shadow-md hover:shadow-xl transition-all h-64">
-                              <img
-                                src={dest.image}
-                                alt={dest.name}
-                                className="w-full h-full object-cover"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end">
-                                <div className="p-4 w-full">
-                                  <div className="flex items-center text-white">
-                                    <svg
-                                      className="w-4 h-4 mr-2"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                                      />
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                                      />
-                                    </svg>
-                                    <h3 className="text-sm font-bold">
-                                      {dest.name}
-                                    </h3>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
+      {/* Exclusive Offers / Vouchers */}
+      {activeDiscounts.length > 0 && (
+        <section className="py-16 bg-white">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold mb-3 text-gray-800">
+                ƯU ĐÃI <span className="text-red-500">ĐỘC QUYỀN</span>
+              </h2>
+              <p className="text-gray-500">
+                Nhận ngay mã giảm giá hấp dẫn cho kỳ nghỉ của bạn.
+              </p>
             </div>
 
-            {/* Carousel dots */}
-            <div className="flex justify-center mt-6 gap-2">
-              {destinations.map((_, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentSlide(idx)}
-                  className={`w-2 h-2 rounded-full transition-all ${
-                    currentSlide === idx ? "bg-yellow-500" : "bg-gray-300"
-                  }`}
-                  aria-label={`Go to slide ${idx + 1}`}
-                ></button>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {activeDiscounts.map((code) => (
+                <div
+                  key={code.id}
+                  className="relative bg-gradient-to-r from-red-500 to-orange-500 rounded-xl p-1 shadow-lg text-white transform hover:-translate-y-1 transition-transform"
+                >
+                  <div className="bg-white h-full rounded-lg p-5 flex flex-col justify-between relative overflow-hidden">
+                    {/* Decorative Circles */}
+                    <div className="absolute -left-3 top-1/2 w-6 h-6 bg-gray-100 rounded-full transform -translate-y-1/2"></div>
+                    <div className="absolute -right-3 top-1/2 w-6 h-6 bg-gray-100 rounded-full transform -translate-y-1/2"></div>
+
+                    <div>
+                      <div className="flex justify-between items-start mb-2">
+                        <Tag color="red" className="m-0 font-bold">
+                          GIẢM GIÁ
+                        </Tag>
+                        <div className="text-gray-400 text-xs">
+                          HSD:{" "}
+                          {new Date(code.end_date).toLocaleDateString("vi-VN")}
+                        </div>
+                      </div>
+                      <h3 className="text-gray-800 font-bold text-lg mb-1">
+                        {code.code}
+                      </h3>
+                      <p className="text-gray-500 text-sm mb-3">
+                        Giảm{" "}
+                        {code.type === "percent"
+                          ? `${code.value}%`
+                          : formatPrice(code.value)}
+                        {code.min_total > 0 &&
+                          ` cho đơn từ ${formatPrice(code.min_total)}`}
+                      </p>
+                    </div>
+
+                    <div className="pt-4 border-t border-dashed border-gray-200 flex justify-between items-center">
+                      <span className="text-red-500 font-bold text-xl">
+                        {code.type === "percent"
+                          ? `${code.value}% OFF`
+                          : `-${formatPrice(code.value)}`}
+                      </span>
+                      <Button
+                        icon={<CopyOutlined />}
+                        size="small"
+                        type="dashed"
+                        danger
+                        onClick={() => handleCopyCode(code.code)}
+                      >
+                        Sao chép
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
+        </section>
+      )}
 
-          <div className="text-center mt-8">
-            <button className="px-6 py-2 border border-yellow-500 text-yellow-600 hover:bg-yellow-50 transition font-medium">
-              Xem nhiều →
-            </button>
-          </div>
-        </div>
-      </section>
-
-      {/* Tin Tức Section */}
-      <section className="py-16 bg-gray-50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold mb-2">
-              <span className="text-gray-400">TIN TỨC</span>{" "}
-              <span className="text-gray-800">NỔI BẬT</span>
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Large Featured Article */}
-            <div className="md:row-span-2 bg-white overflow-hidden shadow-md hover:shadow-xl transition-all">
+      {/* Room Detail Modal */}
+      <Modal
+        title={
+          <span className="text-xl font-bold text-yellow-600">
+            {selectedRoom?.name}
+          </span>
+        }
+        open={isModalOpen}
+        onCancel={handleCloseModal}
+        footer={[
+          <Button key="close" onClick={handleCloseModal}>
+            Đóng
+          </Button>,
+        ]}
+        width={800}
+        centered
+      >
+        {selectedRoom && (
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="w-full md:w-1/2">
               <img
-                src="https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=700"
-                alt="Khám phá Sapa"
-                className="w-full h-80 object-cover"
+                src={getImageUrl(selectedRoom.thumbnail)}
+                alt={selectedRoom.name}
+                className="w-full h-64 object-cover rounded-lg shadow-md"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src =
+                    "https://via.placeholder.com/600x400?text=PenStar+Hotel";
+                }}
               />
-              <div className="p-6">
-                <span className="inline-block bg-blue-600 text-white px-3 py-1 text-xs font-semibold mb-3">
-                  KHU DU LỊCH
-                </span>
-                <h3 className="text-xl font-bold text-gray-800 mb-3 hover:text-blue-600 cursor-pointer">
-                  KHÁM PHÁ DU LỊCH SAPA: CÁNH ĐỒNG CHÈ - CUNG ĐƯỜNG TUYỆT ĐẸP
-                </h3>
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  Nằm ở độ cao hơn 1.500m so với mặt nước biển, Sapa luôn là
-                  điểm đến hấp dẫn với khí hậu mát mẻ quanh năm, cảnh quan thiên
-                  nhiên hùng vĩ và văn hóa đặc sắc của các dân tộc thiểu số...
-                </p>
-                <button className="mt-4 text-yellow-600 font-medium hover:text-yellow-700">
-                  Đọc tiếp →
-                </button>
+              <div className="mt-4">
+                <h4 className="font-bold text-gray-800 mb-2">
+                  Tiện ích đi kèm miễn phí:
+                </h4>
+                <ul className="grid grid-cols-1 gap-2">
+                  {FREE_SERVICES.map((service, index) => (
+                    <li
+                      key={index}
+                      className="flex items-center text-gray-600 text-sm"
+                    >
+                      <CheckCircleOutlined className="text-yellow-600 mr-2" />
+                      {service}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
-
-            {/* Small Articles */}
-            {[
-              {
-                image:
-                  "https://images.unsplash.com/photo-1552733407-5d5c46c3bb3b?w=400",
-                title:
-                  "Những lễ hội ở Bắc Bộ Việt Nam - Góp phần tạo cuộc hội du lịch",
-                category: "LỄ HỘI",
-              },
-              {
-                image:
-                  "https://images.unsplash.com/photo-1548013146-72479768bada?w=400",
-                title:
-                  "Review địa điểm du lịch Sapa từ A đến Z: Nơi bạn nên ghé thăm!",
-                category: "Q&A",
-              },
-            ].map((article, idx) => (
-              <div
-                key={idx}
-                className="bg-white overflow-hidden shadow-md hover:shadow-xl transition-all flex"
-              >
-                <img
-                  src={article.image}
-                  alt={article.title}
-                  className="w-40 h-full object-cover"
-                />
-                <div className="p-4 flex-1">
-                  <span className="inline-block bg-blue-600 text-white px-2 py-1 text-xs font-semibold mb-2">
-                    {article.category}
-                  </span>
-                  <h3 className="text-sm font-semibold text-gray-800 hover:text-blue-600 cursor-pointer line-clamp-3">
-                    {article.title}
-                  </h3>
-                </div>
+            <div className="w-full md:w-1/2">
+              <Descriptions column={1} bordered size="small">
+                <Descriptions.Item label="Sức chứa">
+                  {selectedRoom.capacity} Người
+                </Descriptions.Item>
+                <Descriptions.Item label="Giá phòng">
+                  <span className="text-lg font-bold text-red-600">
+                    {formatPrice(selectedRoom.price || 0)}
+                  </span>{" "}
+                  / đêm
+                </Descriptions.Item>
+                {selectedRoom.bed_type && (
+                  <Descriptions.Item label="Loại giường">
+                    {selectedRoom.bed_type}
+                  </Descriptions.Item>
+                )}
+                {selectedRoom.view_direction && (
+                  <Descriptions.Item label="Hướng nhìn">
+                    {selectedRoom.view_direction}
+                  </Descriptions.Item>
+                )}
+                {selectedRoom.room_size && (
+                  <Descriptions.Item label="Diện tích">
+                    {selectedRoom.room_size} m²
+                  </Descriptions.Item>
+                )}
+              </Descriptions>
+              <div className="mt-4">
+                <h4 className="font-bold text-gray-800 mb-2">Mô tả:</h4>
+                <p className="text-gray-600 text-sm leading-relaxed">
+                  {selectedRoom.description}
+                </p>
               </div>
-            ))}
+            </div>
           </div>
-          <div className="text-center mt-8">
-            <button className="px-6 py-2 border border-yellow-500 text-yellow-600 hover:bg-yellow-50 transition font-medium">
-              Xem nhiều →
-            </button>
-          </div>
-        </div>
-      </section>
+        )}
+      </Modal>
     </div>
   );
 };

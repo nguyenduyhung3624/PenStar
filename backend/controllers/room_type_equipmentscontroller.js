@@ -5,6 +5,7 @@ import {
   getEquipmentsByRoomType,
 } from "../models/room_type_equipmentsmodel.js";
 import { ERROR_MESSAGES } from "../utils/constants.js";
+
 export const getByRoomType = async (req, res) => {
   const { room_type_id } = req.params;
   if (!room_type_id) {
@@ -17,6 +18,7 @@ export const getByRoomType = async (req, res) => {
     res.error("Lỗi khi lấy danh sách thiết bị!", err.message, 500);
   }
 };
+
 export const getAllStandards = async (req, res) => {
   try {
     const data = await getAllStandardsModel();
@@ -25,34 +27,31 @@ export const getAllStandards = async (req, res) => {
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, err.message, 500);
   }
 };
+
 export const createOrUpdateStandard = async (req, res) => {
-  const { room_type_id, master_equipment_id, min_quantity, max_quantity } =
-    req.body;
-  if (
-    !room_type_id ||
-    !master_equipment_id ||
-    min_quantity == null ||
-    max_quantity == null
-  ) {
+  const { room_type_id, master_equipment_id, quantity } = req.body;
+
+  if (!room_type_id || !master_equipment_id || quantity == null) {
     return res.error("Thiếu tham số!", null, 400);
   }
   try {
     await upsertStandard(
       Number(room_type_id),
       Number(master_equipment_id),
-      Number(min_quantity),
-      Number(max_quantity)
+      Number(quantity)
     );
     res.success(null, "Cập nhật tiêu chuẩn thành công!");
   } catch (err) {
     res.error("Lỗi khi cập nhật tiêu chuẩn!", err.message, 500);
   }
 };
+
 export const getStandard = async (req, res) => {
   const { room_type_id, master_equipment_id } = req.query;
   if (!room_type_id || !master_equipment_id) {
     return res.error("Thiếu tham số!", null, 400);
   }
+
   try {
     const standard = await getStandardQuantity(
       Number(room_type_id),

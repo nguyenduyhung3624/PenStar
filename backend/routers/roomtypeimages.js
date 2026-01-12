@@ -10,10 +10,7 @@ import {
   uploadMiddleware,
 } from "../controllers/roomtypeimagescontroller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.js";
-
 const router = express.Router();
-
-// Upload route
 router.post(
   "/roomtype/:roomTypeId/upload",
   requireAuth,
@@ -21,15 +18,10 @@ router.post(
   uploadMiddleware.single("file"),
   uploadImageForRoomType
 );
-
-// Public routes - IMPORTANT: Specific routes must come before parameterized routes
 router.get("/", getAllRoomTypeImages);
-router.get("/roomtype/:roomTypeId", getImagesByRoomType); // Must be before /:id
+router.get("/roomtype/:roomTypeId", getImagesByRoomType); 
 router.get("/:id", getRoomTypeImage);
-
-// Protected routes
 router.post("/", requireAuth, requireRole("staff"), createImage);
 router.put("/:id", requireAuth, requireRole("staff"), updateImage);
 router.delete("/:id", requireAuth, requireRole("staff"), deleteImage);
-
 export default router;

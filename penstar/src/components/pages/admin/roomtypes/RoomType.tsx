@@ -15,21 +15,17 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRoomTypes, deleteRoomType } from "@/services/roomTypeApi";
 import type { RoomType } from "@/types/roomtypes";
-
 type RoomTypeItem = RoomType;
-
 const RoomTypesPage = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 5;
   const [searchTerm, setSearchTerm] = useState<string>("");
-
   const { data: types = [], isLoading } = useQuery({
     queryKey: ["room_types"],
     queryFn: getRoomTypes,
   });
-
   const filteredTypes = types
     .filter((t: RoomTypeItem) => {
       const q = String(searchTerm ?? "")
@@ -41,7 +37,6 @@ const RoomTypesPage = () => {
         .includes(q);
     })
     .sort((a: RoomTypeItem, b: RoomTypeItem) => Number(b.id) - Number(a.id));
-
   const deleteMut = useMutation({
     mutationFn: (id: number | string) => deleteRoomType(id),
     onSuccess: () => {
@@ -55,7 +50,6 @@ const RoomTypesPage = () => {
       message.error(msg);
     },
   });
-
   const columns: ColumnsType<RoomTypeItem> = [
     {
       title: "STT",
@@ -69,11 +63,9 @@ const RoomTypesPage = () => {
       key: "thumbnail",
       width: 100,
       render: (thumbnail: string) => {
-        // VITE_BASE_URL thường là http://localhost:5001/api -> cần lấy http://localhost:5001
         const apiBase =
           import.meta.env.VITE_BASE_URL || "http://localhost:5001/api";
         const baseUrl = apiBase.replace(/\/api\/?$/, "");
-
         const imageUrl = thumbnail
           ? thumbnail.startsWith("http")
             ? thumbnail
@@ -134,21 +126,10 @@ const RoomTypesPage = () => {
           >
             Sửa
           </Button>
-          <Popconfirm
-            title="Bạn có chắc chắn muốn xóa loại phòng này?"
-            onConfirm={() => deleteMut.mutate(record.id)}
-            okText="Có"
-            cancelText="Không"
-          >
-            <Button type="primary" danger>
-              Xóa
-            </Button>
-          </Popconfirm>
         </Space>
       ),
     },
   ];
-
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -172,7 +153,6 @@ const RoomTypesPage = () => {
           </Button>
         </div>
       </div>
-
       <Card>
         <Table
           columns={columns}
@@ -192,5 +172,4 @@ const RoomTypesPage = () => {
     </div>
   );
 };
-
 export default RoomTypesPage;

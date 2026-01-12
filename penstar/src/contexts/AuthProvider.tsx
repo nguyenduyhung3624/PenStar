@@ -2,9 +2,7 @@ import React, { createContext, useEffect, useState } from "react";
 import { jwtDecode } from "jwt-decode";
 import { getRoles } from "@/services/rolesApi";
 import type { User, RolesMap, AuthContextType } from "@/types/auth";
-
 const AuthContext = createContext<AuthContextType | null>(null);
-
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [token, setToken] = useState<string | null>(() =>
     localStorage.getItem("penstar_token")
@@ -12,7 +10,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User>(null);
   const [rolesMap, setRolesMap] = useState<RolesMap>(null);
   const [initialized, setInitialized] = useState(false);
-
   useEffect(() => {
     if (!token) {
       setUser(null);
@@ -29,7 +26,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         role?: string;
       };
       const decoded = jwtDecode<Decoded>(token as string);
-      // Lấy full_name và phone từ token trước, fallback localStorage nếu không có
       let full_name = decoded.full_name ? String(decoded.full_name) : undefined;
       let phone = decoded.phone ? String(decoded.phone) : undefined;
       if (!full_name || !phone) {
@@ -40,7 +36,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             if (!full_name && userObj.full_name) full_name = userObj.full_name;
             if (!phone && userObj.phone) phone = userObj.phone;
           }
-        } catch {}
+        } catch {
+          // ignore
+        }
       }
       setUser({
         id: Number(decoded.id) || 0,
@@ -48,7 +46,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         full_name,
         phone,
         role_id: decoded.role_id ? Number(decoded.role_id) : undefined,
-        role: decoded.role ? String(decoded.role) : undefined,
+        role: decoded.role ? String(decoded.role).toLowerCase() : undefined,
       });
       setInitialized(true);
     } catch {
@@ -58,17 +56,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setInitialized(true);
     }
   }, [token]);
-
-  // Only fetch roles when we have an authenticated admin user.
-  // The roles endpoints are protected (admin-only), so calling them on public pages
-  // caused 403. Depend on `user` so we run after token decode.
   useEffect(() => {
     if (!user) return;
     const isAdmin =
       (user.role && String(user.role).toLowerCase() === "admin") ||
       (user.role_id && Number(user.role_id) >= 3);
     if (!isAdmin) return;
-
     (async () => {
       try {
         const roles = await getRoles();
@@ -92,7 +85,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     })();
   }, [user]);
-
   const loginWithToken = (t: string) => {
     try {
       localStorage.setItem("penstar_token", t);
@@ -101,7 +93,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
     setToken(t);
   };
-
   const logout = () => {
     try {
       localStorage.removeItem("penstar_token");
@@ -112,14 +103,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setUser(null);
     window.location.href = "/signin";
   };
-
   const getRoleName = (u?: User) => {
     if (!u) return null;
     if (u.role) return u.role;
     if (rolesMap && u.role_id) return rolesMap.byId[u.role_id] ?? null;
     return null;
   };
-
   return (
     <AuthContext.Provider
       value={{
@@ -136,5 +125,4 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     </AuthContext.Provider>
   );
 };
-
 export default AuthContext;

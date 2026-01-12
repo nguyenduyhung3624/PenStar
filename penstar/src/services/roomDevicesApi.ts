@@ -1,4 +1,3 @@
-// Khôi phục trạng thái thiết bị về 'Bình thường'
 export const restoreRoomDeviceStatus = async (id: number) => {
   try {
     const res = await instance.put(`/room-devices/${id}/restore-status`);
@@ -8,10 +7,8 @@ export const restoreRoomDeviceStatus = async (id: number) => {
     throw error;
   }
 };
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { instance } from "./api";
 import type { RoomDevice } from "@/types/roomDevices";
-
 export const getRoomDevices = async (params?: {
   room_type_id?: number;
   room_id?: number;
@@ -26,7 +23,6 @@ export const getRoomDevices = async (params?: {
     return [];
   }
 };
-
 export const createRoomDevice = async (data: any) => {
   try {
     const res = await instance.post("/room-devices", data);
@@ -36,7 +32,6 @@ export const createRoomDevice = async (data: any) => {
     throw error;
   }
 };
-
 export const updateRoomDevice = async (id: number, data: any) => {
   try {
     const res = await instance.put(`/room-devices/${id}`, data);
@@ -46,7 +41,6 @@ export const updateRoomDevice = async (id: number, data: any) => {
     throw error;
   }
 };
-
 export const deleteRoomDevice = async (id: number) => {
   try {
     const res = await instance.delete(`/room-devices/${id}`);
@@ -56,7 +50,6 @@ export const deleteRoomDevice = async (id: number) => {
     throw error;
   }
 };
-
 export const transferRoomDevice = async (data: {
   equipment_id: string;
   quantity: number;
@@ -73,7 +66,6 @@ export const transferRoomDevice = async (data: {
     throw error;
   }
 };
-
 export const checkRoomDevicesStandard = async (roomId: number | string) => {
   try {
     const res = await instance.get(`/room-devices/check-standard/${roomId}`);

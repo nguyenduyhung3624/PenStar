@@ -14,6 +14,15 @@ export const getIncidentsByRoom = async (req, res) => {
   }
 };
 
+export const getAllIncidents = async (req, res) => {
+  try {
+    const incidents = await model.getAllIncidents();
+    res.success(incidents, "Lấy tất cả sự cố thành công");
+  } catch (error) {
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
+  }
+};
+
 export const getIncidentsByBooking = async (req, res) => {
   try {
     const { booking_id, showDeleted } = req.query;
@@ -53,6 +62,19 @@ export const deleteIncident = async (req, res) => {
       deleted_reason
     );
     res.success(incident, "Xóa sự cố thành công");
+  } catch (error) {
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
+  }
+};
+
+export const resolveIncident = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user?.id;
+    if (!id) return res.error("Thiếu id", null, 400);
+
+    const result = await model.resolveIncident(Number(id), userId);
+    res.success(result, "Đã xác nhận sửa xong thiết bị");
   } catch (error) {
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Card, Button, Radio, Typography, Spin, message, Space } from "antd";
@@ -8,21 +7,15 @@ import {
   ArrowLeftOutlined,
 } from "@ant-design/icons";
 import { createPayment, createMoMoPayment } from "@/services/paymentApi";
-
 const { Title, Text } = Typography;
-
 const PaymentMethod: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"vnpay" | "momo">("vnpay");
-
-  // Lấy bookingInfo từ state hoặc localStorage
   const { bookingId, bookingInfo } = (location.state as any) || {};
   const [booking, setBooking] = useState<any>(bookingInfo || null);
-
   useEffect(() => {
-    // Nếu không có bookingInfo từ state, thử lấy từ bookingId
     const fetchBooking = async () => {
       if (!booking && bookingId) {
         try {
@@ -38,31 +31,23 @@ const PaymentMethod: React.FC = () => {
     };
     fetchBooking();
   }, [bookingId, booking, navigate]);
-
-  // Nếu không có bookingId và bookingInfo, redirect về home
   useEffect(() => {
     if (!bookingId && !bookingInfo) {
       message.error("Không tìm thấy thông tin đặt phòng");
       navigate("/");
     }
   }, [bookingId, bookingInfo, navigate]);
-
   const handlePayment = async () => {
     if (!booking) {
       message.error("Không tìm thấy thông tin đặt phòng");
       return;
     }
-
     setLoading(true);
     try {
       const totalPrice = booking.total_price || 0;
       const currentBookingId = bookingId || booking.id;
-
-      // Lưu bookingId vào localStorage để PaymentResult có thể lấy
       localStorage.setItem("bookingId", String(currentBookingId));
-
       const returnUrl = `${window.location.origin}/payment-result?bookingId=${currentBookingId}`;
-
       if (paymentMethod === "vnpay") {
         const result = await createPayment({
           bookingId: currentBookingId,
@@ -96,7 +81,6 @@ const PaymentMethod: React.FC = () => {
       setLoading(false);
     }
   };
-
   if (!booking) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -104,14 +88,12 @@ const PaymentMethod: React.FC = () => {
       </div>
     );
   }
-
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
       currency: "VND",
     }).format(price);
   };
-
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-lg mx-auto">
@@ -123,13 +105,11 @@ const PaymentMethod: React.FC = () => {
         >
           Quay lại
         </Button>
-
         <Card className="shadow-md">
           <Title level={3} className="text-center mb-6">
             Thanh toán lại
           </Title>
-
-          {/* Thông tin đơn hàng */}
+          {}
           <div className="bg-gray-50 p-4 rounded-lg mb-6">
             <Text strong>Mã đặt phòng: </Text>
             <Text>#{booking.id}</Text>
@@ -144,8 +124,7 @@ const PaymentMethod: React.FC = () => {
               {formatPrice(booking.total_price || 0)}
             </Text>
           </div>
-
-          {/* Chọn phương thức thanh toán */}
+          {}
           <div className="mb-6">
             <Text strong className="block mb-3">
               Chọn phương thức thanh toán:
@@ -158,10 +137,10 @@ const PaymentMethod: React.FC = () => {
               <Space direction="vertical" className="w-full">
                 <Radio
                   value="vnpay"
-                  className="w-full p-3 border rounded-lg hover:border-blue-500"
+                  className="w-full p-3 border rounded-lg hover:border-yellow-500"
                 >
                   <Space>
-                    <CreditCardOutlined className="text-blue-600 text-xl" />
+                    <CreditCardOutlined className="text-yellow-600 text-xl" />
                     <span>VNPay (Thẻ ATM/Visa/MasterCard)</span>
                   </Space>
                 </Radio>
@@ -177,8 +156,7 @@ const PaymentMethod: React.FC = () => {
               </Space>
             </Radio.Group>
           </div>
-
-          {/* Nút thanh toán */}
+          {}
           <Button
             type="primary"
             size="large"
@@ -196,7 +174,6 @@ const PaymentMethod: React.FC = () => {
               ? "Đang xử lý..."
               : `Thanh toán ${formatPrice(booking.total_price || 0)}`}
           </Button>
-
           <div className="text-center mt-4">
             <Button type="link" onClick={() => navigate("/")}>
               Về trang chủ
@@ -207,5 +184,4 @@ const PaymentMethod: React.FC = () => {
     </div>
   );
 };
-
 export default PaymentMethod;

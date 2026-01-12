@@ -1,28 +1,22 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Form, Input, InputNumber, Button, message, Select } from "antd";
-// ...existing code...
 import { useNavigate } from "react-router-dom";
 import { createMasterEquipment } from "@/services/masterEquipmentsApi";
 import { useQuery } from "@tanstack/react-query";
 import { getEquipmentTypes } from "@/services/equipmentTypesApi";
-
 const EquipmentCreate = () => {
   const { data: equipmentTypes = [], isLoading } = useQuery({
     queryKey: ["equipment-types"],
     queryFn: getEquipmentTypes,
   });
   const navigate = useNavigate();
-
   const onFinish = async (values: any) => {
     await createMasterEquipment(values);
     message.success("Thêm thiết bị thành công");
     navigate("/admin/equipments");
   };
-
   if (isLoading) {
     return <div>Đang tải...</div>;
   }
-
   return (
     <div className="p-6 max-w-xl mx-auto bg-white rounded shadow">
       <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
@@ -108,5 +102,4 @@ const EquipmentCreate = () => {
     </div>
   );
 };
-
 export default EquipmentCreate;

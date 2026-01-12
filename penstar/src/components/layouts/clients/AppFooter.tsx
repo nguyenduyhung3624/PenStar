@@ -72,7 +72,7 @@ const AppFooter = () => {
           <div className="flex gap-4 text-2xl">
             <a
               href="https://www.facebook.com/nguyen.duy.hung.3624/"
-              className="hover:text-blue-400 transition"
+              className="hover:text-yellow-400 transition"
               aria-label="Facebook"
             >
               <FacebookOutlined />

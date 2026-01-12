@@ -1,10 +1,7 @@
 import express from "express";
 import * as controller from "../controllers/master_equipmentscontroller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.js";
-
 const router = express.Router();
-
-// GET routes cho phép staff trở lên, POST/PUT/DELETE yêu cầu manager
 router.get("/", requireAuth, requireRole("staff"), controller.getAllEquipments);
 router.get(
   "/:id",
@@ -30,5 +27,4 @@ router.delete(
   requireRole("manager"),
   controller.deleteEquipment
 );
-
 export default router;

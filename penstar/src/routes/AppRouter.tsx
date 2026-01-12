@@ -47,7 +47,7 @@ import EditDiscount from "@/components/pages/admin/discounts/EditDiscount";
 import DeviceStandardAdmin from "@/components/pages/admin/equipments/DeviceStandardAdmin";
 import ServiceList from "@/components/pages/admin/services/Services";
 import RefundRequestList from "@/components/pages/admin/refunds/RefundRequestList";
-
+import BrokenEquipmentList from "@/components/pages/admin/equipments/BrokenEquipmentList";
 const AppRouter = () => {
   return (
     <div>
@@ -56,8 +56,7 @@ const AppRouter = () => {
           <Route index element={<HomePage />} />
           <Route path="home" element={<HomePage />} />
           <Route path="rooms/search-results" element={<RoomSearchResults />} />
-
-          {/* Customer bookings - CHỈ cho phép customer, chặn admin/staff */}
+          {}
           <Route
             path="bookings"
             element={
@@ -90,16 +89,15 @@ const AppRouter = () => {
               </RequireCustomerOnly>
             }
           />
-          {/* BookingSuccess không cần RequireCustomerOnly vì có thể truy cập từ callback VNPay hoặc từ email */}
+          {}
           <Route path="bookings/success/:id" element={<BookingSuccess />} />
-
-          {/* PaymentResult không cần RequireCustomerOnly vì đây là callback từ VNPay, token có thể chưa kịp load */}
+          {}
           <Route path="payment-result" element={<PaymentResult />} />
-          {/* PaymentMethod - trang chọn phương thức thanh toán lại */}
+          {}
           <Route path="bookings/payment-method" element={<PaymentMethod />} />
-          {/* MoMo Mock Payment - chỉ dùng trong test mode */}
+          {}
           <Route path="momo-mock-payment" element={<MoMoMockPayment />} />
-          {/* admin booking routes moved to admin layout below */}
+          {}
           <Route path="signup" element={<SignUp />} />
           <Route path="signin" element={<SignIn />} />
           <Route
@@ -120,15 +118,13 @@ const AppRouter = () => {
           }
         >
           <Route index element={<Dashboard />} />
-
-          {/* Bookings management - Staff+ */}
+          {}
           <Route path="bookings" element={<BookingsList />} />
-          {/* Đặt các route cụ thể trước route :id để tránh conflict */}
+          {}
           <Route path="bookings/create" element={<AdminWalkInBooking />} />
           <Route path="bookings/new" element={<AdminWalkInBooking />} />
           <Route path="bookings/:id" element={<BookingDetail />} />
-
-          {/* Rooms, Services, Floors, RoomTypes - Staff+ */}
+          {}
           <Route path="rooms" element={<Rooms />} />
           <Route path="rooms/add" element={<RoomAdd />} />
           <Route path="rooms/:id/edit" element={<RoomEdit />} />
@@ -144,6 +140,7 @@ const AppRouter = () => {
           <Route path="equipments" element={<EquipmentListUnified />} />
           <Route path="equipments/create" element={<EquipmentCreate />} />
           <Route path="equipments/import" element={<EquipmentImport />} />
+          <Route path="broken-equipments" element={<BrokenEquipmentList />} />
           <Route
             path="equipments/log-history"
             element={
@@ -169,8 +166,7 @@ const AppRouter = () => {
             }
           />
           <Route path="room-devices/:id/edit" element={<RoomDeviceEdit />} />
-
-          {/* Discount codes management - Staff+ */}
+          {}
           <Route path="discount-codes" element={<DiscountList />} />
           <Route path="discount-codes/add" element={<AddDiscount />} />
           <Route
@@ -181,10 +177,9 @@ const AppRouter = () => {
               </RequireRole>
             }
           />
-
-          {/* Refund requests management - Staff+ */}
+          {}
           <Route path="refund-requests" element={<RefundRequestList />} />
-          {/* Users management - Manager+ */}
+          {}
           <Route
             path="users"
             element={
@@ -209,5 +204,4 @@ const AppRouter = () => {
     </div>
   );
 };
-
 export default AppRouter;

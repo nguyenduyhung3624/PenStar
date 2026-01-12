@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from "react";
 import {
   Card,
@@ -21,24 +20,19 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getCurrentUser, updateUser } from "@/services/usersApi";
 import useAuth from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-
 const { Title, Text } = Typography;
-
 const CustomerProfile: React.FC = () => {
   const auth = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [form] = Form.useForm();
   const [isEditing, setIsEditing] = useState(false);
-
   const { data: userData, isLoading } = useQuery({
     queryKey: ["currentUser"],
     queryFn: getCurrentUser,
     enabled: !!auth?.token,
   });
-
   const user = userData || auth?.user;
-
   const updateMutation = useMutation({
     mutationFn: (values: { full_name?: string; phone?: string }) => {
       if (!user?.id) throw new Error("User ID not found");
@@ -48,10 +42,8 @@ const CustomerProfile: React.FC = () => {
       message.success("Cập nhật thông tin thành công!");
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
       setIsEditing(false);
-      // Update auth context if needed
       if (data?.user) {
         const updatedUser = data.user;
-        // Update localStorage if needed
         try {
           localStorage.setItem("penstar_user", JSON.stringify(updatedUser));
         } catch (e) {
@@ -65,7 +57,6 @@ const CustomerProfile: React.FC = () => {
       );
     },
   });
-
   const handleEdit = () => {
     setIsEditing(true);
     form.setFieldsValue({
@@ -74,19 +65,16 @@ const CustomerProfile: React.FC = () => {
       phone: user?.phone || "",
     });
   };
-
   const handleCancel = () => {
     setIsEditing(false);
     form.resetFields();
   };
-
   const handleSubmit = async (values: { full_name: string; phone: string }) => {
     await updateMutation.mutateAsync({
       full_name: values.full_name,
       phone: values.phone,
     });
   };
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -96,7 +84,6 @@ const CustomerProfile: React.FC = () => {
       </div>
     );
   }
-
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -111,20 +98,18 @@ const CustomerProfile: React.FC = () => {
       </div>
     );
   }
-
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="container mx-auto px-4 max-w-4xl">
         <Title level={2} className="mb-6">
           Thông tin tài khoản
         </Title>
-
         <Card className="shadow-lg">
           <div className="mb-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-                  <UserOutlined className="text-3xl text-blue-600" />
+                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <UserOutlined className="text-3xl text-yellow-600" />
                 </div>
                 <div>
                   <Title level={4} className="!mb-1">
@@ -134,7 +119,7 @@ const CustomerProfile: React.FC = () => {
                     {user.role_name || user.role || "Customer"}
                   </Text>
                   {user.role_name && (
-                    <Tag color="blue" className="ml-2">
+                    <Tag color="yellow" className="ml-2">
                       {user.role_name}
                     </Tag>
                   )}
@@ -152,7 +137,6 @@ const CustomerProfile: React.FC = () => {
             </div>
             <Divider />
           </div>
-
           {isEditing ? (
             <Form
               form={form}
@@ -178,7 +162,6 @@ const CustomerProfile: React.FC = () => {
                   size="large"
                 />
               </Form.Item>
-
               <Form.Item label="Email" name="email">
                 <Input
                   prefix={<MailOutlined />}
@@ -191,7 +174,6 @@ const CustomerProfile: React.FC = () => {
                   Email không thể thay đổi
                 </Text>
               </Form.Item>
-
               <Form.Item
                 label="Số điện thoại"
                 name="phone"
@@ -209,7 +191,6 @@ const CustomerProfile: React.FC = () => {
                   size="large"
                 />
               </Form.Item>
-
               <Form.Item>
                 <Space>
                   <Button
@@ -262,7 +243,7 @@ const CustomerProfile: React.FC = () => {
                   Vai trò:
                 </Text>
                 <div className="mt-1">
-                  <Tag color="blue">
+                  <Tag color="yellow">
                     {user.role_name || user.role || "Customer"}
                   </Tag>
                 </div>
@@ -287,8 +268,7 @@ const CustomerProfile: React.FC = () => {
             </div>
           )}
         </Card>
-
-        {/* Quick Actions */}
+        {}
         <Card className="mt-6 shadow-lg">
           <Title level={4} className="mb-4">
             Thao tác nhanh
@@ -316,5 +296,4 @@ const CustomerProfile: React.FC = () => {
     </div>
   );
 };
-
 export default CustomerProfile;

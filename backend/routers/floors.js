@@ -7,14 +7,10 @@ import {
   deleteFloor,
 } from "../controllers/floorscontroller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.js";
-
 const FloorsRouter = express.Router();
-
-// Public: list and read floors
 FloorsRouter.get("/", getFloors);
 FloorsRouter.get("/:id", getFloorID);
 FloorsRouter.post("/", requireAuth, requireRole("staff"), createFloor);
-// Check if a floor name exists (query: name, excludeId)
 FloorsRouter.get("/check-name", async (req, res) => {
   try {
     const { name, excludeId } = req.query;
@@ -32,5 +28,4 @@ FloorsRouter.get("/check-name", async (req, res) => {
 });
 FloorsRouter.put("/:id", requireAuth, requireRole("staff"), updateFloor);
 FloorsRouter.delete("/:id", requireAuth, requireRole("staff"), deleteFloor);
-
 export default FloorsRouter;

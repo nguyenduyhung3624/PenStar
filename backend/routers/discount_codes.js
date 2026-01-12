@@ -1,17 +1,11 @@
 import express from "express";
 import { DiscountCodesController } from "../controllers/discount_codescontroller.js";
 import { requireAuth, requireRole, optionalAuth } from "../middlewares/auth.js";
-
 const router = express.Router();
-
-// Public routes - cho phép khách check và xem gợi ý mã giảm giá
 router.post("/check", optionalAuth, DiscountCodesController.checkCode);
 router.get("/suggest", optionalAuth, DiscountCodesController.suggestForBooking);
-
-// Apply code (requires login to track usage)
+router.get("/available", DiscountCodesController.getAvailableVouchers);
 router.post("/apply", requireAuth, DiscountCodesController.applyCode);
-
-// Protected routes - yêu cầu manager trở lên
 router.post(
   "/add",
   requireAuth,
@@ -48,5 +42,4 @@ router.post(
   requireRole("manager"),
   DiscountCodesController.deleteById
 );
-
 export default router;

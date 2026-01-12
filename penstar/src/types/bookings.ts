@@ -9,7 +9,6 @@ export type BookingItem = {
   num_children: number;
   num_babies?: number;
   special_requests?: string;
-  // Các trường phụ phí và chi tiết phòng
   base_price?: number;
   extra_fees?: number;
   extra_adult_fees?: number;
@@ -18,7 +17,6 @@ export type BookingItem = {
   extra_children_count?: number;
   room_type_id?: number;
   room_type_name?: string;
-  // Số tiền hoàn lại cho từng phòng (nếu có)
   refund_amount?: number;
   status?: string;
   room_name?: string;
@@ -26,8 +24,8 @@ export type BookingItem = {
   refund_status?: string;
   refund_request_id?: number;
   cancelled_at?: string;
+  room_type_image?: string;
 };
-
 export interface BookingRoom {
   id: number;
   name: string;
@@ -36,23 +34,19 @@ export interface BookingRoom {
   num_adults: number;
   num_children: number;
   num_babies?: number;
-  extra_fees?: number; // Tổng phụ phí
+  extra_fees?: number;
   base_price?: number;
-  extra_adult_fees?: number; // Phụ phí người lớn
-  extra_child_fees?: number; // Phụ phí trẻ em
-  extra_adults_count?: number; // Số người lớn thêm
-  extra_children_count?: number; // Số trẻ em thêm
+  extra_adult_fees?: number;
+  extra_child_fees?: number;
+  extra_adults_count?: number;
+  extra_children_count?: number;
 }
-
-// BookingSidebarProps removed: not used as a type anymore, replaced with inline props
-
 export type BookingService = {
   service_id: number;
   booking_item_id?: number;
   quantity: number;
   total_service_price: number;
 };
-
 export type Booking = {
   id?: number;
   customer_name: string;
@@ -62,7 +56,6 @@ export type Booking = {
   total_price: number;
   total_room_price?: number;
   total_service_price?: number;
-  // ...existing code...
   cancel_reason?: string;
   canceled_by?: number;
   canceled_at?: string;
@@ -74,20 +67,16 @@ export type Booking = {
   user_id?: number;
   is_refunded?: boolean;
   change_count?: number;
-  // Tổng số tiền hoàn lại cho booking (nếu có)
   refund_amount?: number;
-  // Discount / promo code fields
   original_total?: number;
   discount_amount?: number;
   promo_code?: string;
-  // ...existing code...
   items: BookingItem[];
+  amount_paid?: number;
   services?: BookingService[];
   created_at?: string;
   stay_status_name?: string;
 };
-
-// For listing bookings
 export type BookingShort = {
   id: number;
   customer_name: string;
@@ -98,14 +87,11 @@ export type BookingShort = {
   created_at?: string;
   is_refunded?: boolean;
 };
-
-// For booking detail page
 export type BookingDetails = Booking & {
   check_in?: string;
   check_out?: string;
   total_room_price?: number;
   total_service_price?: number;
-  // total_amount removed: not used in booking flow
   cancel_reason?: string;
   canceled_by?: number;
   canceled_at?: string;
@@ -114,10 +100,8 @@ export type BookingDetails = Booking & {
   checked_in_by_email?: string;
   checked_out_by_email?: string;
   canceled_by_email?: string;
-  // Tổng số tiền hoàn lại cho booking (nếu có)
   refund_amount?: number;
 };
-
 export type BookingUpdatePayload = {
   payment_status?: string;
   payment_method?: string;
@@ -125,4 +109,5 @@ export type BookingUpdatePayload = {
   is_refunded?: boolean;
   notes?: string;
   total_price?: number;
+  amount_paid?: number;
 };

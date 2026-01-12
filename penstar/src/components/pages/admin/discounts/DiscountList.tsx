@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from "react";
 import {
   Table,
@@ -24,28 +22,19 @@ import {
   type Voucher,
 } from "@/services/voucherApi";
 import { PlusOutlined, EditOutlined, EyeOutlined } from "@ant-design/icons";
-
+import type { ColumnsType } from "antd/es/table";
 const DiscountList: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 10;
   const [searchTerm, setSearchTerm] = useState<string>("");
-
-  // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedVoucher, setSelectedVoucher] = useState<Voucher | null>(null);
-
-  const {
-    data: vouchers = [],
-    isLoading,
-    refetch,
-  } = useQuery<Voucher[]>({
+  const { data: vouchers = [], isLoading } = useQuery<Voucher[]>({
     queryKey: ["vouchers", "vouchers-admin-all"],
     queryFn: fetchAllVouchers,
   });
-
-  // Status update mutation
   const statusMutation = useMutation({
     mutationFn: ({
       id,
@@ -64,8 +53,6 @@ const DiscountList: React.FC = () => {
       message.error("Cập nhật trạng thái thất bại");
     },
   });
-
-  // Filter by code, name or description
   const filteredVouchers = vouchers
     .filter((v) => {
       const q = String(searchTerm ?? "")
@@ -85,46 +72,38 @@ const DiscountList: React.FC = () => {
       );
     })
     ?.sort((a, b) => Number(b.id) - Number(a.id));
-
   const handleStatusChange = (record: Voucher, checked: boolean) => {
     statusMutation.mutate({
       id: record.id,
       status: checked ? "active" : "inactive",
     });
   };
-
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("vi-VN").format(value) + "đ";
   };
-
   const openDrawer = (voucher: Voucher) => {
     setSelectedVoucher(voucher);
     setDrawerOpen(true);
   };
-
   const closeDrawer = () => {
     setDrawerOpen(false);
     setSelectedVoucher(null);
   };
-
   const getVoucherStatus = (voucher: Voucher) => {
     const now = dayjs();
     const end = voucher.end_date ? dayjs(voucher.end_date) : null;
     const isExpired = end && end.isBefore(now);
-
     if (isExpired) return { label: "Hết hạn", color: "red" };
     if (voucher.status === "active")
       return { label: "Hoạt động", color: "green" };
     return { label: "Tắt", color: "default" };
   };
-
-  const columns = [
+  const columns: ColumnsType<Voucher> = [
     {
       title: "STT",
       key: "stt",
       width: 60,
-      render: (_v: any, _r: any, idx: number) =>
-        idx + 1 + (currentPage - 1) * pageSize,
+      render: (_v, _r, idx) => idx + 1 + (currentPage - 1) * pageSize,
     },
     {
       title: "Tên",
@@ -144,7 +123,7 @@ const DiscountList: React.FC = () => {
       key: "type",
       width: 100,
       render: (v: string) => (
-        <Tag color={v === "percent" ? "blue" : "green"}>
+        <Tag color={v === "percent" ? "yellow" : "green"}>
           {v === "percent" ? "Phần trăm" : "Số tiền"}
         </Tag>
       ),
@@ -176,7 +155,7 @@ const DiscountList: React.FC = () => {
       title: "Đã dùng",
       key: "usage",
       width: 100,
-      render: (_: any, record: Voucher) => (
+      render: (_, record: Voucher) => (
         <span>
           {record.total_usage || 0} / {record.max_uses || "∞"}
         </span>
@@ -186,7 +165,7 @@ const DiscountList: React.FC = () => {
       title: "Thời gian",
       key: "date_range",
       width: 180,
-      render: (_: any, record: Voucher) => (
+      render: (_, record: Voucher) => (
         <div className="text-xs">
           <div>
             Từ:{" "}
@@ -213,14 +192,13 @@ const DiscountList: React.FC = () => {
         const end = record.end_date ? dayjs(record.end_date) : null;
         const isExpired = end && end.isBefore(now);
         const isActive = status === "active" && !isExpired;
-
         return (
           <Space direction="vertical" size={4}>
             <Switch
               checked={isActive}
               onChange={(checked) => handleStatusChange(record, checked)}
               loading={statusMutation.isPending}
-              disabled={isExpired}
+              disabled={!!isExpired}
               size="small"
             />
             {isExpired ? (
@@ -238,7 +216,7 @@ const DiscountList: React.FC = () => {
       title: "Thao tác",
       key: "action",
       width: 120,
-      render: (_: any, record: Voucher) => (
+      render: (_, record: Voucher) => (
         <Space>
           <Tooltip title="Chi tiết">
             <Button
@@ -261,7 +239,6 @@ const DiscountList: React.FC = () => {
       ),
     },
   ];
-
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -285,9 +262,8 @@ const DiscountList: React.FC = () => {
           </Button>
         </div>
       </div>
-
       <Card>
-        <Table
+        <Table<Voucher>
           rowKey="id"
           columns={columns}
           dataSource={filteredVouchers}
@@ -303,8 +279,7 @@ const DiscountList: React.FC = () => {
           }}
         />
       </Card>
-
-      {/* Drawer xem chi tiết voucher */}
+      {}
       <Drawer
         title="Chi tiết Voucher"
         placement="right"
@@ -333,11 +308,13 @@ const DiscountList: React.FC = () => {
                 {selectedVoucher.name || "-"}
               </Descriptions.Item>
               <Descriptions.Item label="Mã voucher">
-                <Tag color="blue">{selectedVoucher.code}</Tag>
+                <Tag color="yellow">{selectedVoucher.code}</Tag>
               </Descriptions.Item>
               <Descriptions.Item label="Loại giảm giá">
                 <Tag
-                  color={selectedVoucher.type === "percent" ? "blue" : "green"}
+                  color={
+                    selectedVoucher.type === "percent" ? "yellow" : "green"
+                  }
                 >
                   {selectedVoucher.type === "percent"
                     ? "Phần trăm"
@@ -363,9 +340,7 @@ const DiscountList: React.FC = () => {
                   : "Không giới hạn"}
               </Descriptions.Item>
             </Descriptions>
-
             <Divider />
-
             <Descriptions
               column={1}
               bordered
@@ -384,9 +359,7 @@ const DiscountList: React.FC = () => {
                 {selectedVoucher.max_uses_per_user || 1}
               </Descriptions.Item>
             </Descriptions>
-
             <Divider />
-
             <Descriptions
               column={1}
               bordered
@@ -409,7 +382,6 @@ const DiscountList: React.FC = () => {
                 </Tag>
               </Descriptions.Item>
             </Descriptions>
-
             {selectedVoucher.description && (
               <>
                 <Divider />
@@ -425,5 +397,4 @@ const DiscountList: React.FC = () => {
     </div>
   );
 };
-
 export default DiscountList;

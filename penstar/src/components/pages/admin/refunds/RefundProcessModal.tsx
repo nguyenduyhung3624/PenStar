@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState } from "react";
 import {
   Modal,
@@ -24,15 +23,12 @@ import {
   type RefundRequest,
 } from "@/services/refundApi";
 import dayjs from "dayjs";
-
 const { TextArea } = Input;
-
 interface RefundProcessModalProps {
   open: boolean;
   request: RefundRequest | null;
   onClose: () => void;
 }
-
 const RefundProcessModal: React.FC<RefundProcessModalProps> = ({
   open,
   request,
@@ -42,23 +38,19 @@ const RefundProcessModal: React.FC<RefundProcessModalProps> = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>("");
   const [adminNotes, setAdminNotes] = useState<string>("");
-
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("vi-VN").format(value) + "đ";
   };
-
   const getStatusTag = (status: string) => {
     const statusConfig: Record<string, { color: string; label: string }> = {
       pending: { color: "orange", label: "Chờ xử lý" },
-      approved: { color: "blue", label: "Đã duyệt" },
+      approved: { color: "yellow", label: "Đã duyệt" },
       completed: { color: "green", label: "Hoàn thành" },
       rejected: { color: "red", label: "Từ chối" },
     };
     const config = statusConfig[status] || { color: "default", label: status };
     return <Tag color={config.color}>{config.label}</Tag>;
   };
-
-  // Upload receipt and complete mutation
   const uploadMutation = useMutation({
     mutationFn: () => {
       if (!request || !selectedFile) throw new Error("No file selected");
@@ -75,8 +67,6 @@ const RefundProcessModal: React.FC<RefundProcessModalProps> = ({
       );
     },
   });
-
-  // Reject mutation
   const rejectMutation = useMutation({
     mutationFn: () => {
       if (!request) throw new Error("No request");
@@ -92,14 +82,12 @@ const RefundProcessModal: React.FC<RefundProcessModalProps> = ({
       message.error(err?.message || "Từ chối thất bại");
     },
   });
-
   const handleClose = () => {
     setSelectedFile(null);
     setPreviewUrl("");
     setAdminNotes("");
     onClose();
   };
-
   const handleFileChange = (info: any) => {
     const file = info.file.originFileObj || info.file;
     if (file) {
@@ -111,7 +99,6 @@ const RefundProcessModal: React.FC<RefundProcessModalProps> = ({
       reader.readAsDataURL(file);
     }
   };
-
   const handleRefund = () => {
     if (!selectedFile) {
       message.warning("Vui lòng upload ảnh bill chuyển khoản");
@@ -119,12 +106,9 @@ const RefundProcessModal: React.FC<RefundProcessModalProps> = ({
     }
     uploadMutation.mutate();
   };
-
   if (!request) return null;
-
   const canProcess =
     request.status === "pending" || request.status === "approved";
-
   return (
     <Modal
       title="Chi tiết yêu cầu hoàn tiền"
@@ -159,7 +143,7 @@ const RefundProcessModal: React.FC<RefundProcessModalProps> = ({
         </Space>
       }
     >
-      {/* Request Info */}
+      {}
       <Descriptions column={1} bordered size="small" className="mb-4">
         <Descriptions.Item label="ID yêu cầu">{request.id}</Descriptions.Item>
         <Descriptions.Item label="Khách hàng">
@@ -186,10 +170,8 @@ const RefundProcessModal: React.FC<RefundProcessModalProps> = ({
           </Descriptions.Item>
         )}
       </Descriptions>
-
       <Divider />
-
-      {/* Bank Info */}
+      {}
       <h4 className="font-semibold mb-2">Thông tin ngân hàng</h4>
       <Descriptions column={1} bordered size="small" className="mb-4">
         <Descriptions.Item label="Ngân hàng">
@@ -202,10 +184,8 @@ const RefundProcessModal: React.FC<RefundProcessModalProps> = ({
           <strong>{request.account_holder}</strong>
         </Descriptions.Item>
       </Descriptions>
-
       <Divider />
-
-      {/* Upload Receipt & Notes - Show for pending/approved */}
+      {}
       {canProcess && (
         <div className="space-y-4">
           <div>
@@ -230,7 +210,6 @@ const RefundProcessModal: React.FC<RefundProcessModalProps> = ({
               </div>
             )}
           </div>
-
           <div>
             <h4 className="font-semibold mb-2">Ghi chú (tùy chọn)</h4>
             <TextArea
@@ -242,8 +221,7 @@ const RefundProcessModal: React.FC<RefundProcessModalProps> = ({
           </div>
         </div>
       )}
-
-      {/* Show Receipt if completed */}
+      {}
       {request.receipt_image && (
         <div>
           <h4 className="font-semibold mb-2">Bill chuyển khoản đã gửi</h4>
@@ -254,8 +232,7 @@ const RefundProcessModal: React.FC<RefundProcessModalProps> = ({
           />
         </div>
       )}
-
-      {/* Admin Notes */}
+      {}
       {request.admin_notes && (
         <div className="mt-4">
           <h4 className="font-semibold mb-1">Ghi chú từ admin</h4>
@@ -265,5 +242,4 @@ const RefundProcessModal: React.FC<RefundProcessModalProps> = ({
     </Modal>
   );
 };
-
 export default RefundProcessModal;

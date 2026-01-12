@@ -1,9 +1,5 @@
 import pool from "../db.js";
-
 export const RefundRequestsModel = {
-  /**
-   * Create a new refund request
-   */
   async create({
     booking_id,
     booking_item_id,
@@ -30,10 +26,6 @@ export const RefundRequestsModel = {
     );
     return result.rows[0];
   },
-
-  /**
-   * Find refund request by ID
-   */
   async findById(id) {
     const result = await pool.query(
       `SELECT rr.*,
@@ -49,10 +41,6 @@ export const RefundRequestsModel = {
     );
     return result.rows[0];
   },
-
-  /**
-   * Find all refund requests by user
-   */
   async findByUserId(userId) {
     const result = await pool.query(
       `SELECT rr.*,
@@ -65,10 +53,6 @@ export const RefundRequestsModel = {
     );
     return result.rows;
   },
-
-  /**
-   * List all refund requests with optional status filter
-   */
   async list(status = null) {
     let query = `
       SELECT rr.*,
@@ -80,29 +64,18 @@ export const RefundRequestsModel = {
       LEFT JOIN bookings b ON rr.booking_id = b.id
       LEFT JOIN users pu ON rr.processed_by = pu.id
     `;
-
     const params = [];
     if (status) {
       query += ` WHERE rr.status = $1`;
       params.push(status);
     }
-
     query += ` ORDER BY rr.created_at DESC`;
-
     const result = await pool.query(query, params);
     return result.rows;
   },
-
-  /**
-   * Find pending refund requests
-   */
   async findPending() {
     return this.list("pending");
   },
-
-  /**
-   * Update refund request status (for admin)
-   */
   async updateStatus(id, { status, admin_notes, processed_by, receipt_image }) {
     const result = await pool.query(
       `UPDATE refund_requests
@@ -124,10 +97,6 @@ export const RefundRequestsModel = {
     );
     return result.rows[0];
   },
-
-  /**
-   * Upload receipt image
-   */
   async uploadReceipt(id, receiptImage, processedBy) {
     const result = await pool.query(
       `UPDATE refund_requests
@@ -140,10 +109,6 @@ export const RefundRequestsModel = {
     );
     return result.rows[0];
   },
-
-  /**
-   * Check if refund request exists for booking/item
-   */
   async existsForBooking(bookingId) {
     const result = await pool.query(
       `SELECT id FROM refund_requests
@@ -152,7 +117,6 @@ export const RefundRequestsModel = {
     );
     return result.rowCount > 0;
   },
-
   async existsForBookingItem(bookingItemId) {
     const result = await pool.query(
       `SELECT id FROM refund_requests
@@ -161,10 +125,6 @@ export const RefundRequestsModel = {
     );
     return result.rowCount > 0;
   },
-
-  /**
-   * Get statistics
-   */
   async getStats() {
     const result = await pool.query(`
       SELECT
@@ -179,5 +139,4 @@ export const RefundRequestsModel = {
     return result.rows[0];
   },
 };
-
 export default RefundRequestsModel;

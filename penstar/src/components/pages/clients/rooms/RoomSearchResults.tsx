@@ -12,7 +12,6 @@ import RoomSearchBar from "@/components/common/RoomSearchBar";
 import BookingSidebar from "@/components/common/BookingSidebar";
 import RoomTypeCard from "./RoomTypeCard";
 import dayjs from "@/utils/dayjs";
-
 const RoomSearchResults = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -21,19 +20,12 @@ const RoomSearchResults = () => {
   const [searchParams, setSearchParams] = useState<RoomSearchParams | null>(
     location.state?.searchParams || null
   );
-
-  // Fetch room types
   const { data: roomTypes = [] } = useQuery<RoomType[]>({
     queryKey: ["roomtypes"],
     queryFn: getRoomTypes,
   });
-
-  // State cho multi-room selection (giữ lại cho RoomTypeCard, nhưng không dùng cho booking payload nữa)
   const [selectedRoomIds, setSelectedRoomIds] = useState<number[]>([]);
   const [numRooms, setNumRooms] = useState(1);
-  // const [roomsConfig, setRoomsConfig] = useState<RoomBookingConfig[]>([]); // Removed: unused
-
-  // State cho nhiều loại phòng đã xác nhận
   const [confirmedBookings, setConfirmedBookings] = useState<
     Array<{
       roomTypeId: number;
@@ -43,42 +35,32 @@ const RoomSearchResults = () => {
       numRooms: number;
     }>
   >([]);
-
   useEffect(() => {
     if (searchParams) {
       handleSearch(searchParams);
-      // Set num_rooms từ search params
       if (searchParams.num_rooms) {
         setNumRooms(searchParams.num_rooms);
       }
     }
-
-    // Xử lý auto-selected rooms từ catalog (nếu có)
     if (
       location.state?.autoSelectedRoomIds &&
       location.state?.autoSelectedConfigs
     ) {
       setSelectedRoomIds(location.state.autoSelectedRoomIds);
-      // setRoomsConfig(location.state.autoSelectedConfigs); // Removed: unused
       message.success(
         `Đã tự động chọn ${location.state.autoSelectedRoomIds.length} phòng từ catalog`
       );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
   const handleSearch = async (params: RoomSearchParams) => {
     setLoading(true);
     setSelectedRoomIds([]);
-    // setRoomsConfig([]); // Removed: unused
     try {
       console.log("🔍 Searching with params:", params);
-      // Use searchAllRoomsWithAvailability to get ALL rooms with is_available flag
       const response = await searchAllRoomsWithAvailability(params);
       console.log("📦 Search response:", response);
       setRooms(response.data);
       setSearchParams(params);
-      // Cập nhật số phòng từ search params
       if (params.num_rooms) {
         setNumRooms(params.num_rooms);
       }
@@ -96,10 +78,6 @@ const RoomSearchResults = () => {
       setLoading(false);
     }
   };
-
-  // ...existing code...
-
-  // Group rooms by room type
   const roomsByType = useMemo(
     () =>
       rooms.reduce(
@@ -116,85 +94,101 @@ const RoomSearchResults = () => {
   );
 
   return (
-    <div className="min-h-screen" style={{ background: "#f5f5f5" }}>
-      {/* Search Bar Section */}
-      <div className="bg-white">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <RoomSearchBar onSearch={handleSearch} loading={loading} />
+    <div className="min-h-screen bg-gray-50 pb-12">
+      {/* Search Header */}
+      <div className="bg-white border-b sticky top-0 z-30 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <RoomSearchBar
+            onSearch={handleSearch}
+            loading={loading}
+            variant="inline"
+            requireAuthForSearch={false}
+          />
         </div>
       </div>
 
-      {/* Results Section */}
-      <div className="max-w-6xl mx-auto px-4 py-6">
-        {searchParams && (
-          <div
-            className="bg-white p-4 mb-6"
-            style={{
-              border: "1px solid #e0e0e0",
-            }}
-          >
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2">
-                <CalendarOutlined className="text-blue-600" />
-                <span className="font-medium">
-                  {dayjs(searchParams.check_in).format("DD/MM/YYYY")} -{" "}
-                  {dayjs(searchParams.check_out).format("DD/MM/YYYY")}
-                </span>
-                {/* Đã xóa hiển thị số phòng và số người lớn */}
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Breadcrumb & Search Info */}
+        <div className="mb-6">
+          {searchParams && (
+            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 text-gray-600 bg-gray-50 px-3 py-1.5 rounded-md border border-gray-200">
+                  <CalendarOutlined className="text-yellow-600" />
+                  <span className="font-semibold text-gray-800">
+                    {dayjs(searchParams.check_in).format("DD/MM/YYYY")}
+                  </span>
+                  <span className="text-gray-400">→</span>
+                  <span className="font-semibold text-gray-800">
+                    {dayjs(searchParams.check_out).format("DD/MM/YYYY")}
+                  </span>
+                </div>
+                {searchParams.num_rooms && (
+                  <div className="bg-yellow-50 text-yellow-700 px-3 py-1.5 rounded-md font-medium text-sm">
+                    {searchParams.num_rooms} Phòng
+                  </div>
+                )}
               </div>
-              {/* Promo code display removed: promo_code is not used in booking anymore */}
+              <div className="text-gray-500 text-sm">
+                Tìm thấy{" "}
+                <strong className="text-gray-800">
+                  {Object.keys(roomsByType).length}
+                </strong>{" "}
+                loại phòng phù hợp
+              </div>
             </div>
-          </div>
-        )}
-
-        {/* Room count info */}
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">
-            Vui lòng chọn phòng ({Object.keys(roomsByType).length} loại phòng
-            tìm thấy)
-          </h2>
+          )}
         </div>
 
         {loading ? (
-          <div className="text-center py-20">
-            <Spin size="large" />
-            <p className="mt-4 text-gray-600">Đang tìm kiếm phòng...</p>
+          <div className="py-12">
+            <Row gutter={24}>
+              <Col xs={24} lg={16}>
+                <div className="space-y-6">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="bg-white p-6 rounded-xl shadow-sm">
+                      <Spin size="large" />
+                    </div>
+                  ))}
+                </div>
+              </Col>
+              <Col xs={24} lg={8}>
+                <div className="bg-white p-6 rounded-xl shadow-sm h-64"></div>
+              </Col>
+            </Row>
           </div>
         ) : Object.keys(roomsByType).length === 0 ? (
-          <Empty
-            description="Không tìm thấy phòng trống"
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-          >
-            <Button type="primary" onClick={() => navigate("/")}>
-              Quay về trang chủ
-            </Button>
-          </Empty>
+          <div className="bg-white rounded-xl shadow-sm p-12 text-center">
+            <Empty
+              description={
+                <span className="text-gray-500 text-lg">
+                  Không tìm thấy phòng trống cho giai đoạn này
+                </span>
+              }
+            >
+              <Button
+                type="primary"
+                size="large"
+                onClick={() => navigate("/")}
+                className="mt-4"
+              >
+                Quay về trang chủ & Tìm ngày khác
+              </Button>
+            </Empty>
+          </div>
         ) : (
           <Row gutter={24}>
-            {/* Left Column: Room Type Cards with Collapse */}
+            {/* Room List */}
             <Col xs={24} lg={16}>
-              <div className="space-y-3">
+              <div className="space-y-6">
                 {Object.entries(roomsByType).map(([typeId, roomsInType]) => {
                   const roomType = roomTypes.find(
                     (rt) => rt.id === Number(typeId)
                   );
-                  // Nếu số phòng trống < numRooms, chỉ hiện thông báo
-
-                  // Lấy roomsConfig từ confirmedBookings cho room type này
                   const currentBooking = confirmedBookings.find(
                     (b) => b.roomTypeId === Number(typeId)
                   );
                   const currentRoomsConfig = currentBooking?.roomsConfig || [];
-
-                  console.log("📦 RoomTypeCard config:", roomType?.name, {
-                    typeId,
-                    currentRoomsConfig,
-                    allBookings: confirmedBookings.map((b) => ({
-                      id: b.roomTypeId,
-                      name: b.roomTypeName,
-                      count: b.roomsConfig.length,
-                    })),
-                  });
 
                   return (
                     <RoomTypeCard
@@ -207,7 +201,6 @@ const RoomSearchResults = () => {
                       disabled={roomsInType.length < numRooms}
                       onSelectRoomType={(selectedRooms, newRoomsConfig) => {
                         setSelectedRoomIds(selectedRooms.map((r) => r.id));
-                        // Thêm hoặc cập nhật loại phòng đã xác nhận
                         setConfirmedBookings((prev) => {
                           const idx = prev.findIndex(
                             (b) => b.roomTypeId === (roomType?.id || 0)
@@ -220,12 +213,10 @@ const RoomSearchResults = () => {
                             roomsConfig: newRoomsConfig,
                           };
                           if (idx >= 0) {
-                            // Cập nhật loại phòng đã có
                             const updated = [...prev];
                             updated[idx] = newBooking;
                             return updated;
                           } else {
-                            // Thêm mới loại phòng
                             return [...prev, newBooking];
                           }
                         });
@@ -237,9 +228,9 @@ const RoomSearchResults = () => {
               </div>
             </Col>
 
-            {/* Right Column: Booking Sidebar - Show after confirmation */}
+            {/* Sidebar */}
             <Col xs={24} lg={8}>
-              <div className="sticky top-0">
+              <div className="sticky top-24">
                 {confirmedBookings.length > 0 && searchParams ? (
                   <BookingSidebar
                     checkIn={searchParams.check_in}
@@ -265,9 +256,7 @@ const RoomSearchResults = () => {
                         };
                       })
                     )}
-                    // promoCode prop removed: not used in BookingSidebar
                     onRemoveRoom={(index) => {
-                      // Tìm phòng cần xóa trong confirmedBookings
                       let currentIndex = 0;
                       for (let i = 0; i < confirmedBookings.length; i++) {
                         const booking = confirmedBookings[i];
@@ -275,14 +264,11 @@ const RoomSearchResults = () => {
                           const roomIndexInBooking = index - currentIndex;
                           const updatedRoomsConfig = [...booking.roomsConfig];
                           updatedRoomsConfig.splice(roomIndexInBooking, 1);
-
                           if (updatedRoomsConfig.length === 0) {
-                            // Xóa toàn bộ booking nếu không còn phòng
                             setConfirmedBookings((prev) =>
                               prev.filter((_, idx) => idx !== i)
                             );
                           } else {
-                            // Cập nhật lại roomsConfig
                             setConfirmedBookings((prev) => {
                               const newBookings = [...prev];
                               newBookings[i] = {
@@ -298,21 +284,17 @@ const RoomSearchResults = () => {
                       }
                     }}
                     onCheckout={() => {
-                      // Gộp toàn bộ roomsConfig của các loại phòng
                       const allRoomsConfig = confirmedBookings.flatMap(
                         (booking) =>
                           booking.roomsConfig.map((cfg) => ({
                             ...cfg,
                             room_type_id: booking.roomTypeId,
                             room_type_name: booking.roomTypeName,
-                            // Sử dụng cfg.price (đã bao gồm phụ phí) thay vì booking.roomPrice (chỉ giá base)
                             room_type_price: Number(
                               cfg.price || booking.roomPrice || 0
                             ),
                           }))
                       );
-
-                      // Tính tổng giá (giống BookingSidebar)
                       const nights = dayjs(searchParams.check_out).diff(
                         dayjs(searchParams.check_in),
                         "day"
@@ -325,8 +307,6 @@ const RoomSearchResults = () => {
                             nights,
                         0
                       );
-
-                      // Chuẩn hóa cho backend: tạo mảng items
                       const items = allRoomsConfig.map((cfg) => ({
                         room_id: cfg.room_id,
                         num_adults: cfg.num_adults ?? 1,
@@ -334,58 +314,37 @@ const RoomSearchResults = () => {
                         num_babies: cfg.num_babies ?? 0,
                         room_type_id: cfg.room_type_id,
                         room_type_name: cfg.room_type_name,
-                        room_type_price: Number(cfg.room_type_price || 0), // Giá đã bao gồm phụ phí
-                        base_price: Number(cfg.base_price || cfg.price || 0), // Giá gốc
-                        extra_fees: Number(cfg.extra_fees || 0), // Tổng phụ phí
-                        extra_adult_fees: Number(cfg.extra_adult_fees || 0), // Phụ phí người lớn
-                        extra_child_fees: Number(cfg.extra_child_fees || 0), // Phụ phí trẻ em
-                        extra_adults_count: cfg.extra_adults_count ?? 0, // Số người lớn thêm
-                        extra_children_count: cfg.extra_children_count ?? 0, // Số trẻ em thêm
+                        room_type_price: Number(cfg.room_type_price || 0),
+                        base_price: Number(cfg.base_price || cfg.price || 0),
+                        extra_fees: Number(cfg.extra_fees || 0),
+                        extra_adult_fees: Number(cfg.extra_adult_fees || 0),
+                        extra_child_fees: Number(cfg.extra_child_fees || 0),
+                        extra_adults_count: cfg.extra_adults_count ?? 0,
+                        extra_children_count: cfg.extra_children_count ?? 0,
                         check_in: searchParams.check_in,
                         check_out: searchParams.check_out,
                       }));
-
                       navigate("/bookings/confirm", {
                         state: {
                           searchParams,
                           items,
-                          totalPrice, // Truyền tổng giá đã tính sẵn
+                          totalPrice,
                         },
                       });
                     }}
                     loading={loading}
                   />
                 ) : (
-                  <div
-                    className="bg-white p-6"
-                    style={{
-                      border: "1px solid #e0e0e0",
-                    }}
-                  >
-                    <div className="text-center text-gray-500">
-                      <div className="mb-4">
-                        <svg
-                          className="w-16 h-16 mx-auto text-gray-300"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                          />
-                        </svg>
-                      </div>
-                      <h3 className="text-lg font-semibold mb-2">
-                        Chưa chọn phòng nào
-                      </h3>
-                      <p className="text-sm">
-                        Nhấn "Xác nhận" trên loại phòng để hệ thống tự động chọn
-                        phòng phù hợp
-                      </p>
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-8 text-center sticky top-24">
+                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <CalendarOutlined className="text-2xl text-gray-400" />
                     </div>
+                    <h3 className="text-lg font-bold text-gray-800 mb-2">
+                      Giỏ hàng trống
+                    </h3>
+                    <p className="text-gray-500 text-sm">
+                      Chọn phòng và bấm "Xác nhận" để thêm vào giỏ hàng của bạn.
+                    </p>
                   </div>
                 )}
               </div>
@@ -396,5 +355,4 @@ const RoomSearchResults = () => {
     </div>
   );
 };
-
 export default RoomSearchResults;

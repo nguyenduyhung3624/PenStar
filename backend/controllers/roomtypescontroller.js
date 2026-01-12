@@ -37,6 +37,7 @@ export const createRoomType = async (req, res) => {
       extra_child_fee,
       child_age_limit,
       policies,
+      free_amenities,
     } = req.body;
     if (await existsRoomTypeWithName(String(name))) {
       return res.error("Tên loại phòng đã tồn tại", null, 400);
@@ -65,6 +66,7 @@ export const createRoomType = async (req, res) => {
       extra_child_fee,
       child_age_limit,
       policies,
+      free_amenities,
     });
     res.success(newRoomType, "Tạo loại phòng thành công", 201);
   } catch (error) {
@@ -108,6 +110,7 @@ export const updateRoomType = async (req, res) => {
       extra_child_fee,
       child_age_limit,
       policies,
+      free_amenities,
     } = req.body;
     if (name && (await existsRoomTypeWithName(String(name), Number(id)))) {
       return res.error("Tên loại phòng đã tồn tại", null, 400);
@@ -136,6 +139,7 @@ export const updateRoomType = async (req, res) => {
       extra_child_fee,
       child_age_limit,
       policies,
+      free_amenities,
     });
     if (!updated) {
       return res.error("Loại phòng không tồn tại", null, 404);

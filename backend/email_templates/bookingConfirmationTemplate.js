@@ -20,16 +20,12 @@ export const bookingConfirmationTemplate = (booking) => {
       <tr>
         <td style="padding: 12px 0; border-bottom: 1px solid #ddd; font-size: 13px;">
           <div style="font-weight: 600; color: #000; margin-bottom: 4px;">
-            ${i.room_type_name || i.room_name || `Phòng ${idx + 1}`}
+            ${i.room_name ? `${i.room_name} - ` : ""}${
+        i.room_type_name || `Phòng ${idx + 1}`
+      }
           </div>
           <div style="color: #666; font-size: 12px;">
-            ${formatDate(i.check_in)
-              .split(" ")
-              .slice(0, -1)
-              .join(" ")} - ${formatDate(i.check_out)
-        .split(" ")
-        .slice(0, -1)
-        .join(" ")}
+            ${formatDate(i.check_in)} - ${formatDate(i.check_out)}
           </div>
           <div style="color: #666; font-size: 12px; margin-top: 2px;">
             👥 ${i.num_adults || 0} người lớn${
@@ -123,9 +119,6 @@ export const bookingConfirmationTemplate = (booking) => {
           <td style="padding: 6px 0; color: #000;">${
             booking.items && booking.items[0]
               ? formatDate(booking.items[0].check_in)
-                  .split(" ")
-                  .slice(0, -1)
-                  .join(" ")
               : "—"
           }</td>
         </tr>
@@ -134,9 +127,6 @@ export const bookingConfirmationTemplate = (booking) => {
           <td style="padding: 6px 0; color: #000;">${
             booking.items && booking.items[0]
               ? formatDate(booking.items[0].check_out)
-                  .split(" ")
-                  .slice(0, -1)
-                  .join(" ")
               : "—"
           }</td>
         </tr>

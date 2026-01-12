@@ -1,14 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Form, InputNumber, Button, Select, message, Card } from "antd";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { upsertDeviceStandard } from "@/services/roomTypeEquipmentsAdminApi";
 import { getRoomTypes, getEquipments } from "@/services/masterDataApi";
 import React from "react";
-
 interface AddDeviceStandardFormProps {
   equipmentId?: number;
 }
-
 const AddDeviceStandardForm: React.FC<AddDeviceStandardFormProps> = ({
   equipmentId,
 }) => {
@@ -31,13 +28,11 @@ const AddDeviceStandardForm: React.FC<AddDeviceStandardFormProps> = ({
     },
     onError: () => message.error("Lỗi khi cập nhật tiêu chuẩn!"),
   });
-
   React.useEffect(() => {
     if (equipmentId && equipments.length > 0) {
       form.setFieldsValue({ master_equipment_id: equipmentId });
     }
   }, [equipmentId, equipments, form]);
-
   return (
     <Card
       style={{
@@ -188,5 +183,4 @@ const AddDeviceStandardForm: React.FC<AddDeviceStandardFormProps> = ({
     </Card>
   );
 };
-
 export default AddDeviceStandardForm;

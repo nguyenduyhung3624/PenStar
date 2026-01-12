@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
 import { Button, Spin, Tag, message, Modal, Table } from "antd";
@@ -7,43 +6,34 @@ import { getBookingIncidents } from "@/services/bookingIncidentsApi";
 import type { Booking, BookingService } from "@/types/bookings";
 import { getServiceById } from "@/services/servicesApi";
 import dayjs from "@/utils/dayjs";
-
 const fmtPrice = (v: string | number | undefined) => {
   if (v == null) return "0";
   const n = Math.round(Number(v) || 0);
   return n.toLocaleString("vi-VN");
 };
-
 const BookingSuccess: React.FC = () => {
   const loc = useLocation();
   const { id } = useParams();
   const navigate = useNavigate();
   const initial =
     (loc.state as unknown as { booking?: Booking })?.booking ?? null;
-
   const [booking, setBooking] = React.useState<Booking | null>(initial);
   const [loading, setLoading] = React.useState(!initial);
   const [updating, setUpdating] = React.useState(false);
   const [services, setServices] = React.useState<
     Record<number, { name: string; price: number }>
   >({});
-  // 2. Thêm state lưu sự cố
   const [incidents, setIncidents] = React.useState<any[]>([]);
-
   const fetchBooking = React.useCallback(async () => {
     if (!id) return;
     setLoading(true);
     try {
-      // Gọi song song cả thông tin booking và sự cố
       const [bookingData, incidentsData] = await Promise.all([
         getBookingById(Number(id)),
-        getBookingIncidents(Number(id)).catch(() => []), // Nếu lỗi lấy sự cố thì trả về mảng rỗng
+        getBookingIncidents(Number(id)).catch(() => []),
       ]);
-
       setBooking(bookingData);
       setIncidents(incidentsData);
-
-      // Xử lý lấy tên dịch vụ (giữ nguyên logic cũ)
       if (
         Array.isArray(bookingData.services) &&
         bookingData.services.length > 0
@@ -75,7 +65,6 @@ const BookingSuccess: React.FC = () => {
       setLoading(false);
     }
   }, [id]);
-
   React.useEffect(() => {
     if (!id) return;
     if (initial && initial.id && String(initial.id) === id) {
@@ -87,9 +76,7 @@ const BookingSuccess: React.FC = () => {
     } else {
       fetchBooking();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
-
   const handleCancel = async () => {
     if (!booking?.id) return;
     const bookingId = booking.id;
@@ -121,12 +108,11 @@ const BookingSuccess: React.FC = () => {
       },
     });
   };
-
   const getStatusTag = (statusId?: number) => {
     const id = statusId || 0;
     const statusMap: Record<number, { color: string; text: string }> = {
       6: { color: "warning", text: "Chờ xác nhận" },
-      1: { color: "blue", text: "Đã xác nhận" },
+      1: { color: "yellow", text: "Đã xác nhận" },
       2: { color: "green", text: "Đã Check-in" },
       3: { color: "default", text: "Đã Check-out" },
       4: { color: "red", text: "Đã hủy" },
@@ -135,34 +121,26 @@ const BookingSuccess: React.FC = () => {
     const status = statusMap[id] || { color: "default", text: "-" };
     return <Tag color={status.color}>{status.text}</Tag>;
   };
-
   if (loading)
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Spin size="large" />
       </div>
     );
-
   const statusId = booking?.stay_status_id || 0;
   const paymentStatus = booking?.payment_status || "";
   const canCancel = statusId === 6 || statusId === 1;
-
-  // Tính số đêm
   const checkIn = booking?.items?.[0]?.check_in;
   const checkOut = booking?.items?.[0]?.check_out;
   const nights =
     checkIn && checkOut ? dayjs(checkOut).diff(dayjs(checkIn), "day") : 1;
-
   const totalAdults = Array.isArray(booking?.items)
     ? booking!.items.reduce((sum, item) => sum + (item.num_adults || 0), 0)
     : 0;
   const totalChildren = Array.isArray(booking?.items)
     ? booking!.items.reduce((sum, item) => sum + (item.num_children || 0), 0)
     : 0;
-
-  // 3. Cập nhật tableData để bao gồm cả incidents
   const tableData = [
-    // --- Tiền phòng ---
     ...(booking?.items?.map((item, idx) => ({
       key: `room-${idx}`,
       description: `Phòng ${idx + 1}${item.room_type_name ? ` - ${item.room_type_name}` : ""}`,
@@ -170,8 +148,6 @@ const BookingSuccess: React.FC = () => {
       quantity: nights,
       amount: item.room_type_price || item.room_price || 0,
     })) || []),
-
-    // --- Phụ phí người lớn/trẻ em ---
     ...(booking?.items?.flatMap((item, idx) => {
       const extras = [];
       if ((item.extra_adult_fees ?? 0) > 0) {
@@ -194,8 +170,6 @@ const BookingSuccess: React.FC = () => {
       }
       return extras;
     }) || []),
-
-    // --- Dịch vụ ---
     ...(booking?.services?.map((s: BookingService, idx: number) => ({
       key: `service-${idx}`,
       description: services[s.service_id]?.name || `Dịch vụ #${s.service_id}`,
@@ -203,18 +177,15 @@ const BookingSuccess: React.FC = () => {
       quantity: s.quantity,
       amount: s.total_service_price,
     })) || []),
-
-    // --- SỰ CỐ / ĐỀN BÙ (MỚI THÊM) ---
     ...(incidents.map((inc, idx) => ({
       key: `incident-${idx}`,
       description: `⚠️ Đền bù: ${inc.equipment_name} (${inc.room_name || "Phòng " + inc.room_id})`,
       unitCost: inc.compensation_price || 0,
       quantity: inc.quantity,
       amount: inc.amount,
-      isIncident: true, // Flag để style màu đỏ
+      isIncident: true,
     })) || []),
   ];
-
   const columns = [
     {
       title: "MÔ TẢ",
@@ -255,20 +226,18 @@ const BookingSuccess: React.FC = () => {
       ),
     },
   ];
-
   return (
     <div className="min-h-screen bg-gray-100 py-8">
       <div className="max-w-3xl mx-auto px-4">
-        {/* Main Card */}
+        {}
         <div className="bg-white shadow-lg rounded-lg overflow-hidden">
-          {/* Header */}
+          {}
           <div className="border-b-4 border-yellow-500 px-8 py-6">
             <h1 className="text-3xl font-light tracking-wide text-center text-gray-800 uppercase">
               Xác Nhận Đặt Phòng
             </h1>
           </div>
-
-          {/* Status Alert */}
+          {}
           {statusId === 6 && (
             <div className="bg-yellow-50 border-b border-yellow-200 px-8 py-4 flex items-center gap-3">
               <span className="text-xl">⏳</span>
@@ -296,11 +265,10 @@ const BookingSuccess: React.FC = () => {
               )}
             </div>
           )}
-
           <div className="p-8">
-            {/* Booking Info & Hotel Info */}
+            {}
             <div className="grid grid-cols-2 gap-8 mb-8">
-              {/* Left: Booking Details */}
+              {}
               <div className="space-y-3">
                 <div className="flex gap-4">
                   <span className="text-gray-500 w-28 text-sm uppercase">
@@ -352,8 +320,7 @@ const BookingSuccess: React.FC = () => {
                   </span>
                 </div>
               </div>
-
-              {/* Right: Status & Payment */}
+              {}
               <div className="text-right space-y-3">
                 <div className="mb-4">
                   <div className="text-xl font-semibold text-gray-800 mb-1">
@@ -397,8 +364,7 @@ const BookingSuccess: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            {/* Customer Info */}
+            {}
             <div className="border-t pt-6 mb-6">
               <div className="text-xs uppercase text-gray-500 font-semibold mb-3">
                 Thông tin khách hàng
@@ -418,8 +384,7 @@ const BookingSuccess: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            {/* Table */}
+            {}
             <Table
               columns={columns}
               dataSource={tableData}
@@ -427,8 +392,7 @@ const BookingSuccess: React.FC = () => {
               size="small"
               className="border rounded-lg overflow-hidden mb-6"
             />
-
-            {/* Totals */}
+            {}
             <div className="border-t pt-4">
               <div className="flex justify-end">
                 <div className="w-64 space-y-2">
@@ -462,8 +426,7 @@ const BookingSuccess: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            {/* Payment Button */}
+            {}
             {booking?.id &&
               (paymentStatus === "pending" || paymentStatus === "failed") &&
               statusId !== 4 &&
@@ -489,8 +452,7 @@ const BookingSuccess: React.FC = () => {
                   </Button>
                 </div>
               )}
-
-            {/* Notes */}
+            {}
             {booking?.notes && (
               <div className="mt-6 pt-6 border-t">
                 <div className="text-xs uppercase text-gray-500 font-semibold mb-2">
@@ -500,8 +462,7 @@ const BookingSuccess: React.FC = () => {
               </div>
             )}
           </div>
-
-          {/* Footer Actions */}
+          {}
           <div className="bg-gray-50 px-8 py-4 flex justify-between items-center border-t">
             <div className="text-xs text-gray-400">
               Check-in: 14:00 • Check-out: 14:00
@@ -529,5 +490,4 @@ const BookingSuccess: React.FC = () => {
     </div>
   );
 };
-
 export default BookingSuccess;

@@ -1,5 +1,13 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-import { Button, Card, Form, Input, InputNumber, message, Upload } from "antd";
+import {
+  Button,
+  Card,
+  Form,
+  Input,
+  InputNumber,
+  message,
+  Upload,
+  Modal,
+} from "antd";
 import { PlusOutlined } from "@ant-design/icons";
 import type { UploadFile } from "antd";
 import QuillEditor from "@/components/common/QuillEditor";
@@ -8,43 +16,56 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { getServiceById, updateService } from "@/services/servicesApi";
 import { useNavigate, useParams } from "react-router-dom";
 import { useEffect, useState } from "react";
-
 const ServiceEdit = () => {
   const [form] = Form.useForm();
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  // Chỉ dùng thumbnailFileList làm ảnh đại diện
   const [thumbnailFileList, setThumbnailFileList] = useState<UploadFile[]>([]);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState("");
+  const [previewTitle, setPreviewTitle] = useState("");
 
+  const handleCancel = () => setPreviewOpen(false);
+
+  const handlePreview = async (file: UploadFile) => {
+    if (!file.url && !file.preview) {
+      if (file.originFileObj) {
+        file.preview = await getBase64(file.originFileObj as File);
+      }
+    }
+    setPreviewImage(file.url || (file.preview as string));
+    setPreviewOpen(true);
+    setPreviewTitle(
+      file.name || file.url!.substring(file.url!.lastIndexOf("/") + 1)
+    );
+  };
   const { data, isLoading } = useQuery({
     queryKey: ["service", id],
     queryFn: () => getServiceById(id as string),
     enabled: !!id,
   });
-
   useEffect(() => {
     if (!data) return;
-
     form.setFieldsValue({
       name: data.name,
       description: data.description,
       price: data.price,
+      unit: data.unit || "Cái",
     });
-
-    // Set existing images
     if (data.thumbnail) {
       setThumbnailFileList([
         {
           uid: "-2",
           name: "thumbnail.jpg",
           status: "done",
-          url: data.thumbnail,
+          url: data.thumbnail.startsWith("http")
+            ? data.thumbnail
+            : `http://localhost:5001${data.thumbnail}`,
         },
       ]);
     }
   }, [data, form]);
-
   const updateMut = useMutation({
     mutationFn: ({ id, payload }: any) => updateService(id, payload),
     onSuccess: () => {
@@ -59,15 +80,11 @@ const ServiceEdit = () => {
       );
     },
   });
-
   const handleSubmit = async (values: any) => {
     const formData = new FormData();
-
-    // ✅ Add form fields - chỉ thêm những field có giá trị
     Object.keys(values).forEach((key) => {
       const value = values[key];
       if (value !== undefined && value !== null) {
-        // ✅ Convert boolean thành string để FormData xử lý đúng
         if (typeof value === "boolean") {
           formData.append(key, value.toString());
         } else {
@@ -75,33 +92,24 @@ const ServiceEdit = () => {
         }
       }
     });
-
-    // ✅ Chỉ xử lý thumbnail file (ảnh đại diện)
     const thumbnailFile = thumbnailFileList[0];
     if (thumbnailFile) {
       if (thumbnailFile.originFileObj) {
-        // Upload file mới
         formData.append("thumbnail_file", thumbnailFile.originFileObj);
       } else if (thumbnailFile.url) {
-        // Giữ nguyên ảnh cũ
         formData.append("thumbnail", thumbnailFile.url);
       }
     }
-
-    // ✅ Debug log
     console.log("[ServiceEdit] Form values:", values);
     console.log("[ServiceEdit] FormData entries:");
     for (const [key, value] of formData.entries()) {
       console.log(`  ${key}:`, value);
     }
-
     updateMut.mutate({ id, payload: formData });
   };
-
   if (isLoading) {
     return <div className="p-8 text-center">Đang tải...</div>;
   }
-
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -110,7 +118,6 @@ const ServiceEdit = () => {
           <Button type="primary">Quay lại</Button>
         </Link>
       </div>
-
       <Card>
         <Form form={form} layout="vertical" onFinish={handleSubmit}>
           <Form.Item
@@ -120,7 +127,6 @@ const ServiceEdit = () => {
           >
             <Input placeholder="VD: Buffet sáng, Spa massage..." />
           </Form.Item>
-
           <div className="grid grid-cols-2 gap-4">
             <Form.Item
               name="price"
@@ -129,8 +135,10 @@ const ServiceEdit = () => {
             >
               <InputNumber style={{ width: "100%" }} min={0} />
             </Form.Item>
+            <Form.Item name="unit" label="Đơn vị tính">
+              <Input placeholder="VD: Cái, Chai, Lần..." />
+            </Form.Item>
           </div>
-
           <Form.Item name="description" label="Mô tả" valuePropName="value">
             <QuillEditor />
           </Form.Item>
@@ -141,6 +149,7 @@ const ServiceEdit = () => {
               onChange={({ fileList }) => setThumbnailFileList(fileList)}
               beforeUpload={() => false}
               maxCount={1}
+              onPreview={handlePreview}
             >
               {thumbnailFileList.length === 0 && (
                 <div>
@@ -150,7 +159,6 @@ const ServiceEdit = () => {
               )}
             </Upload>
           </Form.Item>
-
           <div className="mt-4 flex gap-2">
             <Button
               type="primary"
@@ -163,8 +171,23 @@ const ServiceEdit = () => {
           </div>
         </Form>
       </Card>
+      <Modal
+        open={previewOpen}
+        title={previewTitle}
+        footer={null}
+        onCancel={handleCancel}
+      >
+        <img alt="example" style={{ width: "100%" }} src={previewImage} />
+      </Modal>
     </div>
   );
 };
-
 export default ServiceEdit;
+
+const getBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = (error) => reject(error);
+  });

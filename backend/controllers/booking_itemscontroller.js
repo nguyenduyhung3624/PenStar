@@ -129,6 +129,33 @@ export const cancelBookingItemController = async (req, res) => {
       { ...cancelled, refund_amount: itemTotal },
       "Đã huỷ phòng thành công. Bạn có thể yêu cầu hoàn tiền."
     );
+
+    // Check if any active items remain for this booking
+    const itemsResult = await pool.query(
+      "SELECT id FROM booking_items WHERE booking_id = $1 AND status != 'cancelled'",
+      [booking.id]
+    );
+
+    if (itemsResult.rows.length === 0) {
+      // Auto-cancel the booking if no items left
+      const { cancelBooking } = await import("../models/bookingsmodel.js");
+      try {
+        await cancelBooking(
+          booking.id,
+          userId,
+          false,
+          "Auto-cancelled: All rooms cancelled"
+        );
+        console.log(
+          `[Auto-Cancel] Booking #${booking.id} cancelled as all rooms are cancelled.`
+        );
+      } catch (cancelErr) {
+        console.error(
+          `[Auto-Cancel] Failed to cancel booking #${booking.id}:`,
+          cancelErr
+        );
+      }
+    }
   } catch (error) {
     console.error("cancelBookingItemController error:", error);
     res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);

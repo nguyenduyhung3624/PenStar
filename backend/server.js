@@ -26,7 +26,6 @@ import masterEquipmentsRouter from "./routers/master_equipments.js";
 import paymentRouter from "./routers/payment.js";
 import rolesRouter from "./routers/roles.js";
 import roomDevicesRouter from "./routers/roomdevices.js";
-import roomImagesRouter from "./routers/roomimages.js";
 import roomsRouter from "./routers/rooms.js";
 import roomTypesRouter from "./routers/roomstype.js";
 import roomTypeImagesRouter from "./routers/roomtypeimages.js";
@@ -91,7 +90,6 @@ app.use("/api/booking-services", bookingServicesRouter);
 // Rooms & Room Types
 app.use("/api/rooms", roomsRouter);
 app.use("/api/roomtypes", roomTypesRouter);
-app.use("/api/room-images", roomImagesRouter);
 app.use("/api/room-type-images", roomTypeImagesRouter);
 app.use("/api/room-type-equipments", roomTypeEquipmentsRouter);
 
@@ -176,6 +174,10 @@ app.use((err, req, res, next) => {
 // ============================================================================
 // START SERVER
 // ============================================================================
+
+// Start Cron Jobs
+import checkNoShow from "./cron/checkNoShow.js";
+checkNoShow();
 
 app.listen(PORT, () => {
   console.log(`

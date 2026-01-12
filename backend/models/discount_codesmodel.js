@@ -1,9 +1,5 @@
 import pool from "../db.js";
-
 export const DiscountCodesModel = {
-  /**
-   * Create a new discount code/voucher
-   */
   async create({
     code,
     name,
@@ -25,7 +21,7 @@ export const DiscountCodesModel = {
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
       [
         code,
-        name || code, // Default name to code if not provided
+        name || code,
         type,
         value,
         min_total || 0,
@@ -40,20 +36,12 @@ export const DiscountCodesModel = {
     );
     return res.rows[0];
   },
-
-  /**
-   * Find discount code by ID
-   */
   async findById(id) {
     const res = await pool.query(`SELECT * FROM discount_codes WHERE id = $1`, [
       id,
     ]);
     return res.rows[0];
   },
-
-  /**
-   * Find discount code by code string
-   */
   async findByCode(code) {
     const res = await pool.query(
       `SELECT * FROM discount_codes WHERE code = $1`,
@@ -61,10 +49,6 @@ export const DiscountCodesModel = {
     );
     return res.rows[0];
   },
-
-  /**
-   * Update discount code by ID
-   */
   async updateById(
     id,
     {
@@ -116,18 +100,10 @@ export const DiscountCodesModel = {
     );
     return res.rows[0];
   },
-
-  /**
-   * Delete discount code by ID
-   */
   async deleteById(id) {
     await pool.query(`DELETE FROM discount_codes WHERE id = $1`, [id]);
     return true;
   },
-
-  /**
-   * List all discount codes with auto-expire check
-   */
   async list() {
     const res = await pool.query(
       `SELECT * FROM discount_codes ORDER BY created_at DESC`
@@ -148,20 +124,8 @@ export const DiscountCodesModel = {
     }
     return res.rows;
   },
-
-  // =============================================
-  // USAGE TRACKING METHODS
-  // =============================================
-
-  /**
-   * Get user's usage count for a specific discount code
-   * @param {number} codeId - Discount code ID
-   * @param {number} userId - User ID
-   * @returns {number} - Usage count (0 if never used)
-   */
   async getUserUsageCount(codeId, userId) {
     if (!userId) return 0;
-
     const res = await pool.query(
       `SELECT usage_count FROM discount_code_usages
        WHERE discount_code_id = $1 AND user_id = $2`,
@@ -169,12 +133,6 @@ export const DiscountCodesModel = {
     );
     return res.rows[0]?.usage_count || 0;
   },
-
-  /**
-   * Get total usage count for a discount code (across all users)
-   * @param {number} codeId - Discount code ID
-   * @returns {number} - Total usage count
-   */
   async getTotalUsageCount(codeId) {
     const res = await pool.query(
       `SELECT COALESCE(SUM(usage_count), 0) as total FROM discount_code_usages
@@ -183,18 +141,8 @@ export const DiscountCodesModel = {
     );
     return parseInt(res.rows[0]?.total || 0);
   },
-
-  /**
-   * Record usage of a discount code by a user
-   * If record exists, increment usage_count; otherwise create new record
-   * @param {number} codeId - Discount code ID
-   * @param {number} userId - User ID
-   * @param {number} bookingId - Booking ID (optional)
-   */
   async recordUsage(codeId, userId, bookingId = null) {
     if (!userId) return;
-
-    // Use UPSERT pattern
     await pool.query(
       `INSERT INTO discount_code_usages (discount_code_id, user_id, booking_id, usage_count, used_at)
        VALUES ($1, $2, $3, 1, NOW())
@@ -203,11 +151,18 @@ export const DiscountCodesModel = {
       [codeId, userId, bookingId]
     );
   },
-
-  /**
-   * Get usage history for a discount code
-   * @param {number} codeId - Discount code ID
-   */
+  async removeUsage(codeId, userId, bookingId) {
+    if (!userId || !codeId) return;
+    // Decrement usage count
+    await pool.query(
+      `UPDATE discount_code_usages
+       SET usage_count = usage_count - 1
+       WHERE discount_code_id = $1 AND user_id = $2 AND usage_count > 0`,
+      [codeId, userId]
+    );
+    // Optional: If specific booking tracking row exists (if schema supported it differently), delete it.
+    // Since current schema is (discount_code_id, user_id) unique, we just decrement.
+  },
   async getUsageHistory(codeId) {
     const res = await pool.query(
       `SELECT dcu.*, u.full_name, u.email, b.id as booking_id

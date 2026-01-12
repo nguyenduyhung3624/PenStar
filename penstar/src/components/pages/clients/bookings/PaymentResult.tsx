@@ -1,27 +1,21 @@
-/* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, Button, Spin, Row, Col, Typography } from "antd";
-
 const PaymentResult: React.FC = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = React.useState(true);
   const [paymentStatus, setPaymentStatus] = React.useState<any>(null);
-  // Lấy bookingId từ query string, nếu không có thì fallback sang localStorage
   const queryParams = new URLSearchParams(window.location.search);
   let bookingId: string | null = queryParams.get("bookingId");
   if (!bookingId) {
-    bookingId = localStorage.getItem("bookingId"); // getItem trả về string | null
+    bookingId = localStorage.getItem("bookingId"); 
   }
   React.useEffect(() => {
-    // Kiểm tra xem là VNPay hay MoMo
     const paymentMethod = queryParams.get("paymentMethod");
     const resultCode = queryParams.get("resultCode");
     const partnerCode = queryParams.get("partnerCode");
     const isMoMo =
       paymentMethod === "momo" || resultCode !== null || partnerCode === "MOMO";
-
     let status: any = {
       success: false,
       responseCode: null,
@@ -29,17 +23,12 @@ const PaymentResult: React.FC = () => {
       amount: 0,
       orderId: null,
     };
-
     if (isMoMo) {
-      // MoMo thật trả về: resultCode, orderId, amount, transId, ...
-      // MoMo mock trả về: status, orderId, amount, ...
-      const momoStatus = queryParams.get("status"); // Mock mode
+      const momoStatus = queryParams.get("status"); 
       const orderId = queryParams.get("orderId");
       const amount = queryParams.get("amount");
       const transId = queryParams.get("transId");
-
       if (resultCode !== null) {
-        // MoMo thật: resultCode = "0" hoặc 0 là thành công
         const resultCodeNum = Number(resultCode);
         status = {
           responseCode: resultCode,
@@ -50,7 +39,6 @@ const PaymentResult: React.FC = () => {
           paymentMethod: "momo",
         };
       } else {
-        // MoMo mock: status = "success" là thành công
         status = {
           responseCode: momoStatus === "success" ? "00" : "99",
           transactionNo: orderId || null,
@@ -61,41 +49,33 @@ const PaymentResult: React.FC = () => {
         };
       }
     } else {
-      // Xử lý callback từ VNPay
       const responseCode = queryParams.get("vnp_ResponseCode");
       const transactionNo = queryParams.get("vnp_TransactionNo");
       const amount = queryParams.get("vnp_Amount");
       const orderId = queryParams.get("vnp_TxnRef");
-
       status = {
         responseCode,
         transactionNo,
-        amount: amount ? Number(amount) / 100 : 0, // VNPAY gửi amount × 100
+        amount: amount ? Number(amount) / 100 : 0, 
         orderId,
         success: responseCode === "00",
         paymentMethod: "vnpay",
       };
     }
-
     setPaymentStatus(status);
     setLoading(false);
-
-    // Tự động cập nhật trạng thái booking nếu thanh toán thành công và có bookingId
     if (status.success && bookingId) {
       (async () => {
         try {
           const { updateMyBooking } = await import("@/services/bookingsApi");
           await updateMyBooking(Number(bookingId), { payment_status: "paid" });
         } catch (err) {
-          // Có thể log lỗi nếu cần
           console.error("Lỗi tự động cập nhật trạng thái booking:", err);
         }
       })();
     }
   }, []);
   const [updating, setUpdating] = React.useState(false);
-
-  // Handler must be defined in the component scope
   const handleGoToBookingSuccess = async () => {
     if (!bookingId) {
       alert("Không tìm thấy bookingId");
@@ -114,7 +94,6 @@ const PaymentResult: React.FC = () => {
       setUpdating(false);
     }
   };
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f7fafd] flex flex-col items-center justify-center">
@@ -122,7 +101,6 @@ const PaymentResult: React.FC = () => {
       </div>
     );
   }
-
   return (
     <div className="flex flex-col items-center justify-center py-8">
       <Card
@@ -294,5 +272,4 @@ const PaymentResult: React.FC = () => {
     </div>
   );
 };
-
 export default PaymentResult;

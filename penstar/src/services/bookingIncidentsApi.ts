@@ -1,5 +1,15 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { instance } from "./api";
+
+// Add getAllIncidents
+export const getAllIncidents = async () => {
+    try {
+        const res = await instance.get("/booking-incidents/all");
+        return res.data?.data || [];
+    } catch (error) {
+        console.error("Error fetching all incidents:", error);
+        return [];
+    }
+};
 
 export const getIncidentsByRoom = async (room_id: number) => {
   try {
@@ -12,7 +22,6 @@ export const getIncidentsByRoom = async (room_id: number) => {
     return [];
   }
 };
-
 export const getBookingIncidents = async (
   booking_id: number,
   showDeleted: boolean = false
@@ -27,7 +36,6 @@ export const getBookingIncidents = async (
     return [];
   }
 };
-
 export const createBookingIncident = async (data: any) => {
   try {
     const res = await instance.post("/booking-incidents", data);
@@ -37,7 +45,6 @@ export const createBookingIncident = async (data: any) => {
     throw error;
   }
 };
-
 export const deleteBookingIncident = async (
   id: number,
   deleted_by?: number,
@@ -50,6 +57,16 @@ export const deleteBookingIncident = async (
     return res.data?.data ?? null;
   } catch (error) {
     console.error("Error deleting booking incident:", error);
+    throw error;
+  }
+}
+
+export const resolveBookingIncident = async (id: number) => {
+  try {
+    const res = await instance.put(`/booking-incidents/${id}/resolve`);
+    return res.data?.data ?? null;
+  } catch (error) {
+    console.error("Error resolving booking incident:", error);
     throw error;
   }
 };

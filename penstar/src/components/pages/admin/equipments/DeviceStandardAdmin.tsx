@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery } from "@tanstack/react-query";
 import { getAllDeviceStandards } from "@/services/roomTypeEquipmentsAdminApi";
 import { getRoomTypes, getEquipments } from "@/services/masterDataApi";
@@ -6,23 +5,18 @@ import { Table, Button, Select } from "antd";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Card } from "antd";
 import { useState } from "react";
-
 function useQueryParamId(param: string): number | undefined {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const value = params.get(param);
   return value ? Number(value) : undefined;
 }
-
 interface DeviceStandardAdminProps {
   equipmentId?: number;
 }
-
 const DeviceStandardAdmin: React.FC<DeviceStandardAdminProps> = (props) => {
-  // Lấy equipmentId từ query param nếu có
   const queryEquipmentId = useQueryParamId("equipmentId");
   const equipmentId = props.equipmentId ?? queryEquipmentId;
-  // Phân trang frontend
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 10;
   const [filterRoomType, setFilterRoomType] = useState<number | null>(null);
@@ -31,7 +25,6 @@ const DeviceStandardAdmin: React.FC<DeviceStandardAdminProps> = (props) => {
     queryKey: ["device-standards"],
     queryFn: getAllDeviceStandards,
   });
-  // Dữ liệu phân trang
   let filteredData = Array.isArray(standards)
     ? filterRoomType != null
       ? standards.filter((item: any) => item.room_type_id === filterRoomType)
@@ -54,7 +47,6 @@ const DeviceStandardAdmin: React.FC<DeviceStandardAdminProps> = (props) => {
     queryKey: ["equipments"],
     queryFn: getEquipments,
   });
-  // Thêm cột STT và các cột khác
   const columns = [
     {
       title: "STT",
@@ -89,7 +81,6 @@ const DeviceStandardAdmin: React.FC<DeviceStandardAdminProps> = (props) => {
       align: "center" as const,
     },
   ];
-
   function isDeviceStandardRow(
     r: any
   ): r is { room_type_id: number; master_equipment_id: number } {
@@ -100,7 +91,6 @@ const DeviceStandardAdmin: React.FC<DeviceStandardAdminProps> = (props) => {
       "master_equipment_id" in r
     );
   }
-
   if (isLoading) return <div>Loading...</div>;
   return (
     <div style={{ padding: 24, minHeight: "100vh", background: "#f5f6fa" }}>
@@ -167,5 +157,4 @@ const DeviceStandardAdmin: React.FC<DeviceStandardAdminProps> = (props) => {
     </div>
   );
 };
-
 export default DeviceStandardAdmin;

@@ -1,6 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// Hàm sinh HTML hóa đơn in bill cho booking
 export function generateBillHTML(
   booking: any,
   rooms: any[],
@@ -29,7 +26,6 @@ export function generateBillHTML(
     }
     return acc;
   }, []);
-
   let html = `<!DOCTYPE html>
     <html>
       <head>
@@ -80,9 +76,7 @@ export function generateBillHTML(
       })
       .join("") || "";
   html += `</tbody></table>`;
-  // Hiển thị dịch vụ theo từng phòng
   if (groupedServices && groupedServices.length > 0) {
-    // Lấy danh sách phòng có dịch vụ
     const serviceRooms = Array.from(
       new Set(groupedServices.map((s: any) => s.booking_item_id))
     );
@@ -104,7 +98,6 @@ export function generateBillHTML(
         });
       html += `</tbody></table>`;
     });
-    // Dịch vụ không gán phòng
     const generalServices = groupedServices.filter(
       (s: any) => !s.booking_item_id
     );
@@ -118,7 +111,6 @@ export function generateBillHTML(
       html += `</tbody></table>`;
     }
   }
-  // Bảng thiết bị đền bù: phân theo từng phòng
   if (Array.isArray(incidents) && incidents.length > 0) {
     const incidentRooms = Array.from(
       new Set(incidents.map((i: any) => i.room_id))
@@ -142,7 +134,6 @@ export function generateBillHTML(
   if (booking.total_service_price) {
     html += `<div class="total-row"><span>Dịch vụ bổ sung:</span><span>${formatPrice(booking.total_service_price)}</span></div>`;
   }
-  // Đền bù thiết bị
   if (Array.isArray(incidents) && incidents.length > 0) {
     const totalComp = incidents.reduce(
       (sum, i) => sum + (Number(i.amount) || 0),

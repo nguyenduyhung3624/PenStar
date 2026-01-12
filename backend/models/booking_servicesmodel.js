@@ -1,19 +1,16 @@
 import pool from "../db.js";
-
 export const getBookingServices = async () => {
   const res = await pool.query(
     "SELECT * FROM booking_services ORDER BY id DESC"
   );
   return res.rows;
 };
-
 export const getBookingServiceById = async (id) => {
   const res = await pool.query("SELECT * FROM booking_services WHERE id = $1", [
     id,
   ]);
   return res.rows[0];
 };
-
 export const createBookingService = async (data) => {
   const {
     booking_id,
@@ -38,8 +35,6 @@ export const createBookingService = async (data) => {
   );
   return res.rows[0];
 };
-
-// Get services by booking_item_id
 export const getServicesByBookingItem = async (booking_item_id) => {
   const res = await pool.query(
     `SELECT bs.*, s.name as service_name, s.description as service_description, s.price as service_unit_price
@@ -51,8 +46,6 @@ export const getServicesByBookingItem = async (booking_item_id) => {
   );
   return res.rows;
 };
-
-// Get services by booking_id
 export const getServicesByBooking = async (booking_id) => {
   const res = await pool.query(
     `SELECT bs.*, s.name as service_name, s.description as service_description, s.price as service_unit_price,

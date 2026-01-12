@@ -1,16 +1,11 @@
 import pool from "../db.js";
-
-// Kiểm tra tiêu chuẩn thiết bị phòng: đủ từng thiết bị master theo room_type_equipments
 export const validateRoomEquipments = async (room_id) => {
-  // Lấy type_id của phòng
   const roomRes = await pool.query("SELECT type_id FROM rooms WHERE id = $1", [
     room_id,
   ]);
   if (!roomRes.rows.length)
     return { ok: false, message: "Phòng không tồn tại" };
   const type_id = roomRes.rows[0].type_id;
-
-  // Lấy tiêu chuẩn thiết bị cho loại phòng này
   const standardRes = await pool.query(
     `SELECT rte.equipment_type_id as master_equipment_id, me.name, rte.min_quantity
      FROM room_type_equipments rte
@@ -19,12 +14,8 @@ export const validateRoomEquipments = async (room_id) => {
     [type_id]
   );
   const standards = standardRes.rows;
-
-  // Log tiêu chuẩn và thiết bị thực tế để debug
   console.log("[validateRoomEquipments] room_id:", room_id);
   console.log("[validateRoomEquipments] standards:", standards);
-
-  // Lấy thiết bị thực tế trong phòng
   const deviceRes = await pool.query(
     `SELECT master_equipment_id, SUM(quantity) as total
      FROM room_devices WHERE room_id = $1
@@ -35,10 +26,7 @@ export const validateRoomEquipments = async (room_id) => {
   for (const row of deviceRes.rows) {
     actual[row.master_equipment_id] = Number(row.total);
   }
-
   console.log("[validateRoomEquipments] actual:", actual);
-
-  // Kiểm tra từng thiết bị master: thiếu, thừa, đạt
   const details = [];
   let hasError = false;
   for (const std of standards) {
@@ -61,7 +49,6 @@ export const validateRoomEquipments = async (room_id) => {
       status,
     });
   }
-
   if (!hasError) {
     return { ok: true, message: "Thiết bị phòng đạt tiêu chuẩn!", details };
   } else {

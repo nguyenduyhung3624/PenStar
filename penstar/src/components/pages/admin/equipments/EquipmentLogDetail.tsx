@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery } from "@tanstack/react-query";
 import { getAllStockLogs } from "@/services/equipmentStockLogsApi";
 import { getMasterEquipmentById } from "@/services/masterEquipmentsApi";
@@ -7,8 +6,6 @@ import { useQuery as useQueryRoomType } from "@tanstack/react-query";
 import { instance } from "@/services/api";
 import { Card, Table, Spin } from "antd";
 import { useParams } from "react-router-dom";
-
-// Master thiết bị columns
 const masterColumns = [
   { title: "STT", dataIndex: "stt", key: "stt" },
   { title: "Tên", dataIndex: "name", key: "name" },
@@ -22,8 +19,6 @@ const masterColumns = [
   { title: "Tồn kho", dataIndex: "total_stock", key: "total_stock" },
   { title: "Ngày tạo", dataIndex: "created_at", key: "created_at" },
 ];
-
-// Room columns
 const roomColumns = [
   { title: "STT", dataIndex: "stt", key: "stt" },
   { title: "Tên phòng", dataIndex: "name", key: "name" },
@@ -46,7 +41,6 @@ const roomColumns = [
   },
   { title: "Tầng", dataIndex: "floor_id", key: "floor_id" },
 ];
-
 const renderMasterTable = (data: Record<string, any>) => (
   <Card title="Thông tin thiết bị master" style={{ marginBottom: 16 }}>
     <Table
@@ -58,7 +52,6 @@ const renderMasterTable = (data: Record<string, any>) => (
     />
   </Card>
 );
-
 const renderRoomTable = (
   data: Record<string, any>,
   roomTypeName: string,
@@ -84,7 +77,6 @@ const renderRoomTable = (
     />
   </Card>
 );
-
 const EquipmentLogDetail = () => {
   const { id } = useParams();
   const { data = [] } = useQuery({
@@ -97,8 +89,6 @@ const EquipmentLogDetail = () => {
     }
     return false;
   });
-
-  // Lấy thông tin thiết bị master
   const { data: masterEquipment, isLoading: loadingMaster } = useQuery({
     queryKey: ["master-equipment", log?.equipment_id],
     queryFn: () => getMasterEquipmentById(log?.equipment_id),
@@ -106,8 +96,6 @@ const EquipmentLogDetail = () => {
       !!log?.equipment_id &&
       ["create_master", "import", "create"].includes(log?.action),
   });
-
-  // Luôn cố gắng lấy roomId từ log.note nếu có định dạng ID: xxx
   let roomId: number | null = null;
   if (log?.note) {
     const match = log.note.match(/ID: (\d+)/);
@@ -118,8 +106,6 @@ const EquipmentLogDetail = () => {
     queryFn: () => getRoomID(roomId!),
     enabled: !!roomId,
   });
-
-  // Lấy danh sách loại phòng để map tên
   const { data: roomTypes = [] } = useQueryRoomType({
     queryKey: ["room-types-all"],
     queryFn: async () => {
@@ -127,9 +113,7 @@ const EquipmentLogDetail = () => {
       return res.data?.data ?? [];
     },
   });
-
   if (!log) return <Card>Không tìm thấy log!</Card>;
-
   return (
     <Card title={`Chi tiết log #${log.id}`} style={{ marginTop: 24 }}>
       <p>
@@ -155,5 +139,4 @@ const EquipmentLogDetail = () => {
     </Card>
   );
 };
-
 export default EquipmentLogDetail;

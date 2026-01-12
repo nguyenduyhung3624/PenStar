@@ -1,11 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 import { Form, Input, InputNumber, Button, Select, message } from "antd";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { getMasterEquipments } from "@/services/masterEquipmentsApi";
 import { useQuery } from "@tanstack/react-query";
 import { createRoomDevice, getRoomDevices } from "@/services/roomDevicesApi";
-
 const RoomDeviceCreate = () => {
   const [form] = Form.useForm();
   const { data: masterEquipments = [], isLoading } = useQuery({
@@ -14,22 +11,17 @@ const RoomDeviceCreate = () => {
   });
   const [searchParams] = useSearchParams();
   const room_id = searchParams.get("room_id");
-  // Lấy danh sách thiết bị đã có trong phòng
   const { data: roomDevices = [] } = useQuery({
     queryKey: ["room-devices", room_id],
     queryFn: () =>
       getRoomDevices({ room_id: room_id ? Number(room_id) : undefined }),
     enabled: !!room_id,
   });
-  // Lọc thiết bị master chưa có trong phòng
   const usedMasterIds = roomDevices.map((d: any) => d.master_equipment_id);
   const availableMasterEquipments = masterEquipments.filter(
     (eq: any) => !usedMasterIds.includes(eq.id)
   );
   const navigate = useNavigate();
-
-  // ...existing code...
-
   const onFinish = async (values: any) => {
     try {
       await createRoomDevice({ ...values, room_id });
@@ -39,7 +31,6 @@ const RoomDeviceCreate = () => {
       message.error(err?.message || "Lỗi khi thêm thiết bị vào phòng");
     }
   };
-
   return (
     <div className="p-6 max-w-xl mx-auto bg-white rounded shadow">
       <h2 className="text-2xl font-bold mb-2">Thêm thiết bị vào phòng</h2>
@@ -62,7 +53,7 @@ const RoomDeviceCreate = () => {
             ))}
           </Select>
         </Form.Item>
-        {/* Nếu cần loại thiết bị, có thể lấy từ master hoặc tự động điền */}
+        {}
         <Form.Item
           label="Số lượng"
           name="quantity"
@@ -89,5 +80,4 @@ const RoomDeviceCreate = () => {
     </div>
   );
 };
-
 export default RoomDeviceCreate;

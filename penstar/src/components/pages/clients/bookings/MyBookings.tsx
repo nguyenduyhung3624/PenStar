@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React from "react";
 import { Card, Table, Tag, Button, Space, Empty, Typography } from "antd";
 import { EyeOutlined, CheckCircleOutlined } from "@ant-design/icons";
@@ -8,27 +7,21 @@ import dayjs from "dayjs";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import type { BookingShort } from "@/types/bookings";
-
 const { Title } = Typography;
-
 const MyBookings: React.FC = () => {
   const navigate = useNavigate();
   const auth = useAuth() as unknown as { user?: { id?: number } };
-
-  // Fetch bookings using TanStack Query
   const { data: bookings = [], isLoading } = useQuery<BookingShort[]>({
     queryKey: ["my-bookings"],
     queryFn: getMyBookings,
     enabled: !!auth?.user,
   });
-
   const formatPrice = (price?: number) =>
     new Intl.NumberFormat("vi-VN").format(price || 0) + "đ";
-
   const getStatusTag = (statusId: number) => {
     const config: Record<number, { color: string; label: string }> = {
       6: { color: "orange", label: "Chờ xác nhận" },
-      1: { color: "blue", label: "Đã xác nhận" },
+      1: { color: "yellow", label: "Đã xác nhận" },
       2: { color: "green", label: "Đã Check-in" },
       3: { color: "cyan", label: "Đã Check-out" },
       4: { color: "red", label: "Đã hủy" },
@@ -37,7 +30,6 @@ const MyBookings: React.FC = () => {
     const c = config[statusId] || { color: "default", label: "Không rõ" };
     return <Tag color={c.color}>{c.label}</Tag>;
   };
-
   const getPaymentTag = (status: string, isRefunded: boolean) => {
     if (isRefunded)
       return (
@@ -53,7 +45,6 @@ const MyBookings: React.FC = () => {
     const c = config[status] || { color: "default", label: status };
     return <Tag color={c.color}>{c.label}</Tag>;
   };
-
   const columns = [
     {
       title: "Mã Booking",
@@ -70,9 +61,7 @@ const MyBookings: React.FC = () => {
       sorter: (a: BookingShort, b: BookingShort) =>
         new Date(b.created_at || "").getTime() -
         new Date(a.created_at || "").getTime(),
-      defaultSortOrder: "ascend" as const, // asc so newest first? No wait, Sorter sorts table. Default should be 'descend' for newest first if logic is a-b.
-      // Antd sort: a-b is ascending. b-a is descending.
-      // So b-a means larger (newer) is first.
+      defaultSortOrder: "ascend" as const,
     },
     {
       title: "Khách hàng",
@@ -84,7 +73,7 @@ const MyBookings: React.FC = () => {
       dataIndex: "total_price",
       key: "total_price",
       render: (price: number) => (
-        <span className="font-semibold text-blue-600">
+        <span className="font-semibold text-yellow-600">
           {formatPrice(price)}
         </span>
       ),
@@ -113,7 +102,6 @@ const MyBookings: React.FC = () => {
       ),
     },
   ];
-
   return (
     <div className="p-4 max-w-6xl mx-auto">
       <Card
@@ -138,5 +126,4 @@ const MyBookings: React.FC = () => {
     </div>
   );
 };
-
 export default MyBookings;

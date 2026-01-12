@@ -1,26 +1,19 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Form, InputNumber, Button, message } from "antd";
 import TextArea from "antd/es/input/TextArea";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRoomDevices, updateRoomDevice } from "@/services/roomDevicesApi";
-// Nếu cần lấy minMax từ API, thêm import và logic lấy minMax ở đây
-
 const RoomDeviceEdit = () => {
   const { id } = useParams();
   const [loading, setLoading] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [form] = Form.useForm();
-  // Thêm minMax vào state
   const [minMax, setMinMax] = useState<{
     min_quantity: number;
     max_quantity: number;
   } | null>(null);
-
-  // Lấy thông tin thiết bị phòng theo id
   const { data: roomDevices = [] } = useQuery({
     queryKey: ["room-devices-all"],
     queryFn: () => getRoomDevices({}),
@@ -28,23 +21,18 @@ const RoomDeviceEdit = () => {
   const currentDevice = roomDevices.find(
     (rd: any) => String(rd.id) === String(id)
   );
-
   useEffect(() => {
     if (currentDevice) {
       form.setFieldsValue({
         quantity: currentDevice.quantity,
         note: currentDevice.note || "",
       });
-      // Nếu cần, gọi API lấy minMax ở đây và setMinMax
-      // Ví dụ: getRoomDeviceStandard(...).then(res => setMinMax(res));
     }
   }, [currentDevice, form]);
-
   const onFinish = async (values: any) => {
     setLoading(true);
     try {
       await updateRoomDevice(Number(id), values);
-      // Refetch lại danh sách thiết bị phòng để kiểm tra tiêu chuẩn chính xác
       await queryClient.invalidateQueries({ queryKey: ["room-devices"] });
       await queryClient.invalidateQueries({ queryKey: ["room-devices-all"] });
       message.success("Cập nhật tồn kho thành công");
@@ -64,7 +52,6 @@ const RoomDeviceEdit = () => {
       setLoading(false);
     }
   };
-
   return (
     <div className="p-6 max-w-xl mx-auto bg-white rounded shadow">
       <h2 className="text-xl font-bold mb-4">Sửa tồn kho thiết bị phòng</h2>
@@ -126,5 +113,4 @@ const RoomDeviceEdit = () => {
     </div>
   );
 };
-
 export default RoomDeviceEdit;
