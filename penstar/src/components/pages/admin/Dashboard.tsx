@@ -1,33 +1,68 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useQuery } from "@tanstack/react-query";
 import { getStatistics } from "@/services/statisticsApi";
-import { Spin, DatePicker } from "antd";
+import {
+  Spin,
+  DatePicker,
+  Card,
+  Row,
+  Col,
+  Statistic,
+  Table,
+  Tag,
+  Progress,
+  Typography,
+  Space,
+  Avatar,
+  Empty,
+  Button,
+  Tabs,
+  List,
+} from "antd";
+import {
+  DollarOutlined,
+  CalendarOutlined,
+  UserOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  TeamOutlined,
+  CloseCircleOutlined,
+  TrophyOutlined,
+  FallOutlined,
+} from "@ant-design/icons";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import {
-  LineChart,
-  Line,
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
+  BarChart,
+  Bar,
+  Legend,
 } from "recharts";
 import { useState } from "react";
 import dayjs from "dayjs";
-import {
-  FaMoneyBillWave,
-  FaCalendarCheck,
-  FaBed,
-  FaUserClock,
-  FaArrowUp,
-  FaConciergeBell,
-} from "react-icons/fa";
+import { vi } from "date-fns/locale";
 
 const { RangePicker } = DatePicker;
+const { Title, Text } = Typography;
+
+const PIE_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
+const REVENUE_COLORS = ["#007AFF", "#34C759", "#FF9500"];
+const STATUS_COLORS = {
+  confirmed: "#007AFF",
+  checked_in: "#34C759",
+  checked_out: "#8E8E93",
+  cancelled: "#FF3B30",
+  pending: "#FF9500",
+  no_show: "#AF52DE",
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -47,7 +82,6 @@ const Dashboard = () => {
         dateRange[0].format("YYYY-MM-DD"),
         dateRange[1].format("YYYY-MM-DD")
       ),
-    // ✅ FIX: Tự động refetch khi quay lại trang này
     refetchOnWindowFocus: true,
     refetchOnMount: true,
   });
@@ -58,373 +92,485 @@ const Dashboard = () => {
       currency: "VND",
     }).format(value);
 
-  const PIE_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
-
   if (isLoading)
     return (
       <div className="h-screen flex items-center justify-center">
-        <Spin size="large" />
+        <Spin size="large" tip="Đang tải dữ liệu..." />
       </div>
     );
 
+  const revenueBreakdownData = stats?.revenueBreakdown
+    ? [
+        { name: "Phòng", value: stats.revenueBreakdown.room },
+        { name: "Dịch vụ", value: stats.revenueBreakdown.service },
+        { name: "Phụ phí", value: stats.revenueBreakdown.incident },
+      ].filter((d) => d.value > 0)
+    : [];
+
+  const topRoomsData =
+    stats?.topRoomTypes?.map((r) => ({
+      ...r,
+      bookings: Number(r.bookings),
+      revenue: Number(r.revenue),
+    })) || [];
+  const bottomRoomsData =
+    stats?.bottomRoomTypes?.map((r) => ({
+      ...r,
+      bookings: Number(r.bookings),
+    })) || [];
+
+  const topServicesData =
+    stats?.topServices?.map((s) => ({
+      ...s,
+      usage: Number(s.usage),
+      revenue: Number(s.revenue),
+    })) || [];
+  const bottomServicesData =
+    stats?.bottomServices?.map((s) => ({ ...s, usage: Number(s.usage) })) || [];
+
+  const bookingStatusData =
+    stats?.bookingStatusStats
+      ?.map((s) => ({
+        name:
+          s.name === "confirmed"
+            ? "Đã xác nhận"
+            : s.name === "checked_in"
+              ? "Đang ở"
+              : s.name === "checked_out"
+                ? "Đã trả phòng"
+                : s.name === "cancelled"
+                  ? "Đã hủy"
+                  : s.name === "pending"
+                    ? "Chờ duyệt"
+                    : s.name === "no_show"
+                      ? "Vắng mặt"
+                      : s.name,
+        originalName: s.name,
+        value: s.value,
+      }))
+      .filter((d) => d.value > 0) || [];
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6 font-sans text-gray-800">
-      {/* ... (Phần Header và KPI Stats giữ nguyên) ... */}
-
-      {/* Chỉ cần copy đè đoạn useQuery ở trên là được, phần giao diện bên dưới giữ nguyên */}
-
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+    <div className="p-6 bg-gray-50 min-h-screen">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            Tổng quan hoạt động
-          </h1>
-          <p className="text-gray-500 text-sm mt-1">
-            Số liệu từ {dateRange[0].format("DD/MM/YYYY")} đến{" "}
+          <Title level={3} style={{ margin: 0 }}>
+            Thống Kê & Báo Cáo
+          </Title>
+          <Text type="secondary">
+            Dữ liệu từ {dateRange[0].format("DD/MM/YYYY")} đến{" "}
             {dateRange[1].format("DD/MM/YYYY")}
-          </p>
+          </Text>
         </div>
-        <div className="bg-white p-1 rounded-lg shadow-sm border border-gray-200">
+        <Card size="small" className="shadow-sm">
           <RangePicker
             value={dateRange}
             onChange={(dates) => dates && setDateRange([dates[0]!, dates[1]!])}
             format="DD/MM/YYYY"
             allowClear={false}
-            className="border-none"
+            bordered={false}
           />
-        </div>
+        </Card>
       </div>
 
-      {/* --- KPI STATS GRID --- */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
-          <div>
-            <p className="text-gray-500 text-sm font-medium mb-1">
-              Tổng doanh thu
-            </p>
-            <h3 className="text-2xl font-bold text-emerald-600">
-              {formatVND(stats?.totalRevenue || 0)}
-            </h3>
-          </div>
-          <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
-            <FaMoneyBillWave size={20} />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
-          <div>
-            <p className="text-gray-500 text-sm font-medium mb-1">
-              Đơn đặt phòng
-            </p>
-            <h3 className="text-2xl font-bold text-blue-600">
-              {stats?.totalBookings || 0}
-            </h3>
-          </div>
-          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600">
-            <FaCalendarCheck size={20} />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
-          <div>
-            <p className="text-gray-500 text-sm font-medium mb-1">
-              Tỷ lệ lấp đầy
-            </p>
-            <h3 className="text-2xl font-bold text-amber-500">
-              {stats?.occupancyRate || 0}%
-            </h3>
-          </div>
-          <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600">
-            <FaBed size={20} />
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
-          <div>
-            <p className="text-gray-500 text-sm font-medium mb-1">
-              Đang chờ duyệt
-            </p>
-            <h3 className="text-2xl font-bold text-rose-500">
-              {stats?.pendingBookings || 0}
-            </h3>
-          </div>
-          <div className="w-12 h-12 bg-rose-100 rounded-full flex items-center justify-center text-rose-600">
-            <FaUserClock size={20} />
-          </div>
-        </div>
-      </div>
-
-      {/* --- STATUS & CHARTS SECTION --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <FaConciergeBell className="text-gray-400" /> Trạng thái phòng hiện
-            tại
-          </h3>
-          <div className="space-y-4">
-            <StatusItem
-              label="Phòng trống"
-              count={stats?.roomStatusCount?.available ?? 0}
-              color="bg-emerald-500"
+      {/* KPI Cards Row */}
+      <Row gutter={[16, 16]} className="mb-6">
+        <Col xs={24} sm={12} lg={6}>
+          <Card bordered={false} className="shadow-sm h-full">
+            <Statistic
+              title="Tổng doanh thu"
+              value={stats?.totalRevenue}
+              formatter={(val) => (
+                <span className="text-emerald-600 font-bold text-2xl">
+                  {formatVND(Number(val))}
+                </span>
+              )}
+              prefix={
+                <DollarOutlined className="bg-emerald-100 text-emerald-600 p-2 rounded-full mr-2" />
+              }
             />
-            <StatusItem
-              label="Đang có khách"
-              count={stats?.roomStatusCount?.occupied ?? 0}
-              color="bg-blue-500"
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card bordered={false} className="shadow-sm h-full">
+            <Statistic
+              title="Tổng đơn đặt"
+              value={stats?.totalBookings}
+              valueStyle={{ fontWeight: "bold" }}
+              prefix={
+                <CalendarOutlined className="bg-blue-100 text-blue-600 p-2 rounded-full mr-2" />
+              }
             />
-            <StatusItem
-              label="Đã đặt trước"
-              count={stats?.roomStatusCount?.reserved ?? 0}
-              color="bg-amber-500"
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card bordered={false} className="shadow-sm h-full">
+            <Statistic
+              title="Đơn hủy"
+              value={
+                bookingStatusData.find((s) => s.originalName === "cancelled")
+                  ?.value || 0
+              }
+              valueStyle={{ color: "#ef4444", fontWeight: "bold" }}
+              prefix={
+                <CloseCircleOutlined className="bg-red-100 text-red-600 p-2 rounded-full mr-2" />
+              }
             />
-            <StatusItem
-              label="Đang bảo trì"
-              count={stats?.roomStatusCount?.maintenance ?? 0}
-              color="bg-gray-400"
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card bordered={false} className="shadow-sm h-full">
+            <Statistic
+              title="Đơn thành công"
+              value={
+                (stats?.totalBookings || 0) -
+                (bookingStatusData.find((s) => s.originalName === "cancelled")
+                  ?.value || 0) -
+                (bookingStatusData.find((s) => s.originalName === "no_show")
+                  ?.value || 0)
+              }
+              valueStyle={{ color: "#10b981", fontWeight: "bold" }}
+              prefix={
+                <CheckCircleOutlined className="bg-emerald-100 text-emerald-600 p-2 rounded-full mr-2" />
+              }
             />
-          </div>
-          <div className="mt-6 pt-4 border-t border-gray-100">
-            <div className="flex justify-between text-sm text-gray-500">
-              <span>
-                Check-in trong kỳ:{" "}
-                <b className="text-gray-800">{stats?.countCheckins ?? 0}</b>
-              </span>
-              <span>
-                Check-out trong kỳ:{" "}
-                <b className="text-gray-800">{stats?.countCheckouts ?? 0}</b>
-              </span>
-            </div>
-          </div>
-        </div>
+          </Card>
+        </Col>
+      </Row>
 
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-          <h3 className="font-bold text-gray-800 mb-6 flex items-center gap-2">
-            <FaArrowUp className="text-emerald-500 rotate-45" /> Xu hướng doanh
-            thu
-          </h3>
-          <div className="h-[300px] w-full">
-            {(stats?.revenueChart?.length ?? 0) > 0 ? (
+      {/* Main Charts Area */}
+      <Row gutter={[16, 16]} className="mb-6">
+        <Col xs={24} lg={16}>
+          <Card
+            title="Biểu đồ doanh thu"
+            bordered={false}
+            className="shadow-sm h-full"
+          >
+            <div style={{ height: 320 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={stats?.revenueChart ?? []}>
+                <AreaChart
+                  data={stats?.revenueChart || []}
+                  margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient
+                      id="colorRevenue"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop offset="5%" stopColor="#10B981" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="#10B981" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     vertical={false}
-                    stroke="#E5E7EB"
+                    stroke="#f0f0f0"
                   />
                   <XAxis
                     dataKey="date"
                     tickFormatter={(t) => format(new Date(t), "dd/MM")}
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#9CA3AF", fontSize: 12 }}
-                    dy={10}
+                    tick={{ fill: "#9ca3af", fontSize: 12 }}
                   />
                   <YAxis
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: "#9CA3AF", fontSize: 12 }}
+                    tick={{ fill: "#9ca3af", fontSize: 12 }}
                     tickFormatter={(v) =>
-                      new Intl.NumberFormat("vi-VN", {
+                      new Intl.NumberFormat("en", {
                         notation: "compact",
                       }).format(v)
                     }
                   />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: "8px",
-                      border: "none",
-                      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1)",
-                    }}
-                    formatter={(v: number) => [formatVND(v), "Doanh thu"]}
-                  />
-                  <Line
+                  <Tooltip formatter={(val: number) => formatVND(val)} />
+                  <Area
                     type="monotone"
                     dataKey="revenue"
                     stroke="#10B981"
-                    strokeWidth={3}
-                    dot={{
-                      r: 4,
-                      fill: "#10B981",
-                      strokeWidth: 2,
-                      stroke: "#fff",
-                    }}
+                    fill="url(#colorRevenue)"
                   />
-                </LineChart>
+                </AreaChart>
               </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-gray-400 bg-gray-50 rounded-lg">
-                Chưa có dữ liệu
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* --- TABLES SECTION --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-5 border-b border-gray-100">
-            <h3 className="font-bold text-gray-800">Booking mới nhất</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-gray-600">
-              <thead className="bg-gray-50 text-xs uppercase font-semibold text-gray-500">
-                <tr>
-                  <th className="px-5 py-3">ID</th>
-                  <th className="px-5 py-3">Khách hàng</th>
-                  <th className="px-5 py-3">Tổng tiền</th>
-                  <th className="px-5 py-3">Thanh toán</th>
-                  <th className="px-5 py-3">Ngày tạo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {stats?.recentBookings?.map((item: any) => (
-                  <tr
-                    key={item.id}
-                    className="hover:bg-gray-50 cursor-pointer transition-colors"
-                    onClick={() => navigate(`/admin/bookings/${item.id}`)}
-                  >
-                    <td className="px-5 py-3 font-medium text-gray-900">
-                      #{item.id}
-                    </td>
-                    <td className="px-5 py-3">{item.customer_name}</td>
-                    <td className="px-5 py-3 font-medium text-emerald-600">
-                      {formatVND(item.total_price)}
-                    </td>
-                    <td className="px-5 py-3">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          item.payment_status === "paid"
-                            ? "bg-emerald-100 text-emerald-700"
-                            : item.payment_status === "pending"
-                              ? "bg-amber-100 text-amber-700"
-                              : "bg-red-100 text-red-700"
-                        }`}
-                      >
-                        {item.payment_status === "paid"
-                          ? "Đã TT"
-                          : item.payment_status === "pending"
-                            ? "Chờ TT"
-                            : "Chưa TT"}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3 text-gray-400 text-xs">
-                      {format(new Date(item.created_at), "dd/MM/yy HH:mm")}
-                    </td>
-                  </tr>
-                ))}
-                {(!stats?.recentBookings ||
-                  stats.recentBookings.length === 0) && (
-                  <tr>
-                    <td colSpan={5} className="text-center py-4 text-gray-400">
-                      Không có dữ liệu
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-            <h3 className="font-bold text-gray-800 mb-4 text-sm">
-              Phương thức thanh toán
-            </h3>
-            <div className="h-[180px]">
+            </div>
+          </Card>
+        </Col>
+        <Col xs={24} lg={8}>
+          <Card
+            title="Trạng thái đơn hàng"
+            bordered={false}
+            className="shadow-sm h-full"
+          >
+            <div style={{ height: 200 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
-                    data={stats?.paymentMethods || []}
+                    data={bookingStatusData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={50}
-                    outerRadius={70}
-                    paddingAngle={5}
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={2}
                     dataKey="value"
                   >
-                    {(stats?.bookingsByPaymentMethod || []).map(
-                      (_: any, index: number) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={PIE_COLORS[index % PIE_COLORS.length]}
-                        />
-                      )
-                    )}
+                    {bookingStatusData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={
+                          (STATUS_COLORS as any)[entry.originalName] ||
+                          PIE_COLORS[index]
+                        }
+                      />
+                    ))}
                   </Pie>
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
             </div>
-            <div className="flex flex-wrap gap-2 justify-center mt-2">
-              {stats?.bookingsByPaymentMethod?.map((m: any, idx: number) => (
-                <span
+            <div className="flex flex-wrap justify-center gap-2 mt-4">
+              {bookingStatusData.map((d, idx) => (
+                <Tag
                   key={idx}
-                  className="text-xs text-gray-500 flex items-center gap-1"
+                  color={(STATUS_COLORS as any)[d.originalName] || "default"}
                 >
-                  <span
-                    className="w-2 h-2 rounded-full"
-                    style={{ background: PIE_COLORS[idx % PIE_COLORS.length] }}
-                  ></span>
-                  {m.name || m.paymentMethod}
-                </span>
+                  {d.name}: {d.value}
+                </Tag>
               ))}
             </div>
-          </div>
+          </Card>
+        </Col>
+      </Row>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex-1">
-            <div className="p-4 border-b border-gray-100 bg-red-50">
-              <h3 className="font-bold text-red-700 text-sm">
-                Sự cố thiết bị mới
-              </h3>
-            </div>
-            <div className="p-0">
-              <table className="w-full text-left text-xs">
-                <tbody className="divide-y divide-gray-100">
-                  {stats?.recentDamage?.map((d: any) => (
-                    <tr key={d.id}>
-                      <td className="px-4 py-3 text-gray-600">
-                        <b>{d.room}</b> - {d.item}
-                      </td>
-                      <td className="px-4 py-3 text-right text-red-600 font-medium">
-                        {formatVND(d.amount)}
-                      </td>
-                    </tr>
-                  ))}
-                  {/* Handle empty case if needed */}
-                  {(!stats?.recentDamage ||
-                    stats.recentDamage.length === 0) && (
-                    <tr>
-                      <td colSpan={2} className="p-4 text-center text-gray-400">
-                        Không có sự cố nào
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Analysis Section: Room Types & Services */}
+      <Row gutter={[16, 16]} className="mb-6">
+        <Col xs={24} lg={12}>
+          <Card
+            bordered={false}
+            className="shadow-sm h-full"
+            bodyStyle={{ padding: "0 10px 10px 10px" }}
+          >
+            <Tabs
+              defaultActiveKey="1"
+              items={[
+                {
+                  key: "1",
+                  label: (
+                    <span className="mx-4 text-emerald-600">
+                      <TrophyOutlined /> Top 5 Loại Phòng (Đặt nhiều)
+                    </span>
+                  ),
+                  children: (
+                    <div style={{ padding: "0 10px" }}>
+                      <Table
+                        dataSource={topRoomsData}
+                        rowKey="name"
+                        pagination={false}
+                        size="small"
+                        columns={[
+                          {
+                            title: "Tên loại phòng",
+                            dataIndex: "name",
+                            width: "50%",
+                          },
+                          {
+                            title: "Số lượt đặt",
+                            dataIndex: "bookings",
+                            sorter: (a, b) => a.bookings - b.bookings,
+                            defaultSortOrder: "descend",
+                            width: "20%",
+                          },
+                          {
+                            title: "Doanh thu",
+                            dataIndex: "revenue",
+                            render: (val) => formatVND(val),
+                            width: "30%",
+                            align: "right",
+                          },
+                        ]}
+                      />
+                    </div>
+                  ),
+                },
+                {
+                  key: "2",
+                  label: (
+                    <span className="mx-4 text-red-500">
+                      <FallOutlined /> Top 5 Loại Phòng (Đặt ít)
+                    </span>
+                  ),
+                  children: (
+                    <div style={{ padding: "0 10px" }}>
+                      <List
+                        dataSource={bottomRoomsData}
+                        renderItem={(item, index) => (
+                          <List.Item>
+                            <List.Item.Meta
+                              avatar={
+                                <Avatar
+                                  style={{
+                                    backgroundColor: "#ffccc7",
+                                    color: "#cf1322",
+                                  }}
+                                >
+                                  {index + 1}
+                                </Avatar>
+                              }
+                              title={item.name}
+                              description={`Chỉ có ${item.bookings} lượt đặt trong kỳ này`}
+                            />
+                          </List.Item>
+                        )}
+                      />
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} lg={12}>
+          <Card
+            bordered={false}
+            className="shadow-sm h-full"
+            bodyStyle={{ padding: "0 10px 10px 10px" }}
+          >
+            <Tabs
+              defaultActiveKey="1"
+              items={[
+                {
+                  key: "1",
+                  label: (
+                    <span className="mx-4 text-blue-600">
+                      <TrophyOutlined /> Top 5 Dịch Vụ (Dùng nhiều)
+                    </span>
+                  ),
+                  children: (
+                    <div style={{ height: 260, padding: "10px" }}>
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={topServicesData}
+                          layout="vertical"
+                          margin={{ top: 5, left: 30, right: 30, bottom: 5 }}
+                        >
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            horizontal={false}
+                            vertical={true}
+                          />
+                          <XAxis type="number" hide />
+                          <YAxis
+                            dataKey="name"
+                            type="category"
+                            width={100}
+                            tick={{ fontSize: 12 }}
+                          />
+                          <Tooltip
+                            formatter={(val: number) => val}
+                            cursor={{ fill: "transparent" }}
+                          />
+                          <Bar
+                            dataKey="usage"
+                            name="Lượt dùng"
+                            fill="#3b82f6"
+                            radius={[0, 4, 4, 0]}
+                            barSize={20}
+                            label={{ position: "right" }}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ),
+                },
+                {
+                  key: "2",
+                  label: (
+                    <span className="mx-4 text-gray-500">
+                      <FallOutlined /> Top 5 Dịch Vụ (Ít dùng)
+                    </span>
+                  ),
+                  children: (
+                    <div style={{ padding: "0 10px" }}>
+                      <Table
+                        dataSource={bottomServicesData}
+                        rowKey="name"
+                        pagination={false}
+                        size="small"
+                        columns={[
+                          { title: "Tên dịch vụ", dataIndex: "name" },
+                          {
+                            title: "Số lượt sử dụng",
+                            dataIndex: "usage",
+                            sorter: (a, b) => a.usage - b.usage,
+                            defaultSortOrder: "ascend",
+                            align: "right",
+                          },
+                        ]}
+                      />
+                    </div>
+                  ),
+                },
+              ]}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <Card
+        title="Đặt phòng gần đây"
+        bordered={false}
+        className="shadow-sm"
+        extra={
+          <Button type="link" onClick={() => navigate("/admin/bookings")}>
+            Xem tất cả
+          </Button>
+        }
+      >
+        <Table
+          dataSource={stats?.recentBookings || []}
+          rowKey="id"
+          pagination={false}
+          size="middle"
+          scroll={{ x: true }}
+          columns={[
+            {
+              title: "ID",
+              dataIndex: "id",
+              render: (t) => <Text strong>#{t}</Text>,
+            },
+            { title: "Khách", dataIndex: "customer_name" },
+            {
+              title: "Tổng tiền",
+              dataIndex: "total_price",
+              render: (t) => <Text type="success">{formatVND(t)}</Text>,
+            },
+            {
+              title: "Trạng thái",
+              dataIndex: "stay_status_name",
+              render: (t) => {
+                const statusMap: Record<
+                  string,
+                  { label: string; color: string }
+                > = {
+                  confirmed: { label: "Đã xác nhận", color: "blue" },
+                  checked_in: { label: "Đang ở", color: "green" },
+                  checked_out: { label: "Đã trả phòng", color: "default" },
+                  cancelled: { label: "Đã hủy", color: "red" },
+                  pending: { label: "Chờ duyệt", color: "orange" },
+                  no_show: { label: "Vắng mặt", color: "purple" },
+                };
+                const status = statusMap[t] || { label: t, color: "default" };
+                return <Tag color={status.color}>{status.label}</Tag>;
+              },
+            },
+          ]}
+        />
+      </Card>
     </div>
   );
 };
-
-const StatusItem = ({
-  label,
-  count,
-  color,
-}: {
-  label: string;
-  count: number;
-  color: string;
-}) => (
-  <div className="flex items-center justify-between">
-    <span className="text-gray-600 text-sm flex items-center gap-2">
-      <span className={`w-3 h-3 rounded-full ${color}`}></span>
-      {label}
-    </span>
-    <span className="font-bold text-gray-800">{count || 0}</span>
-  </div>
-);
 
 export default Dashboard;
