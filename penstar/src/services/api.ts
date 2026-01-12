@@ -1,7 +1,7 @@
 import axios from "axios";
 import { message } from "antd";
 export const instance = axios.create({
-  baseURL: import.meta.env.VITE_BASE_URL,
+  baseURL: import.meta.env.VITE_BASE_URL + '/api',
   headers: {
     "Content-Type": "application/json",
   },
@@ -14,6 +14,7 @@ instance.interceptors.request.use(
         config.headers.Authorization = `Bearer ${token}`;
       }
     } catch {
+      console.log("Failed to get token")
     }
     return config;
   },
@@ -27,6 +28,7 @@ instance.interceptors.response.use(
       try {
         localStorage.removeItem("penstar_token");
       } catch {
+        console.log("Failed to remove token")
       }
       message.error("Unauthorized — vui lòng đăng nhập lại");
       if (!window.location.pathname.includes("/bookings/success")) {

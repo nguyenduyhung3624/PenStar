@@ -84,6 +84,8 @@ const AdminWalkInBooking = () => {
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [previewImage, setPreviewImage] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [discountCode, setDiscountCode] = useState("");
+  const [discountAmount, setDiscountAmount] = useState(0);
 
   const { data: roomTypes = [], isLoading: loadingTypes } = useQuery<
     RoomType[]
@@ -331,7 +333,15 @@ const AdminWalkInBooking = () => {
       setFileList(newFileList);
     },
     beforeUpload: (file: any) => {
-      setFileList([file]); // Limit to 1 file
+      const reader = new FileReader();
+      reader.onload = () => {
+        const newFile = {
+          ...file,
+          thumbUrl: reader.result as string,
+        };
+        setFileList([newFile]);
+      };
+      reader.readAsDataURL(file);
       return false;
     },
     fileList,

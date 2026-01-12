@@ -148,12 +148,14 @@ export const getBookings = async () => {
 export const getBookingById = async (id) => {
   const resuit = await pool.query(
     `SELECT b.*, ss.name as stay_status_name, u.email, u.phone,
-            checked_in_user.email as checked_in_by_email, checked_out_user.email as checked_out_by_email
+            checked_in_user.email as checked_in_by_email, checked_out_user.email as checked_out_by_email,
+            dc.type as discount_type, dc.value as discount_value
      FROM bookings b
      LEFT JOIN stay_status ss ON ss.id = b.stay_status_id
      LEFT JOIN users u ON u.id = b.user_id
     LEFT JOIN users checked_in_user ON checked_in_user.id = b.checked_in_by
     LEFT JOIN users checked_out_user ON checked_out_user.id = b.checked_out_by
+    LEFT JOIN discount_codes dc ON dc.code = b.discount_code
      WHERE b.id = $1`,
     [id]
   );

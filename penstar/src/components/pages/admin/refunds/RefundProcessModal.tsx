@@ -59,6 +59,8 @@ const RefundProcessModal: React.FC<RefundProcessModalProps> = ({
     onSuccess: () => {
       message.success("Đã hoàn trả tiền thành công!");
       queryClient.resetQueries();
+      queryClient.refetchQueries({ queryKey: ["refund-requests"] });
+      queryClient.refetchQueries({ queryKey: ["my-bookings"] });
       handleClose();
     },
     onError: (err: any) => {
