@@ -297,39 +297,24 @@ async function seedUsers() {
   console.log("👥 Seeding users...");
   const users = [];
   const hashedPassword = await bcrypt.hash("123456", 10);
+  // Create 1 admin
   users.push({
     full_name: "Admin PenStar",
     email: "nguyenduyhung3624@gmail.com",
     password: hashedPassword,
     phone: "0901234567",
-    role_id: 1,
+    role_id: 1, // admin
     status: "active",
   });
-  users.push({
-    full_name: "Quản lý Khách sạn",
-    email: "manager@penstar.com",
-    password: hashedPassword,
-    phone: "0901234568",
-    role_id: 2,
-    status: "active",
-  });
-  for (let i = 0; i < 3; i++) {
-    users.push({
-      full_name: faker.person.fullName(),
-      email: `receptionist${i + 1}@penstar.com`,
-      password: hashedPassword,
-      phone: `09${faker.string.numeric(8)}`,
-      role_id: 3,
-      status: "active",
-    });
-  }
-  for (let i = 0; i < CONFIG.USERS - 5; i++) {
+
+  // Create customers
+  for (let i = 0; i < CONFIG.USERS - 1; i++) {
     users.push({
       full_name: faker.person.fullName(),
       email: faker.internet.email().toLowerCase(),
       password: hashedPassword,
       phone: `09${faker.string.numeric(8)}`,
-      role_id: 4,
+      role_id: 2, // customer
       status: getRandomElement(["active", "active", "active", "banned"]),
     });
   }
@@ -354,9 +339,7 @@ async function seedRoles() {
   console.log("👑 Seeding roles...");
   const roles = [
     { id: 1, name: "admin", description: "Administrator" },
-    { id: 2, name: "manager", description: "Hotel Manager" },
-    { id: 3, name: "receptionist", description: "Receptionist" },
-    { id: 4, name: "customer", description: "Customer" },
+    { id: 2, name: "customer", description: "Customer" },
   ];
 
   for (const role of roles) {
@@ -773,7 +756,7 @@ async function seedDiscountCodes() {
 async function seedBookings(roomIds) {
   console.log("📋 Seeding bookings...");
   const usersResult = await pool.query(
-    "SELECT id FROM users WHERE role_id = 4"
+    "SELECT id FROM users WHERE role_id = 2"
   );
   const userIds = usersResult.rows.map((u) => u.id);
   const statusResult = await pool.query("SELECT id, name FROM stay_status");

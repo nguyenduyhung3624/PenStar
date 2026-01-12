@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (!user) return;
     const isAdmin =
       (user.role && String(user.role).toLowerCase() === "admin") ||
-      (user.role_id && Number(user.role_id) >= 3);
+      (user.role_id && Number(user.role_id) === 1);
     if (!isAdmin) return;
     (async () => {
       try {
