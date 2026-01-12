@@ -1,4 +1,7 @@
 import pool from "../db.js";
+import multer from "multer";
+import fs from "fs";
+import path from "path";
 import { sendEmailWithRetry } from "../utils/emailWithRetry.js";
 import {
   sendBookingStatusEmail,
@@ -59,6 +62,7 @@ export const getBookingById = async (req, res) => {
               refund_deadline_hours: item.refund_deadline_hours,
               non_refundable: item.non_refundable,
               notes: item.refund_notes,
+              ...item,
             }
           : null;
       const {
@@ -469,4 +473,137 @@ export const adminMarkRefunded = async (req, res) => {
   } catch (err) {
     res.error(err.message, null, 500);
   }
+};
+// Calculate Late Fee endpoint
+export const calculateLateFee = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const booking = await modelGetBookingById(id);
+    if (!booking) {
+      return res.error(ERROR_MESSAGES.BOOKING_NOT_FOUND, null, 404);
+    }
+
+    // Check current time
+    const now = new Date();
+
+    // Standard Checkout Time: 12:00 PM.
+    const standardCheckoutTime = new Date(now);
+    standardCheckoutTime.setHours(12, 0, 0, 0);
+
+    // Limit: 15:00 PM.
+    const limitTime = new Date(now);
+    limitTime.setHours(15, 0, 0, 0);
+
+    // If Now <= 12:00, no fee.
+    if (now <= standardCheckoutTime) {
+      return res.success({ lateFee: 0, hoursLate: 0 }, "Chưa quá giờ checkout");
+    }
+
+    // Logic: If late, charge 100k/hour.
+    // Calculate hours late.
+    const diffMs = now - standardCheckoutTime;
+    const diffHours = Math.ceil(diffMs / (1000 * 60 * 60));
+
+    // Find the Late Fee Service
+    const serviceRes = await pool.query(
+      "SELECT * FROM services WHERE name = $1 LIMIT 1",
+      ["Phụ thu checkout muộn"]
+    );
+    const lateFeeService = serviceRes.rows[0];
+
+    if (!lateFeeService) {
+      return res.error(
+        "Không tìm thấy dịch vụ 'Phụ thu checkout muộn' trong hệ thống",
+        null,
+        500
+      );
+    }
+
+    const feeAmount = diffHours * 100000;
+
+    const existingServiceRes = await pool.query(
+      "SELECT * FROM booking_services WHERE booking_id = $1 AND service_id = $2",
+      [id, lateFeeService.id]
+    );
+
+    let result;
+
+    if (existingServiceRes.rows.length > 0) {
+      const existing = existingServiceRes.rows[0];
+      if (existing.quantity !== diffHours) {
+        await pool.query(
+          "UPDATE booking_services SET quantity = $1, total_service_price = $2 WHERE id = $3",
+          [diffHours, feeAmount, existing.id]
+        );
+        result = {
+          ...existing,
+          quantity: diffHours,
+          total_service_price: feeAmount,
+          action: "updated",
+        };
+      } else {
+        result = { ...existing, action: "no_change" };
+      }
+    } else {
+      const insertRes = await pool.query(
+        `INSERT INTO booking_services (booking_id, service_id, quantity, total_service_price, note)
+         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [
+          id,
+          lateFeeService.id,
+          diffHours,
+          feeAmount,
+          `Auto-added: ${diffHours} hours late`,
+        ]
+      );
+      result = { ...insertRes.rows[0], action: "created" };
+    }
+
+    await pool.query(
+      `
+      UPDATE bookings
+      SET total_service_price = (SELECT COALESCE(SUM(total_service_price), 0) FROM booking_services WHERE booking_id = $1),
+          updated_at = NOW()
+      WHERE id = $1
+    `,
+      [id]
+    );
+
+    res.success(
+      { ...result, fee: feeAmount, hours: diffHours },
+      "Đã tính toán và cập nhật phí checkout muộn"
+    );
+  } catch (err) {
+    console.error("calculateLateFee error:", err);
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, err.message, 500);
+  }
+};
+
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(
+      process.cwd(),
+      "uploads",
+      "bookings",
+      "receipts"
+    );
+    fs.mkdirSync(uploadDir, { recursive: true });
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const ext = path.extname(file.originalname) || ".jpg";
+    const name = `${Date.now()}_${Math.round(Math.random() * 1e9)}${ext}`;
+    cb(null, name);
+  },
+});
+
+export const uploadReceiptMiddleware = multer({ storage });
+
+export const uploadReceipt = async (req, res) => {
+  if (!req.file) {
+    return res.error("Không có file được tải lên", null, 400);
+  }
+  const filename = req.file.filename;
+  const imageUrl = `/uploads/bookings/receipts/${filename}`;
+  res.success({ url: imageUrl }, "Tải ảnh lên thành công", 201);
 };

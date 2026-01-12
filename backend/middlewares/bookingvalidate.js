@@ -48,10 +48,11 @@ export const bookingItemSchema = Joi.object({
 });
 export const bookingServiceSchema = Joi.object({
   booking_id: Joi.number().positive().required(),
-  booking_item_id: Joi.number().positive().optional().allow(null), 
+  booking_item_id: Joi.number().positive().optional().allow(null),
   service_id: Joi.number().positive().required(),
   quantity: Joi.number().integer().min(1).required(),
   total_service_price: Joi.number().min(0).required(),
+  note: Joi.string().allow("", null).optional(),
 });
 export const validateBookingItemCreate = (req, res, next) => {
   const { value, error } = bookingItemSchema.validate(req.body);
@@ -73,20 +74,21 @@ export const validateBookingServiceCreate = (req, res, next) => {
 };
 export const bookingCreateSchema = Joi.object({
   customer_name: Joi.string().required(),
-  customer_email: Joi.any().optional(), 
-  customer_phone: Joi.any().optional(), 
-  email: Joi.any().optional(), 
-  phone: Joi.any().optional(), 
-  notes: Joi.any().optional(), 
-  num_adults: Joi.number().integer().min(1).max(20).optional(), 
-  num_children: Joi.number().integer().min(0).max(20).optional(), 
+  customer_email: Joi.any().optional(),
+  customer_phone: Joi.any().optional(),
+  email: Joi.any().optional(),
+  phone: Joi.any().optional(),
+  notes: Joi.any().optional(),
+  num_adults: Joi.number().integer().min(1).max(20).optional(),
+  num_children: Joi.number().integer().min(0).max(20).optional(),
   discount_code: Joi.string().optional(),
   discount_amount: Joi.number().min(0).optional(),
+  payment_proof_image: Joi.string().optional().allow(null),
   total_price: Joi.number().min(0).required(),
   payment_status: Joi.string().required(),
   payment_method: Joi.string()
     .valid("cash", "card", "transfer", "momo", "vnpay", "cod")
-    .optional(), 
+    .optional(),
   booking_method: Joi.string().required(),
   stay_status_id: Joi.number().positive().required(),
   user_id: Joi.number().positive().optional(),

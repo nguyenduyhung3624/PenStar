@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -14,27 +13,34 @@ import {
   Row,
   Col,
   Alert,
-  Spin,
   Radio,
   InputNumber,
   Table,
   Space,
+  Steps,
+  Upload,
+  Image,
+  Empty,
 } from "antd";
 import {
   UserOutlined,
   PhoneOutlined,
   MailOutlined,
-  CalendarOutlined,
   CheckCircleOutlined,
   PlusOutlined,
   DeleteOutlined,
+  UploadOutlined,
+  SolutionOutlined,
+  CreditCardOutlined,
+  HomeOutlined,
 } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
 import { getRoomTypes } from "@/services/roomTypeApi";
 import { getRooms } from "@/services/roomsApi";
-import { createBooking } from "@/services/bookingsApi";
+import { createBooking, uploadBookingReceipt } from "@/services/bookingsApi";
 import type { RoomType } from "@/types/roomtypes";
 import dayjs from "@/utils/dayjs";
+import type { UploadFile } from "antd/es/upload/interface";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -49,12 +55,11 @@ interface Room {
 }
 
 interface SelectedRoom {
-  id: string; // unique key for the row
+  id: string;
   roomId: number | null;
   roomTypeId: number;
   numAdults: number;
   numChildren: number;
-  // Calculated
   basePrice: number;
   extraAdultFees: number;
   extraChildFees: number;
@@ -67,14 +72,19 @@ const AdminWalkInBooking = () => {
   const navigate = useNavigate();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+
+  // Data States
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(
     null
   );
   const [paymentMethod, setPaymentMethod] = useState<string>("cash");
   const [immediateCheckin, setImmediateCheckin] = useState(false);
   const [selectedRooms, setSelectedRooms] = useState<SelectedRoom[]>([]);
+  const [fileList, setFileList] = useState<UploadFile[]>([]);
+  const [previewImage, setPreviewImage] = useState("");
+  const [previewOpen, setPreviewOpen] = useState(false);
 
-  // Load room types
   const { data: roomTypes = [], isLoading: loadingTypes } = useQuery<
     RoomType[]
   >({
@@ -82,32 +92,27 @@ const AdminWalkInBooking = () => {
     queryFn: getRoomTypes,
   });
 
-  // Load all rooms
   const { data: allRooms = [], isLoading: loadingRooms } = useQuery<Room[]>({
     queryKey: ["rooms"],
     queryFn: getRooms,
   });
 
-  // Calculate nights
   const nights = useMemo(() => {
     if (!dateRange) return 0;
     return dateRange[1].diff(dateRange[0], "day");
   }, [dateRange]);
 
-  // Check if check-in date is today (can only check-in immediately if today)
   const isCheckInToday = useMemo(() => {
     if (!dateRange) return false;
     return dateRange[0].isSame(dayjs(), "day");
   }, [dateRange]);
 
-  // Auto-disable immediate checkin if not today
   useMemo(() => {
     if (!isCheckInToday && immediateCheckin) {
       setImmediateCheckin(false);
     }
   }, [isCheckInToday, immediateCheckin]);
 
-  // Get available rooms by room type (excluding already selected)
   const getAvailableRooms = useCallback(
     (roomTypeId: number, excludeRoomId?: number) => {
       const selectedRoomIds = selectedRooms
@@ -123,20 +128,8 @@ const AdminWalkInBooking = () => {
     [allRooms, selectedRooms]
   );
 
-  // Calculate extra fees for a room
   const calculateExtraFees = useCallback(
-    (
-      roomTypeId: number,
-      numAdults: number,
-      numChildren: number
-    ): {
-      basePrice: number;
-      extraAdultFees: number;
-      extraChildFees: number;
-      totalPrice: number;
-      extraAdultsCount: number;
-      extraChildrenCount: number;
-    } => {
+    (roomTypeId: number, numAdults: number, numChildren: number) => {
       const roomType = roomTypes.find((rt) => rt.id === roomTypeId);
       if (!roomType) {
         return {
@@ -148,7 +141,6 @@ const AdminWalkInBooking = () => {
           extraChildrenCount: 0,
         };
       }
-
       const basePrice = roomType.price || 0;
       const baseAdults = roomType.base_adults || 2;
       const baseChildren = roomType.base_children || 0;
@@ -174,7 +166,6 @@ const AdminWalkInBooking = () => {
     [roomTypes]
   );
 
-  // Add new room
   const handleAddRoom = () => {
     if (roomTypes.length === 0) {
       message.warning("Chưa có loại phòng nào");
@@ -195,12 +186,10 @@ const AdminWalkInBooking = () => {
     ]);
   };
 
-  // Remove room
   const handleRemoveRoom = (id: string) => {
     setSelectedRooms((prev) => prev.filter((r) => r.id !== id));
   };
 
-  // Update room
   const handleUpdateRoom = (
     id: string,
     field: keyof SelectedRoom,
@@ -209,10 +198,8 @@ const AdminWalkInBooking = () => {
     setSelectedRooms((prev) =>
       prev.map((room) => {
         if (room.id !== id) return room;
-
         const updated = { ...room, [field]: value };
 
-        // Recalculate fees when room type or guests change
         if (
           field === "roomTypeId" ||
           field === "numAdults" ||
@@ -223,21 +210,17 @@ const AdminWalkInBooking = () => {
           const newChildren =
             field === "numChildren" ? value : room.numChildren;
 
-          // Reset room selection if type changes
           if (field === "roomTypeId") {
             updated.roomId = null;
           }
-
           const fees = calculateExtraFees(newTypeId, newAdults, newChildren);
           return { ...updated, ...fees };
         }
-
         return updated;
       })
     );
   };
 
-  // Calculate total
   const totalPrice = useMemo(() => {
     return selectedRooms.reduce(
       (sum, room) => sum + room.totalPrice * nights,
@@ -245,44 +228,61 @@ const AdminWalkInBooking = () => {
     );
   }, [selectedRooms, nights]);
 
-  const totalExtraFees = useMemo(() => {
-    return selectedRooms.reduce(
-      (sum, room) => sum + (room.extraAdultFees + room.extraChildFees) * nights,
-      0
-    );
-  }, [selectedRooms, nights]);
+  // Steps Navigation
+  const next = async () => {
+    try {
+      if (currentStep === 0) {
+        // Validate Step 1: Date & Rooms
+        await form.validateFields(["dateRange"]);
+        if (selectedRooms.length === 0) {
+          message.error("Vui lòng chọn ít nhất 1 phòng");
+          return;
+        }
+        const unselected = selectedRooms.filter((r) => !r.roomId);
+        if (unselected.length > 0) {
+          message.error("Vui lòng chọn số phòng cụ thể cho tất cả các mục");
+          return;
+        }
+      } else if (currentStep === 1) {
+        // Validate Step 2: Customer Info
+        await form.validateFields([
+          "customer_name",
+          "customer_phone",
+          "customer_email",
+        ]);
+      }
+      setCurrentStep(currentStep + 1);
+    } catch (error) {
+      // Validation failed
+    }
+  };
+
+  const prev = () => {
+    setCurrentStep(currentStep - 1);
+  };
 
   const handleSubmit = async () => {
     try {
       await form.validateFields();
-      const values = form.getFieldsValue();
-
-      if (!dateRange) {
-        message.error("Vui lòng chọn ngày nhận và trả phòng");
-        return;
-      }
-
-      if (selectedRooms.length === 0) {
-        message.error("Vui lòng thêm ít nhất 1 phòng");
-        return;
-      }
-
-      // Check all rooms have been selected
-      const unselectedRooms = selectedRooms.filter((r) => !r.roomId);
-      if (unselectedRooms.length > 0) {
-        message.error("Vui lòng chọn phòng cụ thể cho tất cả các mục");
-        return;
-      }
-
-      if (nights > 30) {
-        message.error("Không thể đặt phòng quá 30 đêm");
+      if (paymentMethod === "transfer" && fileList.length === 0) {
+        message.error("Vui lòng upload ảnh bill chuyển khoản");
         return;
       }
 
       setLoading(true);
+      const values = form.getFieldsValue();
+      const checkIn = dateRange![0].format("YYYY-MM-DD");
+      const checkOut = dateRange![1].format("YYYY-MM-DD");
 
-      const checkIn = dateRange[0].format("YYYY-MM-DD");
-      const checkOut = dateRange[1].format("YYYY-MM-DD");
+      // Upload Image if exists
+      let paymentProofUrl = null;
+      if (fileList.length > 0) {
+        const file = fileList[0].originFileObj;
+        if (file) {
+          const uploadRes = await uploadBookingReceipt(file);
+          paymentProofUrl = uploadRes.url;
+        }
+      }
 
       const bookingData = {
         customer_name: values.customer_name,
@@ -290,12 +290,11 @@ const AdminWalkInBooking = () => {
         customer_phone: values.customer_phone,
         notes: values.notes || null,
         total_price: totalPrice,
-        // Check-in ngay = đã thanh toán, không thì = chờ thanh toán
-        payment_status: immediateCheckin ? "paid" : "pending",
+        payment_status: "paid", // Admin booking implies paid or verified
         payment_method: paymentMethod,
         booking_method: "offline",
-        // Check-in ngay = checked_in (2), không thì = reserved (1) - hold phòng
-        stay_status_id: immediateCheckin ? 2 : 1,
+        stay_status_id: immediateCheckin ? 2 : 1, // 2: Check-in, 1: Booked (Confirmed)
+        payment_proof_image: paymentProofUrl,
         items: selectedRooms.map((room) => ({
           room_id: room.roomId,
           room_type_id: room.roomTypeId,
@@ -314,29 +313,49 @@ const AdminWalkInBooking = () => {
       };
 
       const booking = await createBooking(bookingData as any);
-      message.success(
-        immediateCheckin
-          ? "Đã tạo booking và check-in thành công!"
-          : "Đã tạo booking thành công! Phòng đã được hold cho khách."
-      );
+      message.success("Tạo booking thành công! Đơn hàng đã được xác nhận.");
       navigate(`/admin/bookings/${booking.id}`);
     } catch (error: any) {
       console.error("Error creating booking:", error);
-      message.error(
-        error?.response?.data?.message || "Có lỗi xảy ra khi tạo booking"
-      );
+      message.error(error?.response?.data?.message || "Có lỗi xảy ra");
     } finally {
       setLoading(false);
     }
   };
 
-  // Table columns for rooms
+  const uploadProps: any = {
+    onRemove: (file: any) => {
+      const index = fileList.indexOf(file);
+      const newFileList = fileList.slice();
+      newFileList.splice(index, 1);
+      setFileList(newFileList);
+    },
+    beforeUpload: (file: any) => {
+      setFileList([file]); // Limit to 1 file
+      return false;
+    },
+    fileList,
+  };
+
+  const handlePreview = async (file: UploadFile) => {
+    let src = file.url as string;
+    if (!src) {
+      src = await new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file.originFileObj as any);
+        reader.onload = () => resolve(reader.result as string);
+      });
+    }
+    setPreviewImage(src);
+    setPreviewOpen(true);
+  };
+
+  // Columns for Table (Step 1)
   const columns = [
     {
       title: "Loại phòng",
       dataIndex: "roomTypeId",
       key: "roomTypeId",
-      width: 200,
       render: (value: number, record: SelectedRoom) => (
         <Select
           value={value}
@@ -355,7 +374,6 @@ const AdminWalkInBooking = () => {
       title: "Phòng",
       dataIndex: "roomId",
       key: "roomId",
-      width: 150,
       render: (value: number | null, record: SelectedRoom) => {
         const available = getAvailableRooms(
           record.roomTypeId,
@@ -367,6 +385,7 @@ const AdminWalkInBooking = () => {
             onChange={(v) => handleUpdateRoom(record.id, "roomId", v)}
             style={{ width: "100%" }}
             placeholder="Chọn phòng"
+            status={!value ? "error" : ""}
           >
             {available.map((room) => (
               <Select.Option key={room.id} value={room.id}>
@@ -378,64 +397,40 @@ const AdminWalkInBooking = () => {
       },
     },
     {
-      title: "Người lớn",
-      dataIndex: "numAdults",
-      key: "numAdults",
-      width: 100,
-      render: (value: number, record: SelectedRoom) => (
-        <InputNumber
-          min={1}
-          max={5}
-          value={value}
-          onChange={(v) => handleUpdateRoom(record.id, "numAdults", v || 1)}
-        />
-      ),
-    },
-    {
-      title: "Trẻ em",
-      dataIndex: "numChildren",
-      key: "numChildren",
-      width: 100,
-      render: (value: number, record: SelectedRoom) => (
-        <InputNumber
-          min={0}
-          max={3}
-          value={value}
-          onChange={(v) => handleUpdateRoom(record.id, "numChildren", v || 0)}
-        />
-      ),
-    },
-    {
-      title: "Giá/đêm",
-      key: "price",
-      width: 180,
+      title: "Khách",
+      key: "guests",
       render: (_: any, record: SelectedRoom) => (
-        <div>
-          <div>{record.basePrice.toLocaleString("vi-VN")} ₫</div>
-          {(record.extraAdultFees > 0 || record.extraChildFees > 0) && (
-            <div className="text-xs text-orange-500">
-              +
-              {(record.extraAdultFees + record.extraChildFees).toLocaleString(
-                "vi-VN"
-              )}{" "}
-              ₫ phụ phí
-            </div>
-          )}
-        </div>
+        <Space>
+          <InputNumber
+            min={1}
+            max={5}
+            value={record.numAdults}
+            onChange={(v) => handleUpdateRoom(record.id, "numAdults", v || 1)}
+            addonBefore="Lớn"
+            style={{ width: 100 }}
+          />
+          <InputNumber
+            min={0}
+            max={3}
+            value={record.numChildren}
+            onChange={(v) => handleUpdateRoom(record.id, "numChildren", v || 0)}
+            addonBefore="Trẻ"
+            style={{ width: 100 }}
+          />
+        </Space>
       ),
     },
     {
-      title: "Thành tiền",
+      title: "Giá tạm tính",
       key: "total",
-      width: 150,
+      align: "right" as const,
       render: (_: any, record: SelectedRoom) => (
         <Text strong style={{ color: "#d97706" }}>
-          {(record.totalPrice * nights).toLocaleString("vi-VN")} ₫
+          {(record.totalPrice * (nights || 1)).toLocaleString("vi-VN")} ₫
         </Text>
       ),
     },
     {
-      title: "",
       key: "action",
       width: 50,
       render: (_: any, record: SelectedRoom) => (
@@ -449,260 +444,334 @@ const AdminWalkInBooking = () => {
     },
   ];
 
-  return (
-    <div className="bg-gray-50 py-6 min-h-screen">
-      <div className="max-w-5xl mx-auto px-4">
-        <Card>
-          <Title level={3} className="mb-6">
-            <CalendarOutlined className="mr-2" />
-            Đặt phòng trực tiếp
-          </Title>
-
-          <Form form={form} layout="vertical">
-            {/* Date Range */}
-            <Card size="small" className="mb-4" title="1. Chọn ngày">
-              <Form.Item
-                name="dateRange"
-                rules={[{ required: true, message: "Vui lòng chọn ngày" }]}
-              >
-                <RangePicker
-                  size="large"
-                  style={{ width: "100%" }}
-                  format="DD/MM/YYYY"
-                  placeholder={["Ngày nhận phòng", "Ngày trả phòng"]}
-                  disabledDate={(current) =>
-                    current && current < dayjs().startOf("day")
-                  }
-                  onChange={(dates) => {
-                    if (dates && dates[0] && dates[1]) {
-                      setDateRange([dates[0], dates[1]]);
-                    } else {
-                      setDateRange(null);
-                    }
-                  }}
-                />
-              </Form.Item>
-              {dateRange && (
-                <Text type="secondary">
-                  Số đêm: <strong>{nights}</strong>
-                </Text>
-              )}
-            </Card>
-
-            {/* Room Selection */}
-            <Card
-              size="small"
-              className="mb-4"
-              title="2. Chọn phòng"
-              extra={
-                <Button
-                  type="primary"
-                  icon={<PlusOutlined />}
-                  onClick={handleAddRoom}
-                  disabled={loadingTypes || loadingRooms}
-                >
-                  Thêm phòng
-                </Button>
-              }
+  const steps = [
+    {
+      title: "Chọn phòng",
+      icon: <HomeOutlined />,
+      content: (
+        <Space direction="vertical" className="w-full" size="middle">
+          <Card
+            size="small"
+            title="Thời gian lưu trú"
+            bordered={false}
+            className="shadow-sm"
+          >
+            <Form.Item
+              name="dateRange"
+              rules={[{ required: true, message: "Chọn ngày!" }]}
+              style={{ marginBottom: 0 }}
             >
-              {loadingTypes || loadingRooms ? (
-                <Spin />
-              ) : selectedRooms.length === 0 ? (
-                <Alert
-                  type="info"
-                  message="Chưa có phòng nào. Nhấn 'Thêm phòng' để bắt đầu."
-                  showIcon
-                />
-              ) : (
-                <>
-                  <Table
-                    dataSource={selectedRooms}
-                    columns={columns}
-                    rowKey="id"
-                    pagination={false}
-                    size="small"
-                  />
+              <RangePicker
+                size="large"
+                style={{ width: "100%" }}
+                format="DD/MM/YYYY"
+                disabledDate={(current) =>
+                  current && current < dayjs().startOf("day")
+                }
+                onChange={(dates) =>
+                  dates
+                    ? setDateRange([dates[0]!, dates[1]!])
+                    : setDateRange(null)
+                }
+              />
+            </Form.Item>
+            {nights > 0 && (
+              <Alert
+                type="info"
+                message={`Đã chọn ${nights} đêm`}
+                showIcon
+                className="mt-2"
+              />
+            )}
+          </Card>
 
-                  {/* Extra fees info */}
-                  {totalExtraFees > 0 && (
-                    <Alert
-                      type="warning"
-                      className="mt-3"
-                      message={
-                        <span>
-                          Tổng phụ phí (người lớn/trẻ em thêm):{" "}
-                          <strong>
-                            {totalExtraFees.toLocaleString("vi-VN")} ₫
-                          </strong>
-                        </span>
-                      }
-                      showIcon
-                    />
-                  )}
-                </>
-              )}
-            </Card>
-
-            {/* Customer Info */}
-            <Card size="small" className="mb-4" title="3. Thông tin khách hàng">
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item
-                    name="customer_name"
-                    label="Tên khách hàng"
-                    rules={[{ required: true, message: "Vui lòng nhập tên" }]}
-                  >
-                    <Input
-                      size="large"
-                      prefix={<UserOutlined />}
-                      placeholder="Họ và tên"
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item
-                    name="customer_phone"
-                    label="Số điện thoại"
-                    rules={[{ required: true, message: "Vui lòng nhập SĐT" }]}
-                  >
-                    <Input
-                      size="large"
-                      prefix={<PhoneOutlined />}
-                      placeholder="Số điện thoại"
-                    />
-                  </Form.Item>
-                </Col>
-              </Row>
-              <Form.Item name="customer_email" label="Email (tùy chọn)">
+          <Card
+            size="small"
+            title="Danh sách phòng"
+            bordered={false}
+            className="shadow-sm"
+            extra={
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={handleAddRoom}
+                disabled={!dateRange}
+              >
+                Thêm phòng
+              </Button>
+            }
+          >
+            {selectedRooms.length === 0 ? (
+              <Empty description="Vui lòng chọn ngày và thêm phòng" />
+            ) : (
+              <Table
+                dataSource={selectedRooms}
+                columns={columns}
+                pagination={false}
+                rowKey="id"
+                size="small"
+                loading={loadingTypes || loadingRooms}
+              />
+            )}
+            {selectedRooms.length > 0 && (
+              <div className="flex justify-end mt-4">
+                <Text className="text-lg">
+                  Tổng cộng:{" "}
+                  <strong className="text-orange-600">
+                    {totalPrice.toLocaleString("vi-VN")} ₫
+                  </strong>
+                </Text>
+              </div>
+            )}
+          </Card>
+        </Space>
+      ),
+    },
+    {
+      title: "Thông tin khách",
+      icon: <SolutionOutlined />,
+      content: (
+        <Card bordered={false} className="shadow-sm">
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item
+                name="customer_name"
+                label="Tên khách hàng"
+                rules={[{ required: true, message: "Nhập tên khách" }]}
+              >
                 <Input
                   size="large"
-                  prefix={<MailOutlined />}
-                  placeholder="Email"
+                  prefix={<UserOutlined />}
+                  placeholder="Họ và tên"
                 />
               </Form.Item>
-              <Form.Item name="notes" label="Ghi chú">
-                <Input.TextArea rows={2} placeholder="Ghi chú (tùy chọn)" />
-              </Form.Item>
-            </Card>
-
-            {/* Payment & Confirm */}
-            <Card
-              size="small"
-              className="mb-4"
-              title="4. Thanh toán & Xác nhận"
-            >
-              <Form.Item label="Phương thức thanh toán">
-                <Radio.Group
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
+            </Col>
+            <Col span={12}>
+              <Form.Item
+                name="customer_phone"
+                label="Số điện thoại"
+                rules={[{ required: true, message: "Nhập SĐT" }]}
+              >
+                <Input
                   size="large"
-                >
-                  <Radio.Button value="cash">Tiền mặt</Radio.Button>
-                  <Radio.Button value="card">Thẻ</Radio.Button>
-                  <Radio.Button value="transfer">Chuyển khoản</Radio.Button>
-                </Radio.Group>
+                  prefix={<PhoneOutlined />}
+                  placeholder="Số điện thoại"
+                />
               </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="customer_email" label="Email">
+            <Input
+              size="large"
+              prefix={<MailOutlined />}
+              placeholder="Email (tùy chọn)"
+            />
+          </Form.Item>
+          <Form.Item name="notes" label="Ghi chú">
+            <Input.TextArea rows={3} placeholder="Ghi chú thêm..." />
+          </Form.Item>
+        </Card>
+      ),
+    },
+    {
+      title: "Thanh toán",
+      icon: <CreditCardOutlined />,
+      content: (
+        <Card bordered={false} className="shadow-sm">
+          <Alert
+            message="Booking của Admin sẽ được tự động xác nhận (Confirmed) hoặc Check-in ngay."
+            type="success"
+            showIcon
+            className="mb-4"
+          />
 
-              <Form.Item>
-                <label
-                  className={`flex items-center gap-2 ${isCheckInToday ? "cursor-pointer" : "cursor-not-allowed opacity-50"}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={immediateCheckin}
-                    onChange={(e) => setImmediateCheckin(e.target.checked)}
-                    disabled={!isCheckInToday}
-                    className="w-4 h-4"
-                  />
-                  <span>
-                    <CheckCircleOutlined className="text-green-500 mr-1" />
-                    Check-in ngay lập tức
-                  </span>
-                </label>
-                <div className="text-xs text-gray-500 mt-1">
-                  {!isCheckInToday ? (
-                    <span className="text-orange-500">
-                      Chỉ có thể check-in ngay khi đặt phòng cho hôm nay
-                    </span>
-                  ) : immediateCheckin ? (
-                    "Khách check-in ngay + Đã thanh toán"
-                  ) : (
-                    "Phòng được hold (giữ chỗ), khách thanh toán khi đến"
-                  )}
-                </div>
-              </Form.Item>
+          <Form.Item label="Phương thức thanh toán" required>
+            <Radio.Group
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value)}
+              size="large"
+              className="w-full"
+            >
+              <Row gutter={[16, 16]}>
+                <Col span={8}>
+                  <Radio.Button value="cash" className="w-full text-center">
+                    Tiền mặt
+                  </Radio.Button>
+                </Col>
+                <Col span={8}>
+                  <Radio.Button value="card" className="w-full text-center">
+                    Thẻ / POS
+                  </Radio.Button>
+                </Col>
+                <Col span={8}>
+                  <Radio.Button value="transfer" className="w-full text-center">
+                    Chuyển khoản
+                  </Radio.Button>
+                </Col>
+              </Row>
+            </Radio.Group>
+          </Form.Item>
 
-              <Divider />
+          <Divider />
 
-              {/* Summary */}
-              {selectedRooms.length > 0 && dateRange && (
-                <div className="bg-gray-50 p-4 rounded mb-4">
-                  <Row justify="space-between" className="mb-2">
-                    <Col>
-                      <Text>Số phòng:</Text>
-                    </Col>
-                    <Col>
-                      <Text strong>{selectedRooms.length} phòng</Text>
-                    </Col>
-                  </Row>
-                  <Row justify="space-between" className="mb-2">
-                    <Col>
-                      <Text>Số đêm:</Text>
-                    </Col>
-                    <Col>
-                      <Text strong>{nights} đêm</Text>
-                    </Col>
-                  </Row>
-                  {totalExtraFees > 0 && (
-                    <Row justify="space-between" className="mb-2">
-                      <Col>
-                        <Text>Phụ phí:</Text>
-                      </Col>
-                      <Col>
-                        <Text type="warning">
-                          +{totalExtraFees.toLocaleString("vi-VN")} ₫
-                        </Text>
-                      </Col>
-                    </Row>
-                  )}
-                  <Divider className="my-2" />
-                  <Row justify="space-between">
-                    <Col>
-                      <Text strong style={{ fontSize: 16 }}>
-                        Tổng cộng:
-                      </Text>
-                    </Col>
-                    <Col>
-                      <Text strong style={{ fontSize: 20, color: "#d97706" }}>
-                        {totalPrice.toLocaleString("vi-VN")} ₫
-                      </Text>
-                    </Col>
-                  </Row>
+          <Form.Item
+            label={
+              paymentMethod === "transfer"
+                ? "Ảnh Bill Chuyển Khoản (Bắt buộc)"
+                : "Ảnh chứng từ thanh toán (Tùy chọn)"
+            }
+            required={paymentMethod === "transfer"}
+            tooltip="Tải lên ảnh chụp màn hình chuyển khoản hoặc hóa đơn."
+          >
+            <Upload
+              listType="picture-card"
+              {...uploadProps}
+              onPreview={handlePreview}
+            >
+              {fileList.length < 1 && (
+                <div>
+                  <UploadOutlined />
+                  <div style={{ marginTop: 8 }}>Upload</div>
                 </div>
               )}
+            </Upload>
+            {paymentMethod === "transfer" && fileList.length === 0 && (
+              <Text type="danger">
+                Vui lòng tải lên ảnh bill để xác nhận đơn.
+              </Text>
+            )}
+          </Form.Item>
 
-              <Space direction="vertical" style={{ width: "100%" }}>
-                <Button
-                  type="primary"
-                  size="large"
-                  block
-                  loading={loading}
-                  onClick={handleSubmit}
-                  disabled={selectedRooms.length === 0 || !dateRange}
-                  icon={<CheckCircleOutlined />}
-                >
-                  {immediateCheckin
-                    ? "Xác nhận & Check-in"
-                    : "Xác nhận đặt phòng"}
-                </Button>
-                <div className="text-center text-xs text-gray-500">
-                  Booking admin luôn được xác nhận ngay (không cần duyệt)
+          <Divider />
+
+          <Form.Item>
+            <div
+              className={`p-4 rounded border ${isCheckInToday ? "bg-emerald-50 border-emerald-200" : "bg-gray-100"}`}
+            >
+              <label
+                className={`flex items-center gap-3 ${!isCheckInToday ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+              >
+                <input
+                  type="checkbox"
+                  className="w-5 h-5 accent-emerald-600"
+                  checked={immediateCheckin}
+                  onChange={(e) => setImmediateCheckin(e.target.checked)}
+                  disabled={!isCheckInToday}
+                />
+                <div>
+                  <div className="font-bold text-gray-800">
+                    Check-in ngay lập tức
+                  </div>
+                  <div className="text-sm text-gray-500">
+                    {isCheckInToday
+                      ? "Booking sẽ chuyển sang trạng thái 'Đang ở' (Occupied)"
+                      : "Chỉ khả dụng khi ngày nhận phòng là hôm nay"}
+                  </div>
                 </div>
-              </Space>
-            </Card>
-          </Form>
+              </label>
+            </div>
+          </Form.Item>
+
+          <div className="bg-orange-50 p-4 rounded mt-4">
+            <Row>
+              <Col span={12}>
+                <Text className="text-gray-600">Tổng tiền:</Text>
+              </Col>
+              <Col span={12} className="text-right">
+                <Text className="text-2xl font-bold text-orange-600">
+                  {totalPrice.toLocaleString("vi-VN")} ₫
+                </Text>
+              </Col>
+            </Row>
+            <Row className="mt-2">
+              <Col span={12}>
+                <Text className="text-gray-600">Trạng thái sau tạo:</Text>
+              </Col>
+              <Col span={12} className="text-right">
+                <Text strong className="text-emerald-600">
+                  {immediateCheckin ? "CHECKED-IN" : "CONFIRMED (Đã xác nhận)"}
+                </Text>
+              </Col>
+            </Row>
+          </div>
         </Card>
+      ),
+    },
+  ];
+
+  return (
+    <div className="bg-gray-50 py-8 min-h-screen">
+      <div className="max-w-4xl mx-auto px-4">
+        <div className="mb-8">
+          <Title level={2} className="text-center" style={{ marginBottom: 0 }}>
+            Đặt Phòng Tại Quầy
+          </Title>
+          <Text className="block text-center text-gray-500">
+            Tạo booking mới cho khách lẻ (Walk-in)
+          </Text>
+        </div>
+
+        <Steps
+          current={currentStep}
+          items={steps.map((s) => ({ title: s.title, icon: s.icon }))}
+          className="mb-8"
+        />
+
+        <Form form={form} layout="vertical">
+          <div className="mb-8 min-h-[400px]">
+            {steps.map((step, index) => (
+              <div
+                key={index}
+                style={{ display: currentStep === index ? "block" : "none" }}
+              >
+                {step.content}
+              </div>
+            ))}
+          </div>
+
+          <div className="flex justify-between mt-8">
+            {currentStep > 0 && (
+              <Button size="large" onClick={prev}>
+                Quay lại
+              </Button>
+            )}
+            {currentStep < steps.length - 1 && (
+              <Button
+                type="primary"
+                size="large"
+                onClick={next}
+                className="ml-auto"
+              >
+                Tiếp theo
+              </Button>
+            )}
+            {currentStep === steps.length - 1 && (
+              <Button
+                type="primary"
+                size="large"
+                onClick={handleSubmit}
+                loading={loading}
+                className="ml-auto bg-emerald-600 hover:bg-emerald-500"
+                icon={<CheckCircleOutlined />}
+              >
+                Hoàn tất đặt phòng
+              </Button>
+            )}
+          </div>
+        </Form>
       </div>
+
+      {previewImage && (
+        <Image
+          wrapperStyle={{ display: "none" }}
+          preview={{
+            visible: previewOpen,
+            onVisibleChange: (visible) => setPreviewOpen(visible),
+            afterOpenChange: (visible) => !visible && setPreviewImage(""),
+          }}
+          src={previewImage}
+        />
+      )}
     </div>
   );
 };

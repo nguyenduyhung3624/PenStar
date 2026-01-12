@@ -1,20 +1,14 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
-// Admin: Mark booking as Refunded
-// Admin: Mark booking as No Show
-
 import { instance } from "./api";
 import type {
   Booking,
   BookingUpdatePayload,
   BookingShort,
 } from "@/types/bookings";
-
 export interface ChangeRoomRequest {
   booking_item_id: number;
   new_room_id: number;
   reason?: string;
 }
-
 export interface ChangeRoomResponse {
   success: boolean;
   message: string;
@@ -25,7 +19,6 @@ export interface ChangeRoomResponse {
     priceDifference: number;
   };
 }
-
 export interface RoomChangeHistory {
   id: number;
   booking_id: number;
@@ -45,10 +38,6 @@ export interface RoomChangeHistory {
   changed_at: string;
   status: string;
 }
-
-/**
- * Đổi phòng cho một booking item
- */
 export const changeRoom = async (
   bookingId: number,
   data: ChangeRoomRequest
@@ -59,10 +48,6 @@ export const changeRoom = async (
   );
   return response.data;
 };
-
-/**
- * Lấy lịch sử đổi phòng
- */
 export const getRoomChangeHistory = async (
   bookingId: number
 ): Promise<RoomChangeHistory[]> => {
@@ -71,27 +56,22 @@ export const getRoomChangeHistory = async (
   );
   return response.data.data;
 };
-
 export const createBooking = async (bookingData: Booking): Promise<Booking> => {
   const { data } = await instance.post("/bookings", bookingData);
   return data.data;
 };
-
 export const getBookings = async (): Promise<BookingShort[]> => {
   const { data } = await instance.get("/bookings");
   return data.data;
 };
-
 export const getMyBookings = async (): Promise<BookingShort[]> => {
   const { data } = await instance.get("/bookings/mine");
   return data.data;
 };
-
 export const getBookingById = async (id: number): Promise<Booking> => {
   const { data } = await instance.get(`/bookings/${id}`);
   return data.data;
 };
-
 export const setBookingStatus = async (
   id: number,
   payload: BookingUpdatePayload
@@ -99,8 +79,6 @@ export const setBookingStatus = async (
   const { data } = await instance.patch(`/bookings/${id}/status`, payload);
   return data.data;
 };
-
-// Client can cancel their own booking
 export const cancelBooking = async (
   id: number,
   cancel_reason?: string
@@ -110,8 +88,6 @@ export const cancelBooking = async (
   });
   return data.data;
 };
-
-// For updating booking status (check-in, check-out - client side)
 export const updateMyBooking = async (
   id: number,
   payload: BookingUpdatePayload
@@ -119,7 +95,6 @@ export const updateMyBooking = async (
   const { data } = await instance.patch(`/bookings/${id}/my-status`, payload);
   return data.data;
 };
-
 export const confirmCheckout = async (id: number): Promise<Booking> => {
   const { data } = await instance.post(`/bookings/${id}/confirm-checkout`);
   return data.data;
@@ -137,4 +112,28 @@ export const markBookingRefunded = async (
 ): Promise<{ success: boolean; message: string }> => {
   const { data } = await instance.patch(`/bookings/${id}/mark-refunded`);
   return data;
+};
+export const calculateLateFee = async (
+  id: number
+): Promise<{
+  lateFee: number;
+  hours: number;
+  action: string;
+  success: boolean;
+}> => {
+  const { data } = await instance.post(`/bookings/${id}/calculate-late-fee`);
+  return data.data;
+};
+
+export const uploadBookingReceipt = async (
+  file: File
+): Promise<{ url: string }> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  const { data } = await instance.post("/bookings/upload-receipt", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+  return data.data;
 };
