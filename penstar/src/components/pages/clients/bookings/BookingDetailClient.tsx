@@ -204,7 +204,9 @@ const BookingDetailClient: React.FC = () => {
           {booking.discount_amount && booking.discount_amount > 0 && (
             <Descriptions.Item label="Giảm giá">
               <Text type="danger" strong>
-                -{formatPrice(booking.discount_amount)}
+                {booking.discount_type === "percent" && booking.discount_value
+                  ? `${booking.discount_value}% (-${formatPrice(booking.discount_amount)})`
+                  : `-${formatPrice(booking.discount_amount)}`}
               </Text>
             </Descriptions.Item>
           )}
