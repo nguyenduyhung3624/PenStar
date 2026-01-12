@@ -9,6 +9,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "node scripts/seed-data.js",
     "migrate": "node scripts/migrate.js",
+    "reset": "node scripts/reset-db.js",
     "noshow": "node scripts/create_test_noshow.js"
   },
   "keywords": [],

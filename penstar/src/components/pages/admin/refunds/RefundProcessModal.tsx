@@ -61,6 +61,7 @@ const RefundProcessModal: React.FC<RefundProcessModalProps> = ({
       queryClient.resetQueries();
       queryClient.refetchQueries({ queryKey: ["refund-requests"] });
       queryClient.refetchQueries({ queryKey: ["my-bookings"] });
+      queryClient.refetchQueries({ queryKey: ["booking-detail"] });
       handleClose();
     },
     onError: (err: any) => {
