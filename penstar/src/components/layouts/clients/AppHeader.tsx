@@ -5,6 +5,7 @@ import {
   ProfileOutlined,
   BookOutlined,
   LogoutOutlined,
+  GiftOutlined,
 } from "@ant-design/icons";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
@@ -82,6 +83,11 @@ const AppHeader = () => {
                     key: "bookings",
                     icon: <BookOutlined />,
                     label: <Link to="/bookings">Đặt phòng</Link>,
+                  },
+                  {
+                    key: "vouchers",
+                    icon: <GiftOutlined />,
+                    label: <Link to="/vouchers">Voucher của tôi</Link>,
                   },
                   { type: "divider" },
                   {
