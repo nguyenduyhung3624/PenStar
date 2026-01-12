@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   cancelBooking,
   confirmCheckin,
@@ -8,6 +6,7 @@ import {
   markNoShow,
   setBookingStatus,
   markBookingRefunded,
+  calculateLateFee,
 } from "@/services/bookingsApi";
 import { getRoomID } from "@/services/roomsApi";
 import { getServiceById, getServices } from "@/services/servicesApi";
@@ -38,12 +37,11 @@ import {
   Select,
   Input,
   InputNumber,
+  Descriptions,
 } from "antd";
 import {
   ArrowLeftOutlined,
   UserOutlined,
-  MailOutlined,
-  PhoneOutlined,
   HomeOutlined,
   DollarOutlined,
   TagOutlined,
@@ -54,13 +52,11 @@ import {
   createBookingIncident,
   getBookingIncidents,
 } from "@/services/bookingIncidentsApi";
-
 import { generateBillHTML } from "@/utils/generateBillHTML";
 import { toZonedTime } from "date-fns-tz";
-
+import { getImageUrl } from "@/utils/imageUtils";
 const { Title, Text } = Typography;
 const { TextArea } = Input;
-
 const BookingDetail = () => {
   const [roomDevicesMap, setRoomDevicesMap] = useState<Record<number, any[]>>(
     {}
@@ -74,23 +70,20 @@ const BookingDetail = () => {
       quantity: number;
       status: string;
     }>
-  >([{ roomId: null, deviceId: null, quantity: 1, status: "" }]);
+  >([{ roomId: null, deviceId: null, quantity: 1, status: "broken" }]);
   const [brokenLoading, setBrokenLoading] = useState(false);
-
-  // --- STATE MODAL THÊM DỊCH VỤ ---
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
   const [serviceNote, setServiceNote] = useState("");
-  // Lưu trạng thái đang thêm dịch vụ nào
   const [pendingService, setPendingService] = useState<{
     bookingItemId: number;
     serviceId: number;
     quantity: number;
     serviceName: string;
+    servicePrice: number;
+    serviceUnit: string;
   } | null>(null);
-
   const { id } = useParams();
   const navigate = useNavigate();
-
   const [noShowLoading, setNoShowLoading] = useState(false);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [services, setServices] = useState<Services[]>([]);
@@ -99,11 +92,9 @@ const BookingDetail = () => {
   const [updating, setUpdating] = useState(false);
   const [checkoutConfirmed, setCheckoutConfirmed] = useState(false);
   const [addingService, setAddingService] = useState<number | null>(null);
-
   const [incidents, setIncidents] = useState<any[]>([]);
-  const [incidentsLoading, setIncidentsLoading] = useState(false);
+  // const [incidentsLoading, setIncidentsLoading] = useState(false);
   const [refundLoading, setRefundLoading] = useState(false);
-
   const {
     data: booking,
     isLoading,
@@ -115,7 +106,6 @@ const BookingDetail = () => {
     enabled: !!id,
     retry: false,
   });
-
   const timeZone = "Asia/Ho_Chi_Minh";
   const invalidStatusForNoShow = new Set([2, 3, 4, 5]);
   let canMarkNoShow = false;
@@ -125,13 +115,15 @@ const BookingDetail = () => {
     booking.check_in
   ) {
     const now = toZonedTime(new Date(), timeZone);
-    const checkInDate = toZonedTime(new Date(booking.check_in), timeZone);
-    checkInDate.setHours(14, 0, 0, 0);
-    if (now >= checkInDate) {
-      canMarkNoShow = true;
+    const d = new Date(booking.check_in);
+    if (!isNaN(d.getTime())) {
+      const checkInDate = toZonedTime(d, timeZone);
+      checkInDate.setHours(14, 0, 0, 0);
+      if (now >= checkInDate) {
+        canMarkNoShow = true;
+      }
     }
   }
-
   const handleMarkRefunded = async () => {
     if (!booking || !booking.id) return;
     Modal.confirm({
@@ -150,7 +142,7 @@ const BookingDetail = () => {
           } else {
             message.error(res.message || "Có lỗi khi đánh dấu hoàn tiền.");
           }
-        } catch (err) {
+        } catch {
           message.error("Lỗi khi đánh dấu hoàn tiền.");
         } finally {
           setRefundLoading(false);
@@ -158,7 +150,6 @@ const BookingDetail = () => {
       },
     });
   };
-
   const handleNoShow = async () => {
     if (!booking || !booking.id) return;
     Modal.confirm({
@@ -182,17 +173,14 @@ const BookingDetail = () => {
       },
     });
   };
-
   useEffect(() => {
     let mounted = true;
     const loadExtras = async () => {
       if (!booking) return;
       setLoadingExtras(true);
-
       try {
         const roomIds: string[] = [];
         const serviceIds: string[] = [];
-
         if (Array.isArray(booking.items)) {
           booking.items.forEach(
             (it: { room_id?: number }) =>
@@ -205,20 +193,16 @@ const BookingDetail = () => {
               s.service_id && serviceIds.push(String(s.service_id))
           );
         }
-
         const uniqueServiceIds = Array.from(new Set(serviceIds));
         const allServicesData = await getServices();
-
         const [roomResults, serviceResults] = await Promise.all([
           Promise.all(roomIds.map(getRoomID)),
           Promise.all(uniqueServiceIds.map(getServiceById)),
         ]);
-
         if (mounted) {
           setRooms(roomResults.filter(Boolean) as Room[]);
           setServices(serviceResults.filter(Boolean) as Services[]);
           setAllServices(allServicesData);
-
           if (booking.stay_status_id === 3) {
             const hasCleaningRoom = roomResults.some(
               (r) => r && (r.status === "cleaning" || r.status === "available")
@@ -235,18 +219,17 @@ const BookingDetail = () => {
         if (mounted) setLoadingExtras(false);
       }
     };
-
     loadExtras();
     const fetchIncidents = async () => {
       if (!booking?.id) return;
-      setIncidentsLoading(true);
+      // setIncidentsLoading(true);
       try {
         const data = await getBookingIncidents(booking.id);
         setIncidents(data);
-      } catch (err) {
+      } catch {
         setIncidents([]);
       } finally {
-        setIncidentsLoading(false);
+        // setIncidentsLoading(false);
       }
     };
     fetchIncidents();
@@ -254,18 +237,44 @@ const BookingDetail = () => {
       mounted = false;
     };
   }, [booking]);
-
   const formatPrice = (price: number | string) => {
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
       currency: "VND",
     }).format(Number(price));
   };
-
-  const formatDate = (date: string | Date) => {
-    return format(new Date(date), "dd 'tháng' MM, yyyy", { locale: vi });
+  const formatDate = (date: string | Date | null | undefined) => {
+    if (!date) return "—";
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return "Invalid Date";
+    try {
+      return format(d, "dd 'tháng' MM, yyyy", { locale: vi });
+    } catch {
+      return "Invalid Date";
+    }
   };
 
+  const safeFormatDateShort = (date: string | Date | null | undefined) => {
+    if (!date) return "—";
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return "—";
+    try {
+      return format(d, "dd/MM/yyyy");
+    } catch {
+      return "—";
+    }
+  };
+
+  const safeFormatDateTime = (date: string | Date | null | undefined) => {
+    if (!date) return "—";
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return "—";
+    try {
+      return format(d, "HH:mm dd/MM/yyyy");
+    } catch {
+      return "—";
+    }
+  };
   const handleApprove = async () => {
     if (!booking || !booking.id) return;
     setUpdating(true);
@@ -280,7 +289,6 @@ const BookingDetail = () => {
       setUpdating(false);
     }
   };
-
   const handleMarkPaid = async () => {
     if (!booking || !booking.id) return;
     setUpdating(true);
@@ -295,7 +303,6 @@ const BookingDetail = () => {
       setUpdating(false);
     }
   };
-
   const handleCheckIn = async () => {
     if (!booking || !booking.id) return;
     setUpdating(true);
@@ -312,25 +319,37 @@ const BookingDetail = () => {
       setUpdating(false);
     }
   };
-
-  const handleCheckOut = () => {
-    if (!booking || !booking.check_out) return;
-
-    // ✅ KIỂM TRA THỜI GIAN CLIENT NGAY LẬP TỨC
+  const handleCheckOut = async () => {
+    if (!booking || !booking.check_out || !booking.id) return;
     const now = new Date();
     const checkOutDate = new Date(booking.check_out);
     checkOutDate.setHours(14, 0, 0, 0);
-
     console.log("[CheckOut] Now:", now.toLocaleString("vi-VN"));
     console.log(
       "[CheckOut] CheckOut limit:",
       checkOutDate.toLocaleString("vi-VN")
     );
 
-    // ✅ NẾU ĐƯỢC PHÉP, MỚI MỞ MODAL BÃO CÁO THIẾT BỊ HỎA
+    // Trigger late fee calculation
+    setUpdating(true);
+    try {
+      const res = await calculateLateFee(booking.id);
+      if (res && res.lateFee > 0) {
+        message.info(
+          `Phát hiện checkout muộn! Đã thêm phụ phí: ${formatPrice(res.lateFee)} (${res.hours} giờ)`
+        );
+        await refetch(); // Reload data to show new service fee in reviews
+      } else {
+        // message.info("Checkout đúng giờ. Không có phụ phí.");
+      }
+    } catch (e) {
+      console.error("Error calc late fee", e);
+    } finally {
+      setUpdating(false);
+    }
+
     setBrokenModalVisible(true);
   };
-
   const handleSelectRoom = async (roomId: number | null, idx: number) => {
     if (roomId !== null && !roomDevicesMap[roomId]) {
       const devices = await getRoomDevices({ room_id: roomId });
@@ -341,11 +360,10 @@ const BookingDetail = () => {
     arr[idx].deviceId = null;
     setBrokenReports(arr);
   };
-
   const handleConfirmBrokenDevice = async () => {
     for (const r of brokenReports) {
       if (
-        (r.roomId || r.deviceId || r.status) &&
+        (r.roomId || r.deviceId) &&
         (!r.roomId || !r.deviceId || !r.status || !r.quantity || r.quantity < 1)
       ) {
         message.warning(
@@ -365,11 +383,9 @@ const BookingDetail = () => {
         }
       }
     }
-
     const validReports = brokenReports.filter(
       (r) => r.roomId && r.deviceId && r.status && r.quantity && r.quantity > 0
     );
-
     if (validReports.length > 0) {
       setBrokenLoading(true);
       try {
@@ -387,8 +403,7 @@ const BookingDetail = () => {
           });
         }
         message.success("Đã ghi nhận báo cáo thiết bị hỏng!");
-        // Không refetch ngay ở đây, chờ checkout xong refetch thể
-      } catch (err) {
+      } catch {
         message.error("Lỗi ghi nhận thiết bị hỏng!");
         setBrokenLoading(false);
         return;
@@ -399,26 +414,56 @@ const BookingDetail = () => {
     setFinalConfirmVisible(true);
   };
 
+  // Improved handleFinalCheckout to handle payment if needed
   const handleFinalCheckout = async () => {
     if (!booking || !booking.id) return;
+
+    // Calculate if payment is needed
+    const totalRoomPrice = Number(booking.total_room_price || 0);
+    const totalServicePrice = Number(booking.total_service_price || 0);
+    const totalIncidentPrice = incidents.reduce(
+      (sum, i) => sum + Number(i.amount || 0),
+      0
+    );
+    const finalTotal = totalRoomPrice + totalServicePrice + totalIncidentPrice;
+
+    // If amount_paid is valid (>0), use it.
+    // If not, but status is PAID, assume they paid at least the Room Price (Legacy/Fallback logic)
+    // This resolves the issue where "Paid" bookings show full amount due if amount_paid wasn't tracked.
+    let amountPaid = Number(booking.amount_paid || 0);
+    if (amountPaid === 0 && booking.payment_status === "paid") {
+      amountPaid = totalRoomPrice;
+    }
+    const remaining = finalTotal - amountPaid;
+
     setUpdating(true);
     try {
+      // If there is remaining amount, confirm payment first
+      if (remaining > 0) {
+        await setBookingStatus(booking.id, {
+          payment_status: "paid",
+          // amount_paid will be auto-updated to full total by backend or we can pass it if we support partial.
+          // Since backend auto-sets to total_price (which includes incidents), we just need to ensure total_price in DB is correct.
+          // However, backend auto-set uses DB total_price.
+          // We trust backend has updated total_price via incidents/services creation.
+        });
+        message.success("Đã xác nhận thanh toán phần còn lại.");
+      }
+
       await confirmCheckout(booking.id);
       message.success("Đã checkout - Phòng chuyển sang trạng thái Cleaning");
       refetch();
       setFinalConfirmVisible(false);
       setBrokenReports([
-        { roomId: null, deviceId: null, quantity: 1, status: "" },
+        { roomId: null, deviceId: null, quantity: 1, status: "broken" },
       ]);
     } catch (err: any) {
       console.error("Final checkout error:", err);
-      // Đây là lúc hiển thị lỗi "Chưa đến giờ check-out" từ Backend
       message.error(err.response?.data?.message || "Lỗi checkout");
     } finally {
       setUpdating(false);
     }
   };
-
   const handleCancel = async () => {
     if (!booking || !booking.id) return;
     let reason = "";
@@ -458,10 +503,7 @@ const BookingDetail = () => {
       },
     });
   };
-
   const canModifyService = booking && Number(booking.stay_status_id) === 2;
-
-  // 1. Hàm chuẩn bị thêm dịch vụ (Mở Modal)
   const initiateAddService = (
     bookingItemId: number,
     serviceId: number,
@@ -478,29 +520,24 @@ const BookingDetail = () => {
       message.error("Không tìm thấy dịch vụ");
       return;
     }
-
     setPendingService({
       bookingItemId,
       serviceId,
       quantity,
       serviceName: service.name,
+      servicePrice: service.price,
+      serviceUnit: service.unit || "Cái",
     });
     setServiceNote("");
     setServiceModalVisible(true);
   };
-
-  // 2. Hàm xác nhận thêm dịch vụ (Gọi API)
   const confirmAddService = async () => {
     if (!pendingService || !booking?.id) return;
-
     const { bookingItemId, serviceId, quantity } = pendingService;
     const service = allServices.find((s) => s.id === serviceId);
-
     if (!service) return;
-
     setAddingService(bookingItemId);
     setUpdating(true);
-
     try {
       await createBookingService({
         booking_id: booking.id,
@@ -523,7 +560,6 @@ const BookingDetail = () => {
       setUpdating(false);
     }
   };
-
   const handlePrintBill = () => {
     if (!booking) return;
     const html = generateBillHTML(
@@ -549,7 +585,6 @@ const BookingDetail = () => {
       printWindow.close();
     }, 250);
   };
-
   if (isLoading) {
     return (
       <div style={{ textAlign: "center", padding: "50px" }}>
@@ -557,7 +592,6 @@ const BookingDetail = () => {
       </div>
     );
   }
-
   if (isError || !booking) {
     return (
       <Card style={{ maxWidth: 800, margin: "20px auto" }}>
@@ -573,25 +607,21 @@ const BookingDetail = () => {
       </Card>
     );
   }
-
   const totalExtraAdultFees =
     booking?.items?.reduce(
       (sum, item: any) => sum + (Number(item.extra_adult_fees) || 0),
       0
     ) || 0;
-
   const totalExtraChildFees =
     booking?.items?.reduce(
       (sum, item: any) => sum + (Number(item.extra_child_fees) || 0),
       0
     ) || 0;
-
   const totalOtherExtraFees =
     booking?.items?.reduce(
       (sum, item: any) => sum + (Number(item.extra_fees) || 0),
       0
     ) || 0;
-
   return (
     <div style={{ padding: "24px", background: "#f5f5f5", minHeight: "100vh" }}>
       <div style={{ maxWidth: 1000, margin: "0 auto" }}>
@@ -619,183 +649,146 @@ const BookingDetail = () => {
             ) : null}
           </Space>
         </Space>
-
-        {/* ... (Phần hiển thị thông tin chung và khách hàng giữ nguyên) ... */}
+        {}
         <Card style={{ marginBottom: 16 }}>
-          <Row>
-            <Col>
-              <Text type="secondary">Mã đặt phòng</Text>
-              <Title level={4} style={{ margin: "4px 0" }}>
-                #{booking.id}
-              </Title>
-              <Text type="secondary">
-                Thời gian đặt:{" "}
-                {booking.created_at ? formatDate(booking.created_at) : "—"}
-              </Text>
-            </Col>
-          </Row>
+          <Descriptions
+            title="Thông tin chung"
+            bordered
+            column={{ xxl: 4, xl: 3, lg: 3, md: 3, sm: 2, xs: 1 }}
+          >
+            <Descriptions.Item label="Mã đặt phòng">
+              #{booking.id}
+            </Descriptions.Item>
+            <Descriptions.Item label="Thời gian đặt">
+              {booking.created_at ? formatDate(booking.created_at) : "—"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Trạng thái">
+              {(() => {
+                const statusId = Number(booking.stay_status_id);
+                let color = "default";
+                let text = "Unknown";
+                // Map status (can be refactored to centralized helper)
+                switch (statusId) {
+                  case 1:
+                    color = "cyan";
+                    text = "Booked";
+                    break;
+                  case 2:
+                    color = "green";
+                    text = "Đã nhận phòng";
+                    break;
+                  case 3:
+                    color = "orange";
+                    text = "Đã trả phòng";
+                    break;
+                  case 4:
+                    color = "red";
+                    text = "Đã hủy";
+                    break;
+                  case 5:
+                    color = "red";
+                    text = "No Show";
+                    break;
+                  case 6:
+                    color = "yellow";
+                    text = "Pending Approval";
+                    break;
+                }
+                return <Tag color={color}>{text}</Tag>;
+              })()}
+            </Descriptions.Item>
+            <Descriptions.Item label="Ngày Check-in">
+              {booking.check_in ? safeFormatDateShort(booking.check_in) : "—"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Ngày Check-out">
+              {booking.check_out ? safeFormatDateShort(booking.check_out) : "—"}
+            </Descriptions.Item>
+          </Descriptions>
         </Card>
 
         <Card
           title={
             <Space>
-              <UserOutlined /> Thông tin đặt phòng
+              <UserOutlined /> Thông tin khách hàng
             </Space>
           }
           style={{ marginBottom: 16 }}
         >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Text type="secondary">Họ tên</Text>
-              <br />
-              <Text strong>{booking.customer_name || "—"}</Text>
-            </Col>
-            <Col span={12}>
-              <Text type="secondary">
-                <MailOutlined /> Email
-              </Text>
-              <br />
-              <Text>{booking.email || "—"}</Text>
-            </Col>
-            <Col span={12}>
-              <Text type="secondary">
-                <PhoneOutlined /> Số điện thoại
-              </Text>
-              <br />
-              <Text>{booking.phone || "—"}</Text>
-            </Col>
-            <Col span={12}>
-              {(booking.booking_method || booking.payment_method) && (
-                <div style={{ marginTop: 12, display: "flex", gap: 12 }}>
-                  <Space size={12}>
-                    {booking.booking_method && (
-                      <Tag
-                        color={
-                          booking.booking_method === "online" ? "blue" : "green"
-                        }
-                        style={{ fontSize: 14, padding: "2px 12px" }}
-                      >
-                        {booking.booking_method === "online"
-                          ? "Online"
-                          : "Trực tiếp"}
-                      </Tag>
-                    )}
-                    {booking.payment_method && (
-                      <Tag
-                        color={
-                          booking.payment_method === "cash"
-                            ? "green"
-                            : booking.payment_method === "momo"
-                              ? "magenta"
-                              : booking.payment_method === "vnpay"
-                                ? "purple"
-                                : "default"
-                        }
-                        style={{ fontSize: 14, padding: "2px 12px" }}
-                      >
-                        {booking.payment_method.toUpperCase()}
-                      </Tag>
-                    )}
-                  </Space>
-                </div>
+          <Descriptions
+            bordered
+            column={{ xxl: 2, xl: 2, lg: 2, md: 1, sm: 1, xs: 1 }}
+          >
+            <Descriptions.Item label="Họ tên">
+              <b>{booking.customer_name || "—"}</b>
+            </Descriptions.Item>
+            <Descriptions.Item label="Số điện thoại">
+              {booking.phone || "—"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Email">
+              {booking.email || "—"}
+            </Descriptions.Item>
+            <Descriptions.Item label="Phương thức">
+              <Space>
+                {booking.booking_method && (
+                  <Tag
+                    color={
+                      booking.booking_method === "online" ? "yellow" : "green"
+                    }
+                  >
+                    {booking.booking_method === "online"
+                      ? "Online"
+                      : "Trực tiếp"}
+                  </Tag>
+                )}
+                {booking.payment_method && (
+                  <Tag
+                    color={
+                      booking.payment_method === "cash"
+                        ? "green"
+                        : booking.payment_method === "momo"
+                          ? "magenta"
+                          : booking.payment_method === "vnpay"
+                            ? "purple"
+                            : "default"
+                    }
+                  >
+                    {booking.payment_method.toUpperCase()}
+                  </Tag>
+                )}
+              </Space>
+            </Descriptions.Item>
+            <Descriptions.Item label="Check-in bởi">
+              {booking.checked_in_by_email || (
+                <Text type="secondary">Chưa check-in</Text>
               )}
-            </Col>
-          </Row>
-          <Divider style={{ margin: "16px 0 8px 0" }} />
-          <Row gutter={16} style={{ marginBottom: 8 }}>
-            <Col span={12}>
-              <Text type="secondary">Ngày check-in:</Text>
-              <Text style={{ fontWeight: 600, marginLeft: 8 }}>
-                {booking.check_in
-                  ? format(new Date(booking.check_in), "dd/MM/yyyy")
-                  : "—"}
-              </Text>
-            </Col>
-            <Col span={12}>
-              <Text type="secondary">Ngày check-out:</Text>
-              <Text style={{ fontWeight: 600, marginLeft: 8 }}>
-                {booking.check_out
-                  ? format(new Date(booking.check_out), "dd/MM/yyyy")
-                  : "—"}
-              </Text>
-            </Col>
-          </Row>
-          <Divider style={{ margin: "8px 0 16px 0" }} />
-          <Row gutter={16}>
-            <Col span={12}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Text type="secondary">Người check-in</Text>
-              </div>
-              <Text>
-                {booking.checked_in_by_email || (
-                  <span style={{ color: "#aaa" }}>Chưa check-in</span>
-                )}
-              </Text>
-            </Col>
-            <Col span={12}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Text type="secondary">Người check-out</Text>
-              </div>
-              <Text>
-                {booking.checked_out_by_email || (
-                  <span style={{ color: "#aaa" }}>Chưa check-out</span>
-                )}
-              </Text>
-            </Col>
-          </Row>
-          {booking.stay_status_id === 4 && (
-            <>
-              <Divider style={{ margin: "16px 0 8px 0" }} />
-              <Row gutter={16} style={{ marginBottom: 8 }}>
-                <Col span={12}>
-                  <div
-                    style={{ display: "flex", alignItems: "center", gap: 8 }}
-                  >
-                    <Text type="secondary" style={{ color: "#d4380d" }}>
-                      Người hủy
-                    </Text>
-                  </div>
-                  <Text style={{ color: "#d4380d" }}>
-                    {booking.canceled_by_name || (
-                      <span style={{ color: "#aaa" }}>Không rõ</span>
-                    )}
+            </Descriptions.Item>
+            <Descriptions.Item label="Check-out bởi">
+              {booking.checked_out_by_email || (
+                <Text type="secondary">Chưa check-out</Text>
+              )}
+            </Descriptions.Item>
+            {booking.stay_status_id === 4 && (
+              <>
+                <Descriptions.Item label="Người hủy" span={2}>
+                  <Text type="danger">
+                    {booking.canceled_by_name || "Không rõ"}
                   </Text>
-                </Col>
-                <Col span={12}>
-                  <div
-                    style={{ display: "flex", alignItems: "center", gap: 8 }}
-                  >
-                    <Text type="secondary" style={{ color: "#d4380d" }}>
-                      Thời gian hủy
-                    </Text>
-                  </div>
-                  <Text style={{ color: "#d4380d" }}>
+                </Descriptions.Item>
+                <Descriptions.Item label="Thời gian hủy">
+                  <Text type="danger">
                     {booking.canceled_at
-                      ? format(
-                          new Date(booking.canceled_at),
-                          "HH:mm dd/MM/yyyy"
-                        )
+                      ? safeFormatDateTime(booking.canceled_at)
                       : "—"}
                   </Text>
-                </Col>
-              </Row>
-              {booking.cancel_reason && (
-                <Row>
-                  <Col span={24}>
-                    <Text type="secondary" style={{ color: "#d4380d" }}>
-                      Lý do hủy:{" "}
-                    </Text>
-                    <Text style={{ color: "#d4380d" }}>
-                      {booking.cancel_reason}
-                    </Text>
-                  </Col>
-                </Row>
-              )}
-            </>
-          )}
+                </Descriptions.Item>
+                <Descriptions.Item label="Lý do hủy">
+                  <Text type="danger">{booking.cancel_reason || "—"}</Text>
+                </Descriptions.Item>
+              </>
+            )}
+          </Descriptions>
         </Card>
-
-        {/* ... (Phần hiển thị danh sách phòng - giữ nguyên) ... */}
+        {}
         <Card
           title={
             <Space>
@@ -814,16 +807,15 @@ const BookingDetail = () => {
               }))}
               renderItem={({ item, room, index }) => {
                 if (!room) return null;
-                const numAdults = item.num_adults || 0;
-                const numChildren = item.num_children || 0;
-                const totalGuests = numAdults + numChildren;
+                const numAdults = Number(item.num_adults) || 0;
+                const numChildren = Number(item.num_children) || 0;
+                // const totalGuests = numAdults + numChildren;
                 const specialRequests = item.special_requests;
                 const extraAdultFees = item.extra_adult_fees || 0;
                 const extraChildFees = item.extra_child_fees || 0;
                 const extraFees = item.extra_fees || 0;
-                const quantity = item.quantity || 1;
+                // const quantity = item.quantity || 1;
                 const numBabies = item.num_babies || 0;
-
                 const roomServices =
                   booking.services?.filter(
                     (s: any) => s.booking_item_id === item.id
@@ -831,201 +823,285 @@ const BookingDetail = () => {
 
                 return (
                   <List.Item key={index}>
-                    <div style={{ width: "100%" }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "flex-start",
-                        }}
-                      >
-                        <div style={{ display: "flex", gap: "16px", flex: 1 }}>
-                          {room.thumbnail ? (
-                            <Avatar
-                              shape="square"
-                              size={64}
-                              src={room.thumbnail}
-                            />
-                          ) : (
-                            <Avatar
-                              shape="square"
-                              size={64}
-                              icon={<HomeOutlined />}
-                            />
-                          )}
-                          <div>
-                            <Space direction="vertical" size={0}>
-                              <Text strong>
+                    <Card
+                      type="inner"
+                      style={{ width: "100%", background: "#fafafa" }}
+                      bodyStyle={{ padding: "16px" }}
+                    >
+                      <Row gutter={[24, 24]}>
+                        {/* Left Column: Room Info & Financials */}
+                        <Col xs={24} md={10}>
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: "16px",
+                              marginBottom: "16px",
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: "100px",
+                                height: "100px",
+                                flexShrink: 0,
+                                borderRadius: "8px",
+                                overflow: "hidden",
+                                border: "1px solid #f0f0f0",
+                              }}
+                            >
+                              {room.image ? (
+                                <img
+                                  src={getImageUrl(room.image)}
+                                  alt={room.name}
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "cover",
+                                  }}
+                                />
+                              ) : (
+                                <div
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    background: "#f5f5f5",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    color: "#ccc",
+                                  }}
+                                >
+                                  <HomeOutlined style={{ fontSize: "24px" }} />
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <Text strong style={{ fontSize: "16px" }}>
                                 {room.name || `Phòng ${room.id}`}
                               </Text>
-                              <Text type="secondary" style={{ fontSize: 12 }}>
-                                Loại phòng {room.type_id || "Không xác định"}
-                              </Text>
-                              <Text type="secondary" style={{ fontSize: 12 }}>
+                              <div style={{ marginBottom: "4px" }}>
+                                <Tag color="yellow">
+                                  {room.type_name ||
+                                    `Loại phòng ${room.type_id}`}
+                                </Tag>
+                              </div>
+                              <Text
+                                type="secondary"
+                                style={{ fontSize: "13px" }}
+                              >
                                 <UserOutlined /> {numAdults} người lớn
                                 {numChildren > 0
                                   ? `, ${numChildren} trẻ em`
                                   : ""}
                                 {numBabies > 0 ? `, ${numBabies} em bé` : ""}
-                                (Tổng: {totalGuests + numBabies} khách)
                               </Text>
-                              {specialRequests && (
-                                <Text
-                                  type="secondary"
-                                  style={{
-                                    fontSize: 12,
-                                    fontStyle: "italic",
-                                    color: "#1890ff",
-                                  }}
-                                >
-                                  Yêu cầu: {specialRequests}
-                                </Text>
-                              )}
-                              {(extraAdultFees > 0 ||
-                                extraChildFees > 0 ||
-                                extraFees > 0) && (
-                                <div style={{ marginTop: 8 }}>
-                                  <Text
-                                    type="secondary"
-                                    style={{ fontSize: 12 }}
-                                  >
-                                    <strong>Phụ phí:</strong>
-                                  </Text>
-                                  {extraAdultFees > 0 && (
-                                    <Text
-                                      type="danger"
-                                      style={{ fontSize: 12, marginLeft: 8 }}
-                                    >
-                                      Người lớn: {formatPrice(extraAdultFees)}
-                                    </Text>
-                                  )}
-                                  {extraChildFees > 0 && (
-                                    <Text
-                                      type="danger"
-                                      style={{ fontSize: 12, marginLeft: 8 }}
-                                    >
-                                      Trẻ em: {formatPrice(extraChildFees)}
-                                    </Text>
-                                  )}
-                                  {extraFees > 0 && (
-                                    <Text
-                                      type="danger"
-                                      style={{ fontSize: 12, marginLeft: 8 }}
-                                    >
-                                      Tổng phụ phí: {formatPrice(extraFees)}
-                                    </Text>
-                                  )}
-                                </div>
-                              )}
-                            </Space>
+                            </div>
                           </div>
-                        </div>
-                      </div>
 
-                      {/* Services for this room */}
-                      <div
-                        style={{
-                          marginTop: 12,
-                          marginLeft: 80,
-                          paddingLeft: 12,
-                          borderLeft: "2px solid #f0f0f0",
-                        }}
-                      >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            marginBottom: 8,
-                          }}
-                        >
-                          <Text
-                            type="secondary"
+                          {/* Special Requests */}
+                          {specialRequests && (
+                            <div
+                              style={{
+                                marginTop: "12px",
+                                marginBottom: "12px",
+                                padding: "8px 12px",
+                                background: "#fff3cd",
+                                border: "1px solid #FFC107",
+                                borderRadius: "4px",
+                                fontSize: "13px",
+                                display: "flex",
+                                gap: "8px",
+                                alignItems: "start",
+                              }}
+                            >
+                              <div style={{ marginTop: "2px" }}>
+                                <TagOutlined />
+                              </div>
+                              <div>
+                                <b>Yêu cầu đặc biệt:</b> <br />
+                                {specialRequests}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Financials / Extra Fees */}
+                          {(extraAdultFees > 0 ||
+                            extraChildFees > 0 ||
+                            extraFees > 0) && (
+                            <div
+                              style={{
+                                background: "#fff",
+                                padding: "12px",
+                                borderRadius: "6px",
+                                border: "1px dashed #d9d9d9",
+                                marginTop: "12px",
+                              }}
+                            >
+                              <Text strong style={{ fontSize: "13px" }}>
+                                Phụ phí phát sinh:
+                              </Text>
+                              <div style={{ marginTop: "8px" }}>
+                                {extraAdultFees > 0 && (
+                                  <div className="flex justify-between text-xs mb-1">
+                                    <Text type="secondary">Người lớn:</Text>
+                                    <Text type="danger">
+                                      {formatPrice(extraAdultFees)}
+                                    </Text>
+                                  </div>
+                                )}
+                                {extraChildFees > 0 && (
+                                  <div className="flex justify-between text-xs mb-1">
+                                    <Text type="secondary">Trẻ em:</Text>
+                                    <Text type="danger">
+                                      {formatPrice(extraChildFees)}
+                                    </Text>
+                                  </div>
+                                )}
+                                {extraFees > 0 && (
+                                  <div
+                                    className="flex justify-between text-xs pt-1 border-t border-dashed"
+                                    style={{ marginTop: "4px" }}
+                                  >
+                                    <Text strong>Tổng phụ phí:</Text>
+                                    <Text type="danger" strong>
+                                      {formatPrice(extraFees)}
+                                    </Text>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </Col>
+
+                        {/* Right Column: Services */}
+                        <Col xs={24} md={14}>
+                          <div
                             style={{
-                              fontSize: 12,
+                              background: "#fff",
+                              padding: "12px",
+                              borderRadius: "6px",
+                              border: "1px solid #f0f0f0",
+                              height: "100%",
                             }}
                           >
-                            <TagOutlined /> Dịch vụ bổ sung (
-                            {roomServices.length}):
-                          </Text>
-                          <Space>
-                            <Select
-                              placeholder="Thêm dịch vụ"
-                              style={{ width: 200 }}
-                              size="small"
-                              loading={addingService === item.id}
-                              onSelect={(serviceId: number | null) => {
-                                if (serviceId) {
-                                  initiateAddService(item.id, serviceId, 1);
-                                }
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                marginBottom: "12px",
+                                borderBottom: "1px solid #f0f0f0",
+                                paddingBottom: "8px",
                               }}
-                              value={null}
-                              disabled={
-                                addingService === item.id || !canModifyService
-                              }
                             >
-                              {allServices
-                                .filter(
-                                  (s) =>
-                                    !roomServices.some(
-                                      (rs: any) => rs.service_id === s.id
-                                    )
-                                )
-                                .map((s) => (
-                                  <Select.Option key={s.id} value={s.id}>
-                                    {s.name} - {formatPrice(s.price)}
-                                  </Select.Option>
-                                ))}
-                            </Select>
-                          </Space>
-                        </div>
-                        {roomServices.length > 0 ? (
-                          roomServices.map(
-                            (bookingService: any, sIndex: number) => {
-                              const service = services.find(
-                                (s) => s.id === bookingService.service_id
-                              );
-                              return (
-                                <div
-                                  key={sIndex}
-                                  style={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    alignItems: "center",
-                                    marginBottom: 4,
+                              <Space>
+                                <TagOutlined style={{ color: "#1890ff" }} />
+                                <Text strong style={{ fontSize: "13px" }}>
+                                  Dịch vụ ({roomServices.length})
+                                </Text>
+                              </Space>
+                              <Space>
+                                <Select
+                                  placeholder="+ Thêm"
+                                  style={{ width: 100 }}
+                                  size="small"
+                                  bordered={false}
+                                  className="bg-gray-50 hover:bg-gray-100 rounded transition-colors"
+                                  loading={addingService === item.id}
+                                  onSelect={(serviceId: number | null) => {
+                                    if (serviceId) {
+                                      initiateAddService(item.id, serviceId, 1);
+                                    }
                                   }}
+                                  value={null}
+                                  disabled={
+                                    addingService === item.id ||
+                                    !canModifyService
+                                  }
+                                  dropdownMatchSelectWidth={250}
                                 >
-                                  <Text style={{ fontSize: 13 }}>
-                                    •{" "}
-                                    {service?.name ||
-                                      `Dịch vụ ${bookingService.service_id}`}
-                                    {bookingService.quantity > 1 && (
-                                      <Text type="secondary">
-                                        {" "}
-                                        × {bookingService.quantity}
-                                      </Text>
-                                    )}
-                                  </Text>
-                                  <Space>
-                                    <Text
-                                      style={{ fontSize: 13, color: "#ff4d4f" }}
-                                    >
-                                      {formatPrice(
-                                        bookingService.total_service_price || 0
-                                      )}
-                                    </Text>
-                                  </Space>
+                                  {allServices
+                                    .filter(
+                                      (s) =>
+                                        !roomServices.some(
+                                          (rs: any) => rs.service_id === s.id
+                                        )
+                                    )
+                                    .map((s) => (
+                                      <Select.Option key={s.id} value={s.id}>
+                                        <Row justify="space-between">
+                                          <Text>{s.name}</Text>
+                                          <Text type="secondary">
+                                            {formatPrice(s.price)}
+                                          </Text>
+                                        </Row>
+                                      </Select.Option>
+                                    ))}
+                                </Select>
+                              </Space>
+                            </div>
+
+                            <div
+                              style={{
+                                maxHeight: "120px",
+                                overflowY: "auto",
+                                paddingRight: "4px",
+                              }}
+                            >
+                              {roomServices.length > 0 ? (
+                                <div className="space-y-2">
+                                  {roomServices.map(
+                                    (bookingService: any, sIndex: number) => {
+                                      const service = services.find(
+                                        (s) =>
+                                          s.id === bookingService.service_id
+                                      );
+                                      return (
+                                        <div key={sIndex}>
+                                          <div className="flex justify-between items-center text-xs">
+                                            <div>
+                                              <span className="text-gray-600">
+                                                {service?.name ||
+                                                  `#${bookingService.service_id}`}
+                                              </span>
+                                              <span className="text-gray-400 ml-1">
+                                                (x{bookingService.quantity}{" "}
+                                                {service?.unit || "Cái"})
+                                              </span>
+                                            </div>
+                                            <div className="font-medium text-gray-700">
+                                              {formatPrice(
+                                                bookingService.total_service_price ||
+                                                  0
+                                              )}
+                                            </div>
+                                          </div>
+                                          {bookingService.note && (
+                                            <div
+                                              className="text-gray-500 italic"
+                                              style={{
+                                                fontSize: "11px",
+                                                marginTop: "-2px",
+                                                marginLeft: "0px",
+                                              }}
+                                            >
+                                              Ghi chú: {bookingService.note}
+                                            </div>
+                                          )}
+                                        </div>
+                                      );
+                                    }
+                                  )}
                                 </div>
-                              );
-                            }
-                          )
-                        ) : (
-                          <Text type="secondary" style={{ fontSize: 12 }}>
-                            Chưa có dịch vụ nào
-                          </Text>
-                        )}
-                      </div>
-                    </div>
+                              ) : (
+                                <div className="text-center py-4 text-gray-400 text-xs italic">
+                                  Chưa sử dụng dịch vụ
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </Col>
+                      </Row>
+                    </Card>
                   </List.Item>
                 );
               }}
@@ -1034,8 +1110,7 @@ const BookingDetail = () => {
             <Empty description="Không có thông tin phòng" />
           )}
         </Card>
-
-        {/* ... (Phần Dịch vụ chung và Tổng tiền - Giữ nguyên) ... */}
+        {}
         {booking.services &&
           booking.services.some((s: any) => !s.booking_item_id) && (
             <Card
@@ -1061,7 +1136,6 @@ const BookingDetail = () => {
                   trước cập nhật)
                 </Text>
               </div>
-
               <List
                 dataSource={(() => {
                   const groupedServices = booking.services
@@ -1092,7 +1166,6 @@ const BookingDetail = () => {
                   const service = services.find(
                     (s) => s.id === bookingService.service_id
                   );
-
                   return (
                     <List.Item key={index}>
                       <List.Item.Meta
@@ -1117,7 +1190,7 @@ const BookingDetail = () => {
                         description={
                           <div style={{ marginTop: 8 }}>
                             <Space split={<Divider type="vertical" />}>
-                              <Tag color="blue">
+                              <Tag color="yellow">
                                 Số lượng: {bookingService.quantity || 1}
                               </Tag>
                               {service?.price && (
@@ -1150,7 +1223,6 @@ const BookingDetail = () => {
               />
             </Card>
           )}
-
         <Card
           title={
             <Space>
@@ -1188,7 +1260,6 @@ const BookingDetail = () => {
                             refundPolicy?.refund_percent || 0;
                           const isNonRefundable = refundPolicy?.non_refundable;
                           const isRefundable = refundPolicy?.refundable;
-
                           return (
                             <Row
                               key={idx}
@@ -1244,8 +1315,8 @@ const BookingDetail = () => {
                           (
                           {booking.total_room_price
                             ? Math.round(
-                                (booking.refund_amount /
-                                  booking.total_room_price) *
+                                (Number(booking.refund_amount) /
+                                  Number(booking.total_room_price)) *
                                   100
                               )
                             : 0}
@@ -1318,7 +1389,6 @@ const BookingDetail = () => {
                 </Col>
               </Row>
             )}
-
             <Row justify="space-between">
               <Text>Tiền phòng (Giá gốc)</Text>
               <Text strong>
@@ -1330,7 +1400,6 @@ const BookingDetail = () => {
                 )}
               </Text>
             </Row>
-
             {totalExtraAdultFees > 0 && (
               <Row justify="space-between" style={{ fontSize: 13 }}>
                 <Text type="secondary" style={{ paddingLeft: 12 }}>
@@ -1355,14 +1424,12 @@ const BookingDetail = () => {
                 <Text>{formatPrice(totalOtherExtraFees)}</Text>
               </Row>
             )}
-
             {booking.total_service_price ? (
               <Row justify="space-between" style={{ marginTop: 8 }}>
                 <Text>Dịch vụ bổ sung</Text>
                 <Text strong>{formatPrice(booking.total_service_price)}</Text>
               </Row>
             ) : null}
-
             {incidents.length > 0 && (
               <>
                 <Divider style={{ margin: "12px 0" }} />
@@ -1376,7 +1443,6 @@ const BookingDetail = () => {
                 {incidents.map((incident, idx) => {
                   const roomObj = rooms.find((r) => r.id === incident.room_id);
                   const roomName = roomObj ? roomObj.name : incident.room_id;
-
                   return (
                     <Row
                       key={idx}
@@ -1426,8 +1492,7 @@ const BookingDetail = () => {
             </Row>
           </Space>
         </Card>
-
-        {/* Action Buttons */}
+        {}
         <div style={{ marginTop: 24, textAlign: "right" }}>
           <Space>
             <Button onClick={() => navigate(-1)}>Quay lại</Button>
@@ -1506,25 +1571,30 @@ const BookingDetail = () => {
                 </Button>
                 {booking.stay_status_id === 2 && !checkoutConfirmed && (
                   <>
-                    <Button
-                      type="primary"
-                      loading={updating}
-                      disabled={updating}
-                      onClick={handleCheckOut}
-                    >
-                      Xác nhận checkout
-                    </Button>
+                    <>
+                      <Button
+                        type="primary"
+                        loading={updating}
+                        disabled={updating}
+                        onClick={handleCheckOut}
+                      >
+                        Trả phòng (Checkout)
+                      </Button>
+                    </>
                   </>
                 )}
                 <Modal
                   title="Báo cáo thiết bị hỏng khi checkout (có thể bỏ qua)"
                   open={brokenModalVisible}
                   onCancel={() => {
-                    // Khi tắt ngang (dấu X hoặc click ra ngoài), ta chỉ đóng modal này
                     setBrokenModalVisible(false);
-                    // Reset form nếu cần thiết
                     setBrokenReports([
-                      { roomId: null, deviceId: null, quantity: 1, status: "" },
+                      {
+                        roomId: null,
+                        deviceId: null,
+                        quantity: 1,
+                        status: "broken",
+                      },
                     ]);
                   }}
                   footer={[
@@ -1571,8 +1641,7 @@ const BookingDetail = () => {
                           </Select.Option>
                         ))}
                       </Select>
-
-                      {/* ✅ FIX 2: LOGIC LỌC THIẾT BỊ ĐÃ CHỌN */}
+                      {}
                       <Select
                         style={{ width: 140 }}
                         placeholder="Chọn thiết bị"
@@ -1585,18 +1654,15 @@ const BookingDetail = () => {
                         disabled={!r.roomId}
                       >
                         {(r.roomId !== null ? roomDevicesMap[r.roomId] : [])
-                          // 👇 Lọc thiết bị: Chỉ hiện nếu chưa được chọn ở dòng khác (cùng phòng)
                           ?.filter((d: any) => {
                             const isSelectedInOtherRow = brokenReports.some(
                               (report, reportIndex) =>
-                                // Không phải dòng hiện tại
                                 reportIndex !== idx &&
-                                // Cùng phòng
                                 report.roomId === r.roomId &&
-                                // Cùng ID thiết bị
                                 String(report.deviceId) === String(d.id)
                             );
-                            return !isSelectedInOtherRow;
+                            const isWorking = d.status === "working";
+                            return !isSelectedInOtherRow && isWorking;
                           })
                           .map((d: any) => (
                             <Select.Option key={d.id} value={d.id}>
@@ -1604,7 +1670,6 @@ const BookingDetail = () => {
                             </Select.Option>
                           ))}
                       </Select>
-
                       <InputNumber
                         min={1}
                         value={r.quantity}
@@ -1645,7 +1710,7 @@ const BookingDetail = () => {
                                     roomId: null,
                                     deviceId: null,
                                     quantity: 1,
-                                    status: "",
+                                    status: "broken",
                                   },
                                 ]
                           );
@@ -1664,7 +1729,7 @@ const BookingDetail = () => {
                           roomId: null,
                           deviceId: null,
                           quantity: 1,
-                          status: "",
+                          status: "broken",
                         },
                       ])
                     }
@@ -1672,11 +1737,15 @@ const BookingDetail = () => {
                     Thêm dòng báo cáo
                   </Button>
                 </Modal>
-
                 <Modal
-                  title="Xác nhận checkout"
+                  title={
+                    <Space>
+                      <DollarOutlined /> Xác nhận Trả phòng & Thanh toán
+                    </Space>
+                  }
                   open={finalConfirmVisible}
                   onCancel={() => setFinalConfirmVisible(false)}
+                  width={700}
                   footer={[
                     <Button
                       key="cancel"
@@ -1690,10 +1759,305 @@ const BookingDetail = () => {
                       loading={updating}
                       onClick={handleFinalCheckout}
                     >
-                      Xác nhận
+                      {(() => {
+                        const totalRoomPrice = Number(
+                          booking.total_room_price || 0
+                        );
+                        const totalServicePrice = Number(
+                          booking.total_service_price || 0
+                        );
+                        const totalIncidentPrice = incidents.reduce(
+                          (sum, i) => sum + Number(i.amount || 0),
+                          0
+                        );
+                        const finalTotal =
+                          totalRoomPrice +
+                          totalServicePrice +
+                          totalIncidentPrice;
+
+                        // Fallback logic for Amount Paid display
+                        let amountPaid = Number(booking.amount_paid || 0);
+                        if (
+                          amountPaid === 0 &&
+                          booking.payment_status === "paid"
+                        ) {
+                          amountPaid = totalRoomPrice;
+                        }
+                        const remaining = finalTotal - amountPaid;
+
+                        return remaining > 0
+                          ? `Thanh toán ${formatPrice(remaining)} & Checkout`
+                          : "Xác nhận Checkout";
+                      })()}
                     </Button>,
                   ]}
                 >
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ marginBottom: 12, fontWeight: 500 }}>
+                      Vui lòng kiểm tra kỹ các khoản phí trước khi xác nhận trả
+                      phòng:
+                    </div>
+
+                    <table
+                      style={{ width: "100%", borderCollapse: "collapse" }}
+                    >
+                      <thead>
+                        <tr
+                          style={{
+                            background: "#f5f5f5",
+                            borderBottom: "1px solid #d9d9d9",
+                          }}
+                        >
+                          <th style={{ padding: "8px", textAlign: "left" }}>
+                            Khoản mục
+                          </th>
+                          <th style={{ padding: "8px", textAlign: "right" }}>
+                            Số tiền
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td
+                            style={{
+                              padding: "8px",
+                              borderBottom: "1px solid #f0f0f0",
+                            }}
+                          >
+                            Tiền phòng (Giá gốc)
+                          </td>
+                          <td
+                            style={{
+                              padding: "8px",
+                              borderBottom: "1px solid #f0f0f0",
+                              textAlign: "right",
+                            }}
+                          >
+                            {formatPrice(booking.total_room_price || 0)}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td
+                            style={{
+                              padding: "8px",
+                              borderBottom: "1px solid #f0f0f0",
+                            }}
+                          >
+                            Dịch vụ bổ sung
+                          </td>
+                          <td
+                            style={{
+                              padding: "8px",
+                              borderBottom: "1px solid #f0f0f0",
+                              textAlign: "right",
+                            }}
+                          >
+                            {formatPrice(booking.total_service_price || 0)}
+                          </td>
+                        </tr>
+                        {incidents.length > 0 && (
+                          <>
+                            <tr>
+                              <td
+                                colSpan={2}
+                                style={{
+                                  padding: "8px 8px 4px",
+                                  fontWeight: 600,
+                                  color: "#cf1322",
+                                }}
+                              >
+                                Đền bù thiết bị:
+                              </td>
+                            </tr>
+                            {incidents
+                              .filter((i) => !i.deleted_at)
+                              .map((inc, idx) => (
+                                <tr key={`inc-${idx}`}>
+                                  <td
+                                    style={{
+                                      padding: "4px 8px 4px 24px",
+                                      color: "#555",
+                                    }}
+                                  >
+                                    {inc.equipment_name} ({inc.equipment_type})
+                                    x {inc.quantity}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "4px 8px",
+                                      textAlign: "right",
+                                      color: "#cf1322",
+                                    }}
+                                  >
+                                    {formatPrice(inc.amount)}
+                                  </td>
+                                </tr>
+                              ))}
+                            <tr>
+                              <td
+                                style={{
+                                  padding: "8px 8px 8px 24px",
+                                  fontStyle: "italic",
+                                }}
+                              >
+                                Tổng đền bù
+                              </td>
+                              <td
+                                style={{
+                                  padding: "8px",
+                                  textAlign: "right",
+                                  fontWeight: 500,
+                                  color: "#cf1322",
+                                }}
+                              >
+                                {formatPrice(
+                                  incidents.reduce(
+                                    (sum, i) => sum + Number(i.amount || 0),
+                                    0
+                                  )
+                                )}
+                              </td>
+                            </tr>
+                          </>
+                        )}
+                        <tr style={{ background: "#fafafa" }}>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              fontWeight: "bold",
+                              fontSize: 16,
+                            }}
+                          >
+                            Tổng cộng
+                          </td>
+                          <td
+                            style={{
+                              padding: "12px 8px",
+                              textAlign: "right",
+                              fontWeight: "bold",
+                              fontSize: 16,
+                              color: "#d4380d",
+                            }}
+                          >
+                            {formatPrice(
+                              Number(booking.total_room_price || 0) +
+                                Number(booking.total_service_price || 0) +
+                                incidents.reduce(
+                                  (sum, i) => sum + Number(i.amount || 0),
+                                  0
+                                )
+                            )}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style={{ padding: "8px", color: "green" }}>
+                            Đã thanh toán
+                          </td>
+                          <td
+                            style={{
+                              padding: "8px",
+                              textAlign: "right",
+                              color: "green",
+                              fontWeight: 600,
+                            }}
+                          >
+                            {formatPrice(
+                              (() => {
+                                let paid = Number(booking.amount_paid || 0);
+                                if (
+                                  paid === 0 &&
+                                  booking.payment_status === "paid"
+                                ) {
+                                  paid = Number(booking.total_room_price || 0);
+                                }
+                                return paid;
+                              })()
+                            )}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    {(() => {
+                      const totalRoomPrice = Number(
+                        booking.total_room_price || 0
+                      );
+                      const totalServicePrice = Number(
+                        booking.total_service_price || 0
+                      );
+                      const totalIncidentPrice = incidents.reduce(
+                        (sum, i) => sum + Number(i.amount || 0),
+                        0
+                      );
+                      const finalTotal =
+                        totalRoomPrice + totalServicePrice + totalIncidentPrice;
+
+                      let amountPaid = Number(booking.amount_paid || 0);
+                      if (
+                        amountPaid === 0 &&
+                        booking.payment_status === "paid"
+                      ) {
+                        amountPaid = totalRoomPrice;
+                      }
+
+                      const remaining = finalTotal - amountPaid;
+
+                      if (remaining > 0) {
+                        return (
+                          <div
+                            style={{
+                              marginTop: 16,
+                              padding: 12,
+                              background: "#fff2e8",
+                              border: "1px solid #ffbb96",
+                              borderRadius: 4,
+                            }}
+                          >
+                            <Text type="danger" strong>
+                              Khách còn nợ thanh toán: {formatPrice(remaining)}
+                            </Text>
+                            <br />
+                            <Text type="secondary">
+                              Hệ thống sẽ tự động xác nhận thanh toán số tiền
+                              còn lại này khi bạn nhấn nút bên dưới.
+                            </Text>
+                          </div>
+                        );
+                      } else if (remaining < 0) {
+                        return (
+                          <div
+                            style={{
+                              marginTop: 16,
+                              padding: 12,
+                              background: "#e6f7ff",
+                              border: "1px solid #91d5ff",
+                              borderRadius: 4,
+                            }}
+                          >
+                            <Text type="success" strong>
+                              Cần hoàn lại khách:{" "}
+                              {formatPrice(Math.abs(remaining))}
+                            </Text>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div
+                          style={{
+                            marginTop: 16,
+                            padding: 12,
+                            background: "#f6ffed",
+                            border: "1px solid #b7eb8f",
+                            borderRadius: 4,
+                          }}
+                        >
+                          <Text type="success" strong>
+                            Đã thanh toán đủ.
+                          </Text>
+                        </div>
+                      );
+                    })()}
+                  </div>
                   <div>Bạn có chắc chắn muốn checkout booking này không?</div>
                 </Modal>
                 {booking.stay_status_id === 3 &&
@@ -1710,8 +2074,7 @@ const BookingDetail = () => {
             )}
           </Space>
         </div>
-
-        {/* Modal Thêm Dịch Vụ */}
+        {}
         <Modal
           title={`Thêm dịch vụ: ${pendingService?.serviceName}`}
           open={serviceModalVisible}
@@ -1730,6 +2093,7 @@ const BookingDetail = () => {
               min={1}
               style={{ width: "100%", marginTop: 4 }}
               value={pendingService?.quantity || 1}
+              addonAfter={pendingService?.serviceUnit || "Cái"}
               onChange={(val) => {
                 if (pendingService) {
                   setPendingService({
@@ -1739,6 +2103,21 @@ const BookingDetail = () => {
                 }
               }}
             />
+            {pendingService && (
+              <div style={{ marginTop: 8, textAlign: "right" }}>
+                <Text type="secondary">
+                  Đơn giá: {formatPrice(pendingService.servicePrice || 0)}
+                </Text>
+                <br />
+                <Text strong type="danger">
+                  Thành tiền:{" "}
+                  {formatPrice(
+                    (pendingService.servicePrice || 0) *
+                      (pendingService.quantity || 1)
+                  )}
+                </Text>
+              </div>
+            )}
           </div>
           <div>
             <Text>Ghi chú cho dịch vụ (tùy chọn):</Text>
@@ -1755,5 +2134,4 @@ const BookingDetail = () => {
     </div>
   );
 };
-
 export default BookingDetail;
