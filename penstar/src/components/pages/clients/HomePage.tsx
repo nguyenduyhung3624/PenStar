@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getRoomTypes } from "@/services/roomTypeApi";
 import { getServices } from "@/services/servicesApi";
-import { fetchDiscountCodes } from "@/services/discountApi";
+import { getAvailableVouchers } from "@/services/discountApi";
 import { getImageUrl } from "@/utils/imageUtils";
 import { Tag, Button, message, Modal, Descriptions } from "antd";
 import { CopyOutlined, CheckCircleOutlined } from "@ant-design/icons";
@@ -39,10 +39,12 @@ const HomePage = () => {
   });
 
   // Fetch Discount Codes
-  const { data: discountCodes = [] } = useQuery({
+  const { data: discountResponse } = useQuery({
     queryKey: ["discountCodes"],
-    queryFn: fetchDiscountCodes,
+    queryFn: getAvailableVouchers,
   });
+
+  const discountCodes = discountResponse?.data || [];
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("vi-VN", {
