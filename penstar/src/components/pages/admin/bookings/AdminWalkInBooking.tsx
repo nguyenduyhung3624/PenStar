@@ -627,6 +627,10 @@ const AdminWalkInBooking = () => {
               listType="picture-card"
               {...uploadProps}
               onPreview={handlePreview}
+              showUploadList={{
+                showPreviewIcon: true,
+                showRemoveIcon: true,
+              }}
             >
               {fileList.length < 1 && (
                 <div>
