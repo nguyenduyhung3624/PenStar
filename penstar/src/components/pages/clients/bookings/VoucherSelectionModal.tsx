@@ -19,7 +19,7 @@ interface Voucher {
   code: string;
   name?: string;
   description: string;
-  type: "percentage" | "fixed";
+  type: "percentage" | "percent" | "fixed";
   value: number;
   min_total?: number;
   max_discount_amount?: number;
@@ -70,7 +70,7 @@ export default function VoucherSelectionModal({
   const calculateDiscount = useCallback(
     (voucher: Voucher): number => {
       if (voucher.min_total && totalPrice < voucher.min_total) return 0;
-      if (voucher.type === "percentage") {
+      if (voucher.type === "percentage" || voucher.type === "percent") {
         const discount = (totalPrice * voucher.value) / 100;
         return voucher.max_discount_amount
           ? Math.min(discount, voucher.max_discount_amount)
@@ -223,11 +223,15 @@ export default function VoucherSelectionModal({
                     <div className="text-right">
                       <Tag
                         color={
-                          voucher.type === "percentage" ? "geekblue" : "green"
+                          voucher.type === "percentage" ||
+                          voucher.type === "percent"
+                            ? "geekblue"
+                            : "green"
                         }
                         className="text-sm px-2 py-1 mr-0"
                       >
-                        {voucher.type === "percentage"
+                        {voucher.type === "percentage" ||
+                        voucher.type === "percent"
                           ? `Giảm ${voucher.value}%`
                           : `Giảm ${formatPrice(voucher.value)}`}
                       </Tag>
