@@ -88,7 +88,7 @@ const BookingDetail = () => {
 
   const approveMutation = useMutation({
     mutationFn: (bookingId: number) =>
-      setBookingStatus(bookingId, { stay_status_id: 1 }),
+      setBookingStatus(bookingId, { stay_status_id: 2 }),
     onSuccess: () => {
       message.success("Đã duyệt booking - Phòng chuyển sang trạng thái Booked");
       queryClient.invalidateQueries({ queryKey: ["booking", id] });
@@ -629,7 +629,7 @@ const BookingDetail = () => {
       },
     });
   };
-  const canModifyService = booking && Number(booking.stay_status_id) === 2;
+  const canModifyService = booking && Number(booking.stay_status_id) === 3;
   const initiateAddService = (
     bookingItemId: number,
     serviceId: number,
@@ -783,28 +783,28 @@ const BookingDetail = () => {
                 // Map status (can be refactored to centralized helper)
                 switch (statusId) {
                   case 1:
-                    color = "cyan";
-                    text = "Booked";
+                    color = "orange";
+                    text = "Chờ xác nhận";
                     break;
                   case 2:
+                    color = "blue";
+                    text = "Đã xác nhận";
+                    break;
+                  case 3:
                     color = "green";
                     text = "Đã nhận phòng";
                     break;
-                  case 3:
-                    color = "orange";
-                    text = "Đã trả phòng";
-                    break;
                   case 4:
-                    color = "red";
-                    text = "Đã hủy";
+                    color = "cyan";
+                    text = "Đã trả phòng";
                     break;
                   case 5:
                     color = "red";
-                    text = "No Show";
+                    text = "Đã hủy";
                     break;
                   case 6:
-                    color = "yellow";
-                    text = "Pending Approval";
+                    color = "purple";
+                    text = "No Show";
                     break;
                 }
                 return <Tag color={color}>{text}</Tag>;
@@ -884,7 +884,7 @@ const BookingDetail = () => {
               <>
                 <Descriptions.Item label="Người hủy" span={2}>
                   <Text type="danger">
-                    {booking.canceled_by_name || "Không rõ"}
+                    {booking.canceled_by_name || "—"}
                   </Text>
                 </Descriptions.Item>
                 <Descriptions.Item label="Thời gian hủy">
@@ -1720,7 +1720,7 @@ const BookingDetail = () => {
         <div style={{ marginTop: 24, textAlign: "right" }}>
           <Space>
             <Button onClick={() => navigate(-1)}>Quay lại</Button>
-            {booking.stay_status_id === 4 &&
+            {booking.stay_status_id === 5 &&
               booking.payment_status === "paid" &&
               !booking.is_refunded &&
               booking.refund_amount !== undefined &&
@@ -1733,9 +1733,9 @@ const BookingDetail = () => {
                   Xử lý hoàn tiền ({formatPrice(booking.refund_amount)})
                 </Button>
               )}
-            {booking.stay_status_id !== 4 && booking.stay_status_id !== 5 && (
+            {booking.stay_status_id !== 5 && booking.stay_status_id !== 6 && (
               <>
-                {booking.stay_status_id === 1 &&
+                {booking.stay_status_id === 2 &&
                   booking.payment_method === "cash" &&
                   booking.payment_status !== "paid" && (
                     <Button
@@ -1751,7 +1751,7 @@ const BookingDetail = () => {
                       Xác nhận đã thanh toán
                     </Button>
                   )}
-                {booking.stay_status_id === 1 && (
+                {booking.stay_status_id === 2 && (
                   <Button
                     type="primary"
                     onClick={handleCheckIn}
@@ -1761,7 +1761,7 @@ const BookingDetail = () => {
                     Check In
                   </Button>
                 )}
-                {booking.stay_status_id === 6 && (
+                {booking.stay_status_id === 1 && (
                   <Button
                     type="primary"
                     onClick={handleApprove}
@@ -1771,9 +1771,9 @@ const BookingDetail = () => {
                     Duyệt
                   </Button>
                 )}
-                {booking.stay_status_id !== 4 &&
-                  booking.stay_status_id !== 2 &&
-                  booking.stay_status_id !== 3 && (
+                {booking.stay_status_id !== 5 &&
+                  booking.stay_status_id !== 3 &&
+                  booking.stay_status_id !== 4 && (
                     <Button
                       danger
                       onClick={handleCancel}
@@ -1794,7 +1794,7 @@ const BookingDetail = () => {
                 >
                   No Show
                 </Button>
-                {booking.stay_status_id === 2 && (
+                {booking.stay_status_id === 3 && (
                   <Button
                     type="primary"
                     loading={updating}
@@ -2088,8 +2088,10 @@ const BookingDetail = () => {
                             {formatPrice(booking.total_service_price || 0)}
                           </td>
                         </tr>
-                        {/* Debug: Log incidents */}
-                        {console.log("📋 All incidents:", incidents)}
+                        {(() => {
+                          console.log("📋 Incidents in modal:", incidents);
+                          return null;
+                        })()}
                         {incidents.length > 0 && (
                           <>
                             <tr>
