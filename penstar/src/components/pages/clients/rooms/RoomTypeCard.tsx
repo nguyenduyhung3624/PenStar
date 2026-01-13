@@ -623,30 +623,26 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                       marginBottom: "12px",
                     }}
                   >
-                    <div style={{ textAlign: "right" }} className="invisible">
-                      <div
-                        style={{
-                          color: "#f5a623",
-                          fontSize: "18px",
-                          fontWeight: "700",
-                        }}
-                      >
-                        {new Intl.NumberFormat("vi-VN").format(
-                          Number(roomType?.price) || 0
-                        )}{" "}
-                        VND
-                        <span
-                          style={{
-                            fontSize: "13px",
-                            fontWeight: "400",
-                            color: "#666",
-                          }}
-                        >
-                          {" "}
-                          / đêm
-                        </span>
-                      </div>
+                    {/* Room Capacity Info */}
+                    <div
+                      style={{
+                        padding: "10px 14px",
+                        backgroundColor: "#f0f7ff",
+                        border: "1px solid #bae0ff",
+                        borderRadius: "6px",
+                        fontSize: "12px",
+                        color: "#333",
+                      }}
+                    >
+                      <span style={{ color: "#666" }}>Sức chứa:</span>{" "}
+                      <strong style={{ color: "#1890ff", fontSize: "13px" }}>
+                        {roomType?.capacity || 4} người
+                      </strong>{" "}
+                      | <span style={{ color: "#666" }}>Gốc:</span>{" "}
+                      <strong>{roomType?.base_adults || 2} NL</strong>,{" "}
+                      <strong>{roomType?.base_children || 1} TE</strong>
                     </div>
+
                     <div>
                       <select
                         aria-label="Chọn số lượng phòng"
@@ -781,36 +777,10 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                 >
                                   Chọn số người phòng {roomIndex + 1}
                                 </div>
-                                {fees.totalExtraFees > 0 && (
-                                  <div className="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-100">
-                                    <div className="font-semibold text-orange-600 mb-1">
-                                      Phụ thu:{" "}
-                                      {new Intl.NumberFormat("vi-VN").format(
-                                        fees.totalExtraFees
-                                      )}
-                                      đ
-                                    </div>
-                                    {fees.extraAdults > 0 && (
-                                      <div>
-                                        {fees.extraAdults} NL x{" "}
-                                        {new Intl.NumberFormat("vi-VN").format(
-                                          Number(roomType?.extra_adult_fee)
-                                        )}
-                                        đ
-                                      </div>
-                                    )}
-                                    {fees.extraChildren > 0 && (
-                                      <div>
-                                        {fees.extraChildren} TE x{" "}
-                                        {new Intl.NumberFormat("vi-VN").format(
-                                          Number(roomType?.extra_child_fee)
-                                        )}
-                                        đ
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
                               </Col>
+
+                              {/* Info Column - Enhanced Design */}
+
                               <Col xs={6} sm={6}>
                                 <label
                                   style={{
@@ -916,6 +886,64 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                 />
                               </Col>
                             </Row>
+
+                            {/* Display Extra Fees */}
+                            {fees.totalExtraFees > 0 && (
+                              <div
+                                style={{
+                                  marginTop: "16px",
+                                  padding: "12px 16px",
+                                  backgroundColor: "#fff7e6",
+                                  border: "1px solid #ffd591",
+                                  borderRadius: "8px",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    fontSize: "14px",
+                                    fontWeight: "600",
+                                    color: "#fa8c16",
+                                    marginBottom: "8px",
+                                  }}
+                                >
+                                  💰 Phụ phí:{" "}
+                                  {new Intl.NumberFormat("vi-VN").format(
+                                    fees.totalExtraFees
+                                  )}{" "}
+                                  đ
+                                </div>
+                                <div
+                                  style={{ fontSize: "13px", color: "#666" }}
+                                >
+                                  {fees.extraAdults > 0 && (
+                                    <div style={{ marginBottom: "4px" }}>
+                                      • {fees.extraAdults} Người lớn thêm ×{" "}
+                                      {new Intl.NumberFormat("vi-VN").format(
+                                        Number(roomType?.extra_adult_fee)
+                                      )}{" "}
+                                      đ ={" "}
+                                      {new Intl.NumberFormat("vi-VN").format(
+                                        fees.adultFees
+                                      )}{" "}
+                                      đ
+                                    </div>
+                                  )}
+                                  {fees.extraChildren > 0 && (
+                                    <div>
+                                      • {fees.extraChildren} Trẻ em thêm ×{" "}
+                                      {new Intl.NumberFormat("vi-VN").format(
+                                        Number(roomType?.extra_child_fee)
+                                      )}{" "}
+                                      đ ={" "}
+                                      {new Intl.NumberFormat("vi-VN").format(
+                                        fees.childFees
+                                      )}{" "}
+                                      đ
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       }

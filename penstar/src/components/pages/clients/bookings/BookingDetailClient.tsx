@@ -274,6 +274,42 @@ const BookingDetailClient: React.FC = () => {
                 },
               },
               {
+                title: "Phụ phí",
+                key: "extra_fees",
+                render: (_, item) => {
+                  const extraAdultFee = Number(item.extra_adult_fees) || 0;
+                  const extraChildFee = Number(item.extra_child_fees) || 0;
+                  const otherFees = Number(item.extra_fees) || 0;
+
+                  const hasExtraFees =
+                    extraAdultFee > 0 || extraChildFee > 0 || otherFees > 0;
+
+                  if (!hasExtraFees) {
+                    return <Text type="secondary">Không</Text>;
+                  }
+
+                  return (
+                    <Space direction="vertical" size={0}>
+                      {extraAdultFee > 0 && (
+                        <Text style={{ fontSize: 12 }}>
+                          NL: +{formatPrice(extraAdultFee)}
+                        </Text>
+                      )}
+                      {extraChildFee > 0 && (
+                        <Text style={{ fontSize: 12 }}>
+                          TE: +{formatPrice(extraChildFee)}
+                        </Text>
+                      )}
+                      {otherFees > 0 && (
+                        <Text style={{ fontSize: 12 }}>
+                          Khác: +{formatPrice(otherFees)}
+                        </Text>
+                      )}
+                    </Space>
+                  );
+                },
+              },
+              {
                 title: "Thời gian",
                 key: "dates",
                 render: (_, item) => (
@@ -401,7 +437,7 @@ const BookingDetailClient: React.FC = () => {
               </Button>
             </Popconfirm>
           )}
-          {booking.payment_status === "unpaid" &&
+          {/* {booking.payment_status === "unpaid" &&
             booking.stay_status_id !== 4 && (
               <Button
                 type="primary"
@@ -412,7 +448,7 @@ const BookingDetailClient: React.FC = () => {
               >
                 Thanh toán ngay
               </Button>
-            )}
+            )} */}
         </div>
       </Card>
       <RefundRequestModal

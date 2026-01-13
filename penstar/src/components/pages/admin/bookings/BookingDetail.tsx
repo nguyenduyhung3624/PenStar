@@ -539,11 +539,23 @@ const BookingDetail = () => {
     if (validReports.length > 0) {
       try {
         const results = await Promise.allSettled(
-          validReports.map((r) => {
+          validReports.map(async (r) => {
             const device = (
               r.roomId !== null ? bookingDevicesMap[r.roomId] : []
             ).find((d: any) => String(d.id) === String(r.deviceId));
             if (!device || !booking?.id) return Promise.reject("Invalid data");
+
+            // Create the incident in database
+            return await createIncidentMutation.mutateAsync({
+              booking_id: booking.id,
+              room_id: r.roomId,
+              equipment_id: device.master_equipment_id,
+              quantity: r.quantity,
+              reason: r.note || "Thiết bị hỏng khi checkout",
+              amount: (device.compensation_price || 0) * r.quantity,
+              compensation_price: device.compensation_price || 0,
+              status: "pending",
+            });
           })
         );
         const failed = results.filter((r) => r.status === "rejected");
@@ -2076,6 +2088,8 @@ const BookingDetail = () => {
                             {formatPrice(booking.total_service_price || 0)}
                           </td>
                         </tr>
+                        {/* Debug: Log incidents */}
+                        {console.log("📋 All incidents:", incidents)}
                         {incidents.length > 0 && (
                           <>
                             <tr>
@@ -2090,30 +2104,28 @@ const BookingDetail = () => {
                                 Đền bù thiết bị:
                               </td>
                             </tr>
-                            {incidents
-                              .filter((i) => !i.deleted_at)
-                              .map((inc, idx) => (
-                                <tr key={`inc-${idx}`}>
-                                  <td
-                                    style={{
-                                      padding: "4px 8px 4px 24px",
-                                      color: "#555",
-                                    }}
-                                  >
-                                    {inc.equipment_name} ({inc.equipment_type})
-                                    x {inc.quantity}
-                                  </td>
-                                  <td
-                                    style={{
-                                      padding: "4px 8px",
-                                      textAlign: "right",
-                                      color: "#cf1322",
-                                    }}
-                                  >
-                                    {formatPrice(inc.amount)}
-                                  </td>
-                                </tr>
-                              ))}
+                            {incidents.map((inc, idx) => (
+                              <tr key={`inc-${idx}`}>
+                                <td
+                                  style={{
+                                    padding: "4px 8px 4px 24px",
+                                    color: "#555",
+                                  }}
+                                >
+                                  {inc.equipment_name} ({inc.equipment_type}) x{" "}
+                                  {inc.quantity}
+                                </td>
+                                <td
+                                  style={{
+                                    padding: "4px 8px",
+                                    textAlign: "right",
+                                    color: "#cf1322",
+                                  }}
+                                >
+                                  {formatPrice(inc.amount)}
+                                </td>
+                              </tr>
+                            ))}
                             <tr>
                               <td
                                 style={{

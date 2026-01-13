@@ -10,10 +10,11 @@ import { AppThemeProvider } from "@/contexts/AntdThemeProvider.tsx";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 60 * 60 * 1000,
-      gcTime: 60 * 60 * 1000,
+      refetchOnMount: false,
       refetchOnWindowFocus: true,
-      refetchOnMount: true,
+      retry: 3,
+      staleTime: 0,
+      refetchInterval: 10000 * 60,
     },
   },
 });

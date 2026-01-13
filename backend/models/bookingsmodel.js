@@ -134,7 +134,9 @@ export const confirmCheckout = async (id, userId) => {
 };
 export const getBookings = async () => {
   const resuit = await pool.query(
-    `SELECT b.*, ss.name as stay_status_name, u.email, u.phone,
+    `SELECT b.*, ss.name as stay_status_name,
+            COALESCE(b.customer_email, u.email) as email,
+            COALESCE(b.customer_phone, u.phone) as phone,
             checked_in_user.email as checked_in_by_email, checked_out_user.email as checked_out_by_email
      FROM bookings b
      LEFT JOIN stay_status ss ON ss.id = b.stay_status_id
@@ -147,7 +149,9 @@ export const getBookings = async () => {
 };
 export const getBookingById = async (id) => {
   const resuit = await pool.query(
-    `SELECT b.*, ss.name as stay_status_name, u.email, u.phone,
+    `SELECT b.*, ss.name as stay_status_name,
+            COALESCE(b.customer_email, u.email) as email,
+            COALESCE(b.customer_phone, u.phone) as phone,
             checked_in_user.email as checked_in_by_email, checked_out_user.email as checked_out_by_email,
             dc.type as discount_type, dc.value as discount_value
      FROM bookings b
@@ -274,10 +278,12 @@ export const createBooking = async (data) => {
       }
     }
     const insertBookingText = `INSERT INTO bookings (
-      customer_name, total_price, payment_status, booking_method, stay_status_id, user_id, notes, payment_method, discount_code, discount_amount, payment_proof_image, created_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW()) RETURNING *`;
+      customer_name, customer_email, customer_phone, total_price, payment_status, booking_method, stay_status_id, user_id, notes, payment_method, discount_code, discount_amount, payment_proof_image, created_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW()) RETURNING *`;
     const bookingRes = await client.query(insertBookingText, [
       customer_name,
+      data.customer_email || null,
+      data.customer_phone || null,
       total_price,
       payment_status,
       booking_method,

@@ -431,34 +431,57 @@ const AdminWalkInBooking = () => {
     {
       title: "Khách",
       key: "guests",
-      render: (_: any, record: SelectedRoom) => (
-        <Space>
-          <InputNumber
-            min={1}
-            max={5}
-            value={record.numAdults}
-            onChange={(v) => handleUpdateRoom(record.id, "numAdults", v || 1)}
-            addonBefore="Lớn"
-            style={{ width: 100 }}
-          />
-          <InputNumber
-            min={0}
-            max={3}
-            value={record.numChildren}
-            onChange={(v) => handleUpdateRoom(record.id, "numChildren", v || 0)}
-            addonBefore="Trẻ"
-            style={{ width: 100 }}
-          />
-          <InputNumber
-            min={0}
-            max={3}
-            value={record.numBabies}
-            onChange={(v) => handleUpdateRoom(record.id, "numBabies", v || 0)}
-            addonBefore="Bé"
-            style={{ width: 100 }}
-          />
-        </Space>
-      ),
+      render: (_: any, record: SelectedRoom) => {
+        const roomType = roomTypes.find((rt) => rt.id === record.roomTypeId);
+        return (
+          <div>
+            {roomType && (
+              <div
+                style={{ fontSize: "11px", color: "#666", marginBottom: "6px" }}
+              >
+                Sức chứa:{" "}
+                <strong style={{ color: "#1890ff" }}>
+                  {roomType.capacity || 4}
+                </strong>{" "}
+                | Gốc: <strong>{roomType.base_adults || 2} NL</strong>,{" "}
+                <strong>{roomType.base_children || 1} TE</strong>
+              </div>
+            )}
+            <Space>
+              <InputNumber
+                min={1}
+                max={5}
+                value={record.numAdults}
+                onChange={(v) =>
+                  handleUpdateRoom(record.id, "numAdults", v || 1)
+                }
+                addonBefore="Lớn"
+                style={{ width: 100 }}
+              />
+              <InputNumber
+                min={0}
+                max={3}
+                value={record.numChildren}
+                onChange={(v) =>
+                  handleUpdateRoom(record.id, "numChildren", v || 0)
+                }
+                addonBefore="Trẻ"
+                style={{ width: 100 }}
+              />
+              <InputNumber
+                min={0}
+                max={3}
+                value={record.numBabies}
+                onChange={(v) =>
+                  handleUpdateRoom(record.id, "numBabies", v || 0)
+                }
+                addonBefore="Bé"
+                style={{ width: 100 }}
+              />
+            </Space>
+          </div>
+        );
+      },
     },
     {
       title: "Giá tạm tính",
