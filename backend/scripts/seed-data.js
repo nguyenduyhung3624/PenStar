@@ -150,7 +150,7 @@ const PAID_AMENITIES = [
 ];
 
 const SERVICE_NAMES = [
-  { name: "Giặt ủi quần áo cao cấp", price: 50000, unit: "kg" },
+  { name: "Giặt ủi quần áo cao cấp", price: 50000, unit: "kg", image_url: "link ảnh" },
   { name: "Dịch vụ phòng 24/7", price: 0, unit: "Lần" },
   { name: "Spa & Massage body", price: 500000, unit: "60 phút" },
   { name: "Phòng gym & yoga", price: 100000, unit: "Lượt" },
