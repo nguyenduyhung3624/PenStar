@@ -85,8 +85,7 @@ const BookingDetailClient: React.FC = () => {
     new Intl.NumberFormat("vi-VN").format(price || 0) + "đ";
   const getStatusTag = (statusId: number) => {
     const config: Record<number, { color: string; label: string }> = {
-      // ... existing code ...
-      1: { color: "orange", label: "Chờ xác nhận" },
+      1: { color: "gold", label: "Chờ xác nhận" },
       2: { color: "blue", label: "Đã xác nhận" },
       3: { color: "green", label: "Đã Check-in" },
       4: { color: "cyan", label: "Đã Check-out" },
