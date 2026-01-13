@@ -1,23 +1,17 @@
 import express from "express";
-
 import {
   getRoomTypes,
   createRoomType,
 } from "../controllers/roomtypescontroller.js";
-
 import {
   getRoomTypeById,
   updateRoomType,
   deleteRoomType,
 } from "../controllers/roomtypescontroller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.js";
-
 const roomTypeRouter = express.Router();
-
-// Public: list and read room types
 roomTypeRouter.get("/", getRoomTypes);
-roomTypeRouter.post("/", requireAuth, requireRole("staff"), createRoomType);
-// Check if a room type name exists (query: name, excludeId)
+roomTypeRouter.post("/", requireAuth, requireRole("admin"), createRoomType);
 roomTypeRouter.get("/check-name", async (req, res) => {
   try {
     const { name, excludeId } = req.query;
@@ -36,12 +30,11 @@ roomTypeRouter.get("/check-name", async (req, res) => {
   }
 });
 roomTypeRouter.get("/:id", getRoomTypeById);
-roomTypeRouter.put("/:id", requireAuth, requireRole("staff"), updateRoomType);
+roomTypeRouter.put("/:id", requireAuth, requireRole("admin"), updateRoomType);
 roomTypeRouter.delete(
   "/:id",
   requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   deleteRoomType
 );
-
 export default roomTypeRouter;

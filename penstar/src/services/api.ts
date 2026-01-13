@@ -1,14 +1,11 @@
 import axios from "axios";
 import { message } from "antd";
-
 export const instance = axios.create({
-  baseURL: import.meta.env.VITE_BASE_URL,
+  baseURL: import.meta.env.VITE_BASE_URL + '/api',
   headers: {
     "Content-Type": "application/json",
   },
 });
-
-// Attach Authorization header from localStorage token
 instance.interceptors.request.use(
   (config) => {
     try {
@@ -17,14 +14,12 @@ instance.interceptors.request.use(
         config.headers.Authorization = `Bearer ${token}`;
       }
     } catch {
-      // ignore reading localStorage errors
+      console.log("Failed to get token")
     }
     return config;
   },
   (error) => Promise.reject(error)
 );
-
-// Handle 401 globally: clear token, show message and redirect to sign-in
 instance.interceptors.response.use(
   (res) => res,
   (err) => {
@@ -33,10 +28,9 @@ instance.interceptors.response.use(
       try {
         localStorage.removeItem("penstar_token");
       } catch {
-        // ignore
+        console.log("Failed to remove token")
       }
       message.error("Unauthorized — vui lòng đăng nhập lại");
-      // Nếu đang ở trang booking success thì không redirect
       if (!window.location.pathname.includes("/bookings/success")) {
         window.location.href = "/signin";
       }
@@ -44,5 +38,4 @@ instance.interceptors.response.use(
     return Promise.reject(err);
   }
 );
-
 export default instance;

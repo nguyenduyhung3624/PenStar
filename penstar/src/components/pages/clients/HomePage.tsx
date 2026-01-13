@@ -1,333 +1,408 @@
 import type { RoomSearchParams } from "@/types/room";
 import RoomSearchBar from "@/components/common/RoomSearchBar";
-
-// Import images from assets
-import heroImage from "@/assets/images/heroImage.png";
+import bannerImage from "@/assets/images/banner-tin-tuc-uu-dai_1686539225_1686815922.jpg";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { getRoomTypes } from "@/services/roomTypeApi";
+import { getServices } from "@/services/servicesApi";
+import { getAvailableVouchers } from "@/services/discountApi";
+import { getImageUrl } from "@/utils/imageUtils";
+import { Tag, Button, message, Modal, Descriptions } from "antd";
+import { CopyOutlined, CheckCircleOutlined } from "@ant-design/icons";
+import { useState } from "react";
+import type { RoomType } from "@/types/roomtypes";
 
 const HomePage = () => {
   const navigate = useNavigate();
-  return (
-    <div className="min-h-screen bg-white">
-      {/* Hero Section with Background Image - Mường Thanh Style */}
-      <section
-        className="relative min-h-[600px] flex items-center overflow-visible pb-24"
-        style={{
-          backgroundImage: `url(${heroImage})`,
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
-      >
-        {/* Subtle dark overlay - much lighter */}
-        <div
-          className="absolute inset-0 z-0"
-          style={{
-            background:
-              "linear-gradient(to right, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0.2) 100%)",
-          }}
-        />
+  const [selectedRoom, setSelectedRoom] = useState<RoomType | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-        {/* Content */}
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 relative z-10 w-full">
-          <div className="max-w-2xl mb-12">
-            <h1 className="text-5xl md:text-6xl font-bold text-white mb-6 drop-shadow-2xl">
-              Đặt phòng cùng PenStar
+  const FREE_SERVICES = [
+    "Bữa sáng miễn phí",
+    "Truy cập Wifi tốc độ cao",
+    "Sử dụng hồ bơi vô cực",
+    "Phòng tập Gym hiện đại",
+    "Nước uống chào mừng",
+    "Dịch vụ dọn phòng 24/7",
+  ];
+
+  // Fetch Room Types
+  const { data: roomTypes = [] } = useQuery({
+    queryKey: ["roomTypes"],
+    queryFn: getRoomTypes,
+  });
+
+  // Fetch Services
+  const { data: services = [] } = useQuery({
+    queryKey: ["services"],
+    queryFn: getServices,
+  });
+
+  // Fetch Discount Codes
+  const { data: discountResponse } = useQuery({
+    queryKey: ["discountCodes"],
+    queryFn: getAvailableVouchers,
+  });
+
+  const discountCodes = discountResponse?.data || [];
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(price);
+  };
+
+  const activeDiscounts = Array.isArray(discountCodes)
+    ? discountCodes.filter((code) => {
+        const now = new Date();
+        const start = new Date(code.start_date);
+        const end = new Date(code.end_date);
+        const isActive = code.status === "active" && now >= start && now <= end;
+        return (
+          isActive &&
+          (code.max_uses > 0 ||
+            code.max_uses === null ||
+            code.max_uses === undefined)
+        );
+      })
+    : [];
+
+  const handleCopyCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    message.success(`Đã sao chép mã: ${code}`);
+  };
+
+  const showRoomDetail = (room: RoomType) => {
+    setSelectedRoom(room);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedRoom(null);
+  };
+
+  return (
+    <div className="min-h-screen bg-white pb-20">
+      {/* Hero Section */}
+      <section className="relative flex flex-col items-stretch justify-end overflow-visible p-0">
+        <div className="w-full relative h-[500px]">
+          <img
+            src={bannerImage}
+            alt="PenStar Banner"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/20 pointer-events-none"></div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-white pointer-events-none">
+            <h1 className="text-4xl md:text-5xl font-bold mb-4 drop-shadow-lg">
+              Trải Nghiệm Đẳng Cấp
             </h1>
-            <p className="text-xl text-white mb-8 leading-relaxed drop-shadow-lg">
-              Với nguồn lực dồi dào, kinh nghiệm và uy tín trong lĩnh vực dịch
-              vụ, Lữ hành PenStar luôn mang đến cho khách hàng những dịch vụ
-              khách sạn giá trị nhất.
+            <p className="text-xl md:text-2xl font-light drop-shadow-md">
+              Tại PenStar Hotel
             </p>
           </div>
         </div>
 
-        {/* Search Bar - Floating at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 transform translate-y-1/2 z-20">
-          <div className="max-w-6xl mx-auto px-4">
-            <RoomSearchBar
-              onSearch={(params: RoomSearchParams) => {
-                // Đảm bảo không truyền num_rooms vào searchParams
-                const { num_rooms, ...rest } = params as any;
-                navigate("/rooms/search-results", {
-                  state: { searchParams: rest },
-                });
-              }}
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* About Section with Stats */}
-      <section className="py-24 mt-20">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            {/* Left: Text */}
+        {/* Search Bar */}
+        <div
+          className="absolute left-1/2 bottom-0 w-full flex justify-center z-20"
+          style={{ transform: "translate(-50%, 50%)" }}
+        >
+          <div className="w-full max-w-6xl px-4">
             <div>
-              <h3 className="text-blue-600 text-lg font-semibold mb-3 uppercase tracking-wide">
-                Về chúng tôi
-              </h3>
-              <h2 className="text-4xl font-bold text-gray-800 mb-6">PenStar</h2>
-              <p className="text-gray-600 leading-relaxed mb-6">
-                Chúng tôi luôn lắng nghe và chia sẻ mong muốn của từng Quý khách
-                hàng, mang lại sự hài lòng về dịch vụ và thái độ phục vụ của
-                từng nhân viên. Mỗi dịch vụ là một mắt xích kết nối hoàn hảo cho
-                chuyến đi của Quý khách. Hạnh phúc và sự hài lòng của khách hàng
-                chính là giá trị cốt lõi của chúng tôi.
-              </p>
-            </div>
-
-            {/* Right: Images */}
-            <div className="relative">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-4">
-                  <img
-                    src={heroImage}
-                    alt="PenStar Resort"
-                    className="rounded-2xl shadow-lg w-full h-64 object-cover transform rotate-3"
-                  />
-                  <img
-                    src="https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400"
-                    alt="Hotel Room"
-                    className="rounded-2xl shadow-lg w-full h-48 object-cover transform -rotate-2"
-                  />
-                </div>
-                <div className="pt-12">
-                  <img
-                    src="https://images.unsplash.com/photo-1571896349842-33c89424de2d?w=400"
-                    alt="Hotel Lobby"
-                    className="rounded-2xl shadow-lg w-full h-80 object-cover transform -rotate-3"
-                  />
-                </div>
-              </div>
+              <RoomSearchBar
+                onSearch={(params: RoomSearchParams) => {
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  const { num_rooms, ...rest } = params as RoomSearchParams & {
+                    num_rooms?: number;
+                  };
+                  navigate("/rooms/search-results", {
+                    state: { searchParams: rest },
+                  });
+                }}
+              />
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-16 bg-gray-50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-white rounded-2xl p-8 text-center shadow-md hover:shadow-xl transition">
-              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg
-                  className="w-10 h-10 text-blue-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold text-gray-800 mb-3">
-                Các Thông Tin Tour Mới Nhất
-              </h3>
-              <p className="text-gray-600">
-                Luôn cập nhật các thông tin mới nhất, đầy đủ nhất về các tour
-                tốt nhất hiện nay.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-2xl p-8 text-center shadow-md hover:shadow-xl transition">
-              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg
-                  className="w-10 h-10 text-blue-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold text-gray-800 mb-3">
-                Chuyên Gia Tư Vấn Chi Tiết Nhất
-              </h3>
-              <p className="text-gray-600">
-                Các tư vấn viên chuyên nghiệp luôn sẵn sàng hỗ trợ bạn tận tâm
-                và chi tiết nhất.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-2xl p-8 text-center shadow-md hover:shadow-xl transition">
-              <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <svg
-                  className="w-10 h-10 text-blue-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-xl font-bold text-gray-800 mb-3">
-                Khuyến Mãi & Giá Luôn Tốt Nhất
-              </h3>
-              <p className="text-gray-600">
-                Các chương trình khuyến mãi hấp dẫn và giá tour cạnh tranh được
-                cập nhật liên tục.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Hotel References Section */}
-      <section className="py-16 bg-white">
+      {/* Featured Room Types */}
+      <section className="pt-32 pb-16 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-blue-600 mb-3">
-              Đối tác khách sạn uy tín
+            <h2 className="text-3xl font-bold mb-3 text-gray-800">
+              HẠNG PHÒNG <span className="text-yellow-600">NỔI BẬT</span>
             </h2>
-            <p className="text-gray-600">
-              Chúng tôi hợp tác với các hệ thống khách sạn hàng đầu Việt Nam
+            <p className="text-gray-500 max-w-2xl mx-auto">
+              Khám phá không gian nghỉ dưỡng sang trọng và tiện nghi bậc nhất.
+              Lựa chọn hạng phòng phù hợp nhất cho kỳ nghỉ của bạn.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              {
-                name: "Mường Thanh",
-                logo: "https://www.muongthanh.com/wp-content/uploads/2021/06/logo-muong-thanh.png",
-                description: "Hệ thống khách sạn 4-5 sao hàng đầu Việt Nam với hơn 50 khách sạn trên toàn quốc",
-                features: ["4-5 sao", "50+ khách sạn", "Nhiều thành phố"],
-              },
-              {
-                name: "Vinpearl",
-                logo: "https://www.vinpearl.com/logo.png",
-                description: "Thương hiệu nghỉ dưỡng cao cấp với các resort và khách sạn tại các điểm du lịch nổi tiếng",
-                features: ["Resort cao cấp", "Nhiều địa điểm", "Dịch vụ 5 sao"],
-              },
-              {
-                name: "FLC Hotels",
-                logo: "https://flchotels.com/logo.png",
-                description: "Hệ thống khách sạn và resort nghỉ dưỡng với tiêu chuẩn quốc tế",
-                features: ["Tiêu chuẩn quốc tế", "Resort nghỉ dưỡng", "Dịch vụ đẳng cấp"],
-              },
-            ].map((hotel, idx) => (
+            {roomTypes?.map((roomType: RoomType) => (
               <div
-                key={idx}
-                className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition border border-gray-100"
+                key={roomType.id}
+                className="group bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 border border-gray-100 flex flex-col"
               >
-                <div className="p-6">
-                  <div className="flex items-center mb-4">
-                    <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mr-4">
-                      <img
-                        src={hotel.logo}
-                        alt={hotel.name}
-                        className="w-12 h-12 object-contain"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = "none";
-                          target.parentElement!.innerHTML = `<span class="text-2xl font-bold text-blue-600">${hotel.name.charAt(0)}</span>`;
-                        }}
-                      />
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-800">
-                      {hotel.name}
-                    </h3>
+                <div className="relative h-64 overflow-hidden">
+                  <img
+                    src={getImageUrl(roomType.thumbnail)}
+                    alt={roomType.name}
+                    className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500 cursor-pointer"
+                    onClick={() => showRoomDetail(roomType)}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src =
+                        "https://via.placeholder.com/600x400?text=PenStar+Hotel";
+                    }}
+                  />
+                  <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-sm font-bold text-yellow-600 shadow-sm">
+                    {roomType.capacity} Người
                   </div>
-                  <p className="text-gray-600 text-sm mb-4 leading-relaxed">
-                    {hotel.description}
+                </div>
+                <div className="p-6 flex-1 flex flex-col">
+                  <h3
+                    className="text-xl font-bold text-gray-800 mb-2 group-hover:text-yellow-600 transition-colors cursor-pointer"
+                    onClick={() => showRoomDetail(roomType)}
+                  >
+                    {roomType.name}
+                  </h3>
+                  <p className="text-gray-500 text-sm mb-4 line-clamp-2 flex-1">
+                    {roomType.description}
                   </p>
-                  <div className="flex flex-wrap gap-2">
-                    {hotel.features.map((feature, fIdx) => (
-                      <span
-                        key={fIdx}
-                        className="px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-medium"
-                      >
-                        {feature}
-                      </span>
-                    ))}
+                  <div className="flex items-end justify-between mt-auto">
+                    <div>
+                      <div className="text-xs text-gray-400">Giá chỉ từ</div>
+                      <div className="text-lg font-bold text-red-600">
+                        {formatPrice(roomType.price || 0)}
+                        <span className="text-xs text-gray-400 font-normal">
+                          /đêm
+                        </span>
+                      </div>
+                    </div>
+                    <Button
+                      type="primary"
+                      className="bg-yellow-600 hover:bg-yellow-500 border-none shadow-md font-semibold"
+                      onClick={() => showRoomDetail(roomType)}
+                    >
+                      Chi tiết
+                    </Button>
                   </div>
                 </div>
               </div>
             ))}
           </div>
+
+          {/* Button "Xem Tất Cả Phòng" removed */}
         </div>
       </section>
 
-      {/* News Section */}
+      {/* Hotel Services */}
       <section className="py-16 bg-gray-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-blue-600 mb-3">
-              Tin tức mới nhất
+            <h2 className="text-3xl font-bold mb-3 text-gray-800">
+              DỊCH VỤ & <span className="text-yellow-600">TIỆN NGHI</span>
             </h2>
-            <p className="text-gray-600">
-              Tour du lịch <span className="font-semibold">Trong nước</span> với{" "}
-              <span className="font-semibold">PenStar</span>. Hành hương đầu
-              xuân - Tận hưởng bán sắc Việt.
+            <p className="text-gray-500 max-w-2xl mx-auto">
+              Tận hưởng trọn vẹn kỳ nghỉ với các dịch vụ đẳng cấp 5 sao.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              {
-                image:
-                  "https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=600",
-                title: "Cam Ranh – Thiên đường biển đảo của miền Trung",
-                date: "9/4/2025",
-                author: "Lê Trần Toàn",
-                desc: "Nằm ở tỉnh Khánh Hòa, cách thành phố Nha Trang khoảng 60km, Cam Ranh đang trở thành điểm đến hấp dẫn...",
-              },
-              {
-                image:
-                  "https://images.unsplash.com/photo-1552733407-5d5c46c3bb3b?w=600",
-                title: "Khám phá Tam Đảo: Thị trấn trong sương mơ huyền ảo",
-                date: "9/4/2025",
-                author: "Nguyễn Minh Tuấn",
-                desc: "Chỉ cách Hà Nội khoảng 80km, Tam Đảo từ lâu đã trở thành điểm đến lý tưởng cho những ai muốn tìm một...",
-              },
-              {
-                image:
-                  "https://images.unsplash.com/photo-1548013146-72479768bada?w=600",
-                title:
-                  "Chùa Hương – Về miền đất Phật giữa chốn bồng lai tiên cảnh",
-                date: "9/4/2025",
-                author: "Phạm Thu Toàn",
-                desc: "Nằm ở huyện Mỹ Đức, Hà Nội, quần thể Chùa Hương từ lâu đã trở thành điểm đến tâm linh và du lịch nổi...",
-              },
-            ].map((article, idx) => (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {services.slice(0, 8).map((service) => (
               <div
-                key={idx}
-                className="bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-xl transition"
+                key={service.id}
+                className="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition-all text-center group border border-gray-100"
               >
-                <img
-                  src={article.image}
-                  alt={article.title}
-                  className="w-full h-56 object-cover"
-                />
-                <div className="p-6">
-                  <h3 className="text-lg font-bold text-blue-600 mb-3 hover:text-blue-700 cursor-pointer">
-                    {article.title}
-                  </h3>
-                  <div className="text-sm text-gray-500 mb-3">
-                    {article.date} | {article.author}
-                  </div>
-                  <p className="text-gray-600 text-sm line-clamp-3">
-                    {article.desc}
-                  </p>
+                <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-yellow-50 flex items-center justify-center group-hover:bg-yellow-100 transition-colors overflow-hidden">
+                  {service.thumbnail ? (
+                    <img
+                      src={getImageUrl(service.thumbnail)}
+                      alt={service.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Tag className="text-2xl text-yellow-500 border-none bg-transparent">
+                      ★
+                    </Tag>
+                  )}
+                </div>
+                <h4 className="font-bold text-gray-800 mb-1 group-hover:text-yellow-600 transition-colors">
+                  {service.name}
+                </h4>
+                <p className="text-xs text-gray-500 line-clamp-2 mb-2">
+                  {service.description}
+                </p>
+                <div className="text-yellow-600 font-semibold text-sm">
+                  {formatPrice(service.price)}
+                  {service.unit && (
+                    <span className="text-gray-400 font-normal text-xs">
+                      /{service.unit}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         </div>
       </section>
+
+      {/* Exclusive Offers / Vouchers */}
+      {activeDiscounts.length > 0 && (
+        <section className="py-16 bg-white">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl font-bold mb-3 text-gray-800">
+                ƯU ĐÃI <span className="text-red-500">ĐỘC QUYỀN</span>
+              </h2>
+              <p className="text-gray-500">
+                Nhận ngay mã giảm giá hấp dẫn cho kỳ nghỉ của bạn.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {activeDiscounts.map((code) => (
+                <div
+                  key={code.id}
+                  className="relative bg-gradient-to-r from-red-500 to-orange-500 rounded-xl p-1 shadow-lg text-white transform hover:-translate-y-1 transition-transform"
+                >
+                  <div className="bg-white h-full rounded-lg p-5 flex flex-col justify-between relative overflow-hidden">
+                    {/* Decorative Circles */}
+                    <div className="absolute -left-3 top-1/2 w-6 h-6 bg-gray-100 rounded-full transform -translate-y-1/2"></div>
+                    <div className="absolute -right-3 top-1/2 w-6 h-6 bg-gray-100 rounded-full transform -translate-y-1/2"></div>
+
+                    <div>
+                      <div className="flex justify-between items-start mb-2">
+                        <Tag color="red" className="m-0 font-bold">
+                          GIẢM GIÁ
+                        </Tag>
+                        <div className="text-gray-400 text-xs">
+                          HSD:{" "}
+                          {new Date(code.end_date).toLocaleDateString("vi-VN")}
+                        </div>
+                      </div>
+                      <h3 className="text-gray-800 font-bold text-lg mb-1">
+                        {code.code}
+                      </h3>
+                      <p className="text-gray-500 text-sm mb-3">
+                        Giảm{" "}
+                        {code.type === "percent"
+                          ? `${code.value}%`
+                          : formatPrice(code.value)}
+                        {code.min_total > 0 &&
+                          ` cho đơn từ ${formatPrice(code.min_total)}`}
+                      </p>
+                    </div>
+
+                    <div className="pt-4 border-t border-dashed border-gray-200 flex justify-between items-center">
+                      <span className="text-red-500 font-bold text-xl">
+                        {code.type === "percent"
+                          ? `${code.value}% OFF`
+                          : `-${formatPrice(code.value)}`}
+                      </span>
+                      <Button
+                        icon={<CopyOutlined />}
+                        size="small"
+                        type="dashed"
+                        danger
+                        onClick={() => handleCopyCode(code.code)}
+                      >
+                        Sao chép
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Room Detail Modal */}
+      <Modal
+        title={
+          <span className="text-xl font-bold text-yellow-600">
+            {selectedRoom?.name}
+          </span>
+        }
+        open={isModalOpen}
+        onCancel={handleCloseModal}
+        footer={[
+          <Button key="close" onClick={handleCloseModal}>
+            Đóng
+          </Button>,
+        ]}
+        width={800}
+        centered
+      >
+        {selectedRoom && (
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="w-full md:w-1/2">
+              <img
+                src={getImageUrl(selectedRoom.thumbnail)}
+                alt={selectedRoom.name}
+                className="w-full h-64 object-cover rounded-lg shadow-md"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src =
+                    "https://via.placeholder.com/600x400?text=PenStar+Hotel";
+                }}
+              />
+              <div className="mt-4">
+                <h4 className="font-bold text-gray-800 mb-2">
+                  Tiện ích đi kèm miễn phí:
+                </h4>
+                <ul className="grid grid-cols-1 gap-2">
+                  {FREE_SERVICES.map((service, index) => (
+                    <li
+                      key={index}
+                      className="flex items-center text-gray-600 text-sm"
+                    >
+                      <CheckCircleOutlined className="text-yellow-600 mr-2" />
+                      {service}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            <div className="w-full md:w-1/2">
+              <Descriptions column={1} bordered size="small">
+                <Descriptions.Item label="Sức chứa">
+                  {selectedRoom.capacity} Người
+                </Descriptions.Item>
+                <Descriptions.Item label="Giá phòng">
+                  <span className="text-lg font-bold text-red-600">
+                    {formatPrice(selectedRoom.price || 0)}
+                  </span>{" "}
+                  / đêm
+                </Descriptions.Item>
+                {selectedRoom.bed_type && (
+                  <Descriptions.Item label="Loại giường">
+                    {selectedRoom.bed_type}
+                  </Descriptions.Item>
+                )}
+                {selectedRoom.view_direction && (
+                  <Descriptions.Item label="Hướng nhìn">
+                    {selectedRoom.view_direction}
+                  </Descriptions.Item>
+                )}
+                {selectedRoom.room_size && (
+                  <Descriptions.Item label="Diện tích">
+                    {selectedRoom.room_size} m²
+                  </Descriptions.Item>
+                )}
+              </Descriptions>
+              <div className="mt-4">
+                <h4 className="font-bold text-gray-800 mb-2">Mô tả:</h4>
+                <p className="text-gray-600 text-sm leading-relaxed">
+                  {selectedRoom.description}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 };

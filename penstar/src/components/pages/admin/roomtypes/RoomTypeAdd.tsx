@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Button,
@@ -8,7 +8,6 @@ import {
   InputNumber,
   Select,
   message,
-  Upload,
   Row,
   Col,
 } from "antd";
@@ -16,6 +15,7 @@ import QuillEditor from "@/components/common/QuillEditor";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createRoomType } from "@/services/roomTypeApi";
 import { uploadRoomTypeImage } from "@/services/roomTypeImagesApi";
+<<<<<<< HEAD
 import { getDevices } from "@/services/devicesApi";
 import type { RcFile } from "antd/lib/upload";
 type FileWithMeta = RcFile & { lastModified?: number };
@@ -28,14 +28,26 @@ const formatPrice = (price?: number) => {
   }).format(price);
 };
 
+=======
+import { updateDeviceStandards } from "@/services/roomTypeEquipmentsAdminApi";
+import type { RcFile } from "antd/lib/upload";
+import RoomTypeEquipmentSelector, {
+  type EquipmentSelection,
+} from "./components/RoomTypeEquipmentSelector";
+import RoomTypeImageUploader from "./components/RoomTypeImageUploader";
+import { FIXED_AMENITIES } from "@/utils/amenities";
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
 const RoomTypeAdd: React.FC = () => {
   const [form] = Form.useForm();
   const [extras, setExtras] = useState<RcFile[]>([]);
   const [thumb, setThumb] = useState<RcFile | null>(null);
-  const [previews, setPreviews] = useState<Record<string, string>>({});
+  const [selectedEquipments, setSelectedEquipments] = useState<
+    EquipmentSelection[]
+  >([]);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+<<<<<<< HEAD
   // Load danh sách thiết bị
   const { data: devices = [] } = useQuery({
     queryKey: ["devices"],
@@ -47,6 +59,9 @@ const RoomTypeAdd: React.FC = () => {
       Object.values(previews).forEach((u) => URL.revokeObjectURL(u));
     };
   }, [previews]);
+=======
+  // Removed master equipments query
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
 
   const uploadSelectedFiles = async (roomTypeId: number) => {
     if (thumb) {
@@ -57,7 +72,6 @@ const RoomTypeAdd: React.FC = () => {
       }
       setThumb(null);
     }
-
     if (extras.length > 0) {
       for (const f of extras) {
         try {
@@ -67,17 +81,28 @@ const RoomTypeAdd: React.FC = () => {
         }
       }
     }
-
     setExtras([]);
-    setPreviews({});
   };
-
+  const saveEquipments = async (roomTypeId: number) => {
+    try {
+      await updateDeviceStandards(
+        roomTypeId,
+        selectedEquipments.map((eq) => ({
+          name: eq.name,
+          quantity: eq.quantity,
+          price: eq.price,
+        }))
+      );
+    } catch (e) {
+      console.error("Error saving equipments:", e);
+    }
+  };
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold mb-4">NEW ROOM TYPE</h2>
+        <h2 className="text-2xl font-bold mb-4">THÊM LOẠI PHÒNG</h2>
         <Link to="/admin/roomtypes">
-          <Button type="primary">Back</Button>
+          <Button type="primary">Quay lại</Button>
         </Link>
       </div>
       <Card>
@@ -90,35 +115,60 @@ const RoomTypeAdd: React.FC = () => {
             const payload = {
               name: values.name ?? "",
               description: values.description ?? "",
+<<<<<<< HEAD
               thumbnail: PLACEHOLDER_THUMBNAIL,
               devices_id: values.devices_id || [],
+=======
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
               capacity: values.capacity ? Number(values.capacity) : 2,
-              max_adults: values.max_adults ? Number(values.max_adults) : 2,
-              max_children: values.max_children
-                ? Number(values.max_children)
-                : 1,
+              base_adults: values.base_adults ? Number(values.base_adults) : 2,
+              base_children: values.base_children
+                ? Number(values.base_children)
+                : 0,
+              extra_adult_fee: values.extra_adult_fee
+                ? Number(values.extra_adult_fee)
+                : 0,
+              extra_child_fee: values.extra_child_fee
+                ? Number(values.extra_child_fee)
+                : 0,
+              child_age_limit: 12, // Default 12, UI removed request
+              thumbnail: PLACEHOLDER_THUMBNAIL,
               price: values.price ? Number(values.price) : 0,
+<<<<<<< HEAD
               adult_surcharge: values.adult_surcharge ? Number(values.adult_surcharge) : 0,
               child_surcharge: values.child_surcharge ? Number(values.child_surcharge) : 0,
+=======
+              bed_type: values.bed_type,
+              view_direction: values.view_direction,
+              free_amenities: values.free_amenities || [],
+              paid_amenities: [], // Legacy compat
+              room_size: values.room_size
+                ? Number(values.room_size)
+                : undefined,
+              policies: values.policies || {},
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
             };
-
             try {
               const created = await createRoomType(payload);
               const roomTypeId = created && (created as { id?: number }).id;
-              if (roomTypeId) await uploadSelectedFiles(roomTypeId);
-              message.success("Room type created successfully");
+              if (roomTypeId) {
+                await uploadSelectedFiles(roomTypeId);
+                await saveEquipments(roomTypeId);
+              }
+              message.success("Tạo loại phòng thành công");
               queryClient.invalidateQueries({ queryKey: ["room_types"] });
               navigate("/admin/roomtypes");
             } catch (err) {
               const e = err as { response?: { data?: { message?: string } } };
               const serverMsg = e?.response?.data?.message;
               console.error("Error creating room type:", e, serverMsg ?? "");
-              message.error(serverMsg ?? "Failed to create room type");
+              message.error(serverMsg ?? "Tạo loại phòng thất bại");
             }
           }}
         >
           <Row gutter={24}>
             <Col span={16}>
+<<<<<<< HEAD
               <Form.Item name="name" label="Name" rules={[{ required: true }]}>
                 <Input placeholder="Enter room type name (e.g., Deluxe, Suite)" />
               </Form.Item>
@@ -217,13 +267,16 @@ const RoomTypeAdd: React.FC = () => {
                 />
               </Form.Item>
 
+=======
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
               <Form.Item
-                name="description"
-                label="Description"
-                valuePropName="value"
+                name="name"
+                label="Tên loại phòng"
+                rules={[{ required: true }]}
               >
-                <QuillEditor />
+                <Input placeholder="Nhập tên loại phòng (VD: Deluxe, Suite)" />
               </Form.Item>
+<<<<<<< HEAD
 
               <Form.Item name="devices_id" label="Thiết bị trong phòng">
                 <Select
@@ -238,142 +291,156 @@ const RoomTypeAdd: React.FC = () => {
                     label: `${d.name}${d.fee ? ` (${formatPrice(d.fee)})` : ""}`,
                     value: d.id,
                   }))}
+=======
+              <Form.Item
+                name="price"
+                label="Giá (VND)"
+                rules={[{ required: true }]}
+                tooltip="Giá phòng cho loại này"
+              >
+                <InputNumber
+                  style={{ width: "100%" }}
+                  min={0}
+                  placeholder="1000000"
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
                 />
               </Form.Item>
-            </Col>
 
-            <Col span={8}>
-              <Form.Item label="Thumbnail">
-                <Upload
-                  accept="image/*"
-                  listType="picture-card"
-                  fileList={
-                    thumb
-                      ? [
-                          {
-                            uid: "thumb",
-                            name: thumb.name,
-                            status: "done",
-                            originFileObj: thumb,
-                            url: previews.thumb,
-                          },
-                        ]
-                      : []
-                  }
-                  beforeUpload={(file) => {
-                    const f = file as RcFile;
-                    setThumb(f);
-                    setPreviews((p) => ({
-                      ...p,
-                      thumb: URL.createObjectURL(f),
-                    }));
-                    return false;
-                  }}
-                  onRemove={() => {
-                    setThumb(null);
-                    setPreviews((p) => {
-                      const copy = { ...p } as Record<string, string>;
-                      if (copy.thumb) URL.revokeObjectURL(copy.thumb);
-                      delete copy.thumb;
-                      return copy;
-                    });
-                    return true;
-                  }}
-                >
-                  {!thumb && (
-                    <div className="flex flex-col items-center justify-center">
-                      <div className="text-2xl">+</div>
-                      <div>Upload</div>
-                    </div>
-                  )}
-                </Upload>
+              <Form.Item
+                name="capacity"
+                label="Sức chứa tối đa (Max Capacity)"
+                rules={[{ required: true }]}
+                tooltip="Tổng số người tối đa (người lớn + trẻ em) được phép ở trong phòng"
+              >
+                <InputNumber
+                  style={{ width: "100%" }}
+                  min={1}
+                  placeholder="Ví dụ: 3"
+                />
               </Form.Item>
 
-              <Form.Item label="Additional images (extras)">
-                <Upload
-                  accept="image/*"
-                  listType="picture-card"
-                  multiple
-                  fileList={extras.map((f, i) => ({
-                    uid: `${i}`,
-                    name: f.name,
-                    status: "done",
-                    originFileObj: f,
-                    url: previews[
-                      `${f.name}-${f.size}-${(f as FileWithMeta).lastModified}`
-                    ],
-                  }))}
-                  beforeUpload={(file) => {
-                    const f = file as RcFile;
-                    setExtras((prev) => {
-                      const exists = prev.some(
-                        (p) =>
-                          p.name === f.name &&
-                          p.size === f.size &&
-                          (p as FileWithMeta).lastModified ===
-                            (f as FileWithMeta).lastModified
-                      );
-                      if (exists) return prev;
-                      return [...prev, f];
-                    });
-                    const key = `${f.name}-${f.size}-${
-                      (f as FileWithMeta).lastModified
-                    }`;
-                    setPreviews((p) => ({
-                      ...p,
-                      [key]: URL.createObjectURL(f),
-                    }));
-                    return false;
-                  }}
-                  onRemove={(file) => {
-                    const origin = (
-                      file as unknown as { originFileObj?: RcFile }
-                    ).originFileObj;
-                    const originLast = origin
-                      ? (origin as FileWithMeta).lastModified
-                      : (file as FileWithMeta).lastModified;
-                    const key = origin
-                      ? `${origin.name}-${origin.size}-${originLast}`
-                      : `${file.name}-${file.size}-${originLast}`;
-                    setExtras((prev) =>
-                      prev.filter(
-                        (p) =>
-                          !(
-                            p.name === (origin?.name ?? file.name) &&
-                            p.size === (origin?.size ?? file.size) &&
-                            (p as FileWithMeta).lastModified === originLast
-                          )
-                      )
-                    );
-                    setPreviews((p) => {
-                      const copy = { ...p } as Record<string, string>;
-                      if (copy[key]) URL.revokeObjectURL(copy[key]);
-                      delete copy[key];
-                      return copy;
-                    });
-                    return true;
-                  }}
-                >
-                  <div className="flex flex-col items-center justify-center">
-                    <div className="text-2xl">+</div>
-                    <div>Upload</div>
-                  </div>
-                </Upload>
-
-                <div className="text-xs text-gray-500 mt-2">
-                  Selected: {extras.length} file(s)
+              {/* Extra Pricing Details */}
+              <div className="bg-gray-50 p-4 rounded mb-4 border border-gray-100">
+                <div className="font-semibold mb-3 text-gray-700">
+                  Cấu hình chi tiết (Người & Phụ thu)
                 </div>
+                <div className="text-xs text-gray-500 mb-3">
+                  * Nếu không điền, hệ thống sẽ sử dụng giá trị mặc định (Người
+                  gốc = 2, Phụ thu = 0).
+                </div>
+                <Row gutter={16}>
+                  <Col span={6}>
+                    <Form.Item
+                      name="base_adults"
+                      label="NL (gốc)"
+                      initialValue={2}
+                      tooltip="Số người lớn tiêu chuẩn trong giá phòng"
+                    >
+                      <InputNumber style={{ width: "100%" }} min={1} />
+                    </Form.Item>
+                  </Col>
+                  <Col span={6}>
+                    <Form.Item
+                      name="base_children"
+                      label="TE (gốc)"
+                      initialValue={1}
+                      tooltip="Số trẻ em tiêu chuẩn trong giá phòng"
+                    >
+                      <InputNumber style={{ width: "100%" }} min={0} />
+                    </Form.Item>
+                  </Col>
+                  <Col span={6}>
+                    <Form.Item
+                      name="extra_adult_fee"
+                      label="Phụ thu NL"
+                      initialValue={0}
+                      tooltip="Phụ thu cho mỗi người lớn vượt quá số lượng gốc"
+                    >
+                      <InputNumber
+                        style={{ width: "100%" }}
+                        min={0}
+                        formatter={(value) =>
+                          `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                        }
+                        parser={(value) =>
+                          Number(value?.replace(/\$\s?|(,*)/g, "")) as any
+                        }
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={6}>
+                    <Form.Item
+                      name="extra_child_fee"
+                      label="Phụ thu TE"
+                      initialValue={0}
+                      tooltip="Phụ thu cho mỗi trẻ em vượt quá số lượng gốc"
+                    >
+                      <InputNumber
+                        style={{ width: "100%" }}
+                        min={0}
+                        formatter={(value) =>
+                          `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                        }
+                        parser={(value) =>
+                          Number(value?.replace(/\$\s?|(,*)/g, "")) as any
+                        }
+                      />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              </div>
+
+              <Form.Item name="free_amenities" label="Tiện nghi phòng">
+                <Select
+                  mode="tags"
+                  placeholder="Chọn tiện nghi từ danh sách hoặc nhập mới"
+                  style={{ width: "100%" }}
+                  options={FIXED_AMENITIES}
+                />
               </Form.Item>
+              {}
+              <Form.Item label="Thiết bị tiêu chuẩn">
+                <RoomTypeEquipmentSelector
+                  value={selectedEquipments}
+                  onChange={setSelectedEquipments}
+                />
+              </Form.Item>
+              <Form.Item name="room_size" label="Diện tích sử dụng (m²)">
+                <InputNumber
+                  style={{ width: "100%" }}
+                  min={0}
+                  placeholder="40"
+                />
+              </Form.Item>
+              <Form.Item name="description" label="Mô tả" valuePropName="value">
+                <QuillEditor />
+              </Form.Item>
+              <div className="grid grid-cols-2 gap-4">
+                <Form.Item name="bed_type" label="Loại giường">
+                  <Input placeholder="Nhập loại giường (VD: King, Queen, Twin...)" />
+                </Form.Item>
+                <Form.Item name="view_direction" label="Hướng nhìn">
+                  <Input placeholder="Nhập hướng nhìn (VD: Biển, Thành phố, Vườn...)" />
+                </Form.Item>
+              </div>
+            </Col>
+            <Col span={8}>
+              {}
+              <RoomTypeImageUploader
+                thumbnail={thumb}
+                onThumbnailChange={setThumb}
+                gallery={extras}
+                onGalleryChange={setExtras}
+              />
             </Col>
           </Row>
-
           <div className="mt-6 pt-4 border-t">
             <div className="flex gap-3">
               <Button type="primary" htmlType="submit" size="large">
-                Create Room Type
+                Tạo loại phòng
               </Button>
               <Link to="/admin/roomtypes">
-                <Button size="large">Cancel</Button>
+                <Button size="large">Hủy</Button>
               </Link>
             </div>
           </div>
@@ -382,5 +449,4 @@ const RoomTypeAdd: React.FC = () => {
     </div>
   );
 };
-
 export default RoomTypeAdd;

@@ -7,7 +7,6 @@ import { getRoles } from "@/services/rolesApi";
 import type { User } from "@/types/users";
 import type { Role } from "@/types/roles";
 import useAuth from "@/hooks/useAuth";
-
 const UserEdit = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -17,68 +16,58 @@ const UserEdit = () => {
   const currentUserId = auth?.user?.id;
   const currentUserRole = auth?.getRoleName(auth.user) || "";
   const isAdmin = currentUserRole.toLowerCase() === "admin";
-
-  // Fetch all users to get the specific user
   const { data: usersRaw, isLoading: usersLoading } = useQuery({
     queryKey: ["users"],
     queryFn: getUsers,
   });
-
   const { data: rolesRaw, isLoading: rolesLoading } = useQuery({
     queryKey: ["roles"],
     queryFn: getRoles,
   });
-
   const users: User[] = Array.isArray(usersRaw?.data)
     ? usersRaw.data
-    : usersRaw ?? [];
-
+    : (usersRaw ?? []);
   const user = users.find((u) => String(u.id) === String(id));
   const isCurrentUser = user?.id === currentUserId;
-
   const roles: Role[] = Array.isArray(rolesRaw)
     ? rolesRaw
-    : rolesRaw?.data ?? [];
-
+    : (rolesRaw?.data ?? []);
+  const targetUserRole =
+    roles.find((r) => r.id === user?.role_id)?.name?.toLowerCase?.() || "";
+  const isAdminBlock = isAdmin && targetUserRole === "admin" && !isCurrentUser;
   const roleColorMap: Record<string, string> = {
     admin: "red",
-    manager: "blue",
+    manager: "yellow",
     staff: "green",
     customer: "gold",
   };
-
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string | number; data: Partial<User> }) =>
       updateUser(id, data),
     onSuccess: () => {
-      message.success("User updated successfully");
+      message.success("Cập nhật người dùng thành công");
       queryClient.invalidateQueries({ queryKey: ["users"] });
       navigate("/admin/users");
     },
     onError: (error: unknown) => {
       const err = error as { response?: { data?: { message?: string } } };
-      message.error(err?.response?.data?.message || "Failed to update user");
+      message.error(
+        err?.response?.data?.message || "Cập nhật người dùng thất bại"
+      );
     },
   });
-
   const handleSubmit = (values: Record<string, unknown>) => {
     if (!id) return;
-
-    // Prepare update data
     const updateData: Partial<User> = {
       full_name: values.full_name as string,
       email: values.email as string,
       phone: values.phone as string,
     };
-
-    // Only include role_id if admin and it changed
     if (isAdmin && values.role_id !== undefined) {
       updateData.role_id = values.role_id as number;
     }
-
     updateMutation.mutate({ id, data: updateData });
   };
-
   if (usersLoading || rolesLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -86,22 +75,22 @@ const UserEdit = () => {
       </div>
     );
   }
-
   if (!user) {
     return (
       <div className="p-6">
         <Card>
           <div className="text-center py-8">
-            <p className="text-gray-500 text-lg mb-4">User not found</p>
+            <p className="text-gray-500 text-lg mb-4">
+              Không tìm thấy người dùng
+            </p>
             <Button type="primary" onClick={() => navigate("/admin/users")}>
-              Back to Users
+              Quay lại danh sách
             </Button>
           </div>
         </Card>
       </div>
     );
   }
-
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
@@ -110,13 +99,15 @@ const UserEdit = () => {
             icon={<ArrowLeftOutlined />}
             onClick={() => navigate("/admin/users")}
           >
-            Back
+            Quay lại
           </Button>
-          <h1 className="text-2xl font-bold m-0">Edit User</h1>
+          <h1 className="text-2xl font-bold m-0">Chỉnh sửa người dùng</h1>
         </div>
         {isCurrentUser && <Tag color="orange">Editing Your Own Profile</Tag>}
+        {isCurrentUser && (
+          <Tag color="orange">Đang chỉnh sửa hồ sơ của bạn</Tag>
+        )}
       </div>
-
       <Card>
         <Form
           form={form}
@@ -130,13 +121,12 @@ const UserEdit = () => {
           onFinish={handleSubmit}
         >
           <Form.Item
-            label="Full Name"
+            label="Họ tên"
             name="full_name"
             rules={[{ required: true, message: "Please input full name" }]}
           >
-            <Input placeholder="Enter full name" />
+            <Input placeholder="Nhập họ tên" />
           </Form.Item>
-
           <Form.Item
             label="Email"
             name="email"
@@ -145,27 +135,27 @@ const UserEdit = () => {
               { type: "email", message: "Invalid email format" },
             ]}
           >
-            <Input placeholder="Enter email" />
+            <Input placeholder="Nhập email" />
           </Form.Item>
-
           <Form.Item label="Phone" name="phone" rules={[{ required: false }]}>
-            <Input placeholder="Enter phone number" />
+            <Input placeholder="Nhập số điện thoại" />
           </Form.Item>
-
           <Form.Item
-            label="Role"
+            label="Vai trò"
             name="role_id"
             extra={
               !isAdmin
                 ? "Only admins can change roles"
                 : isCurrentUser
-                ? "You cannot change your own role"
-                : null
+                  ? "You cannot change your own role"
+                  : isAdminBlock
+                    ? "Admin không thể đổi vai trò của admin khác"
+                    : null
             }
           >
             <Select
-              disabled={!isAdmin || isCurrentUser}
-              placeholder="Select role"
+              disabled={!isAdmin || isCurrentUser || isAdminBlock}
+              placeholder="Chọn vai trò"
             >
               {roles.map((role) => (
                 <Select.Option key={role.id} value={role.id}>
@@ -179,16 +169,14 @@ const UserEdit = () => {
               ))}
             </Select>
           </Form.Item>
-
           {isCurrentUser && (
             <div className="bg-yellow-50 border border-yellow-200 rounded p-4 mb-4">
               <p className="text-yellow-800 text-sm m-0">
-                ⚠️ <strong>Note:</strong> You are editing your own profile. You
-                cannot change your own role or ban yourself.
+                ⚠️ <strong>Lưu ý:</strong> Bạn đang chỉnh sửa hồ sơ của chính
+                mình. Bạn không thể thay đổi vai trò hoặc tự chặn mình.
               </p>
             </div>
           )}
-
           <Form.Item className="mb-0">
             <div className="flex gap-3">
               <Button
@@ -197,10 +185,10 @@ const UserEdit = () => {
                 loading={updateMutation.isPending}
                 size="large"
               >
-                Save Changes
+                Lưu thay đổi
               </Button>
               <Button size="large" onClick={() => navigate("/admin/users")}>
-                Cancel
+                Hủy
               </Button>
             </div>
           </Form.Item>
@@ -209,5 +197,4 @@ const UserEdit = () => {
     </div>
   );
 };
-
 export default UserEdit;

@@ -4,44 +4,50 @@ import {
   getBookingById,
   createBooking,
   getMyBookings,
-  updateBookingStatus,
+  setBookingStatus,
   updateMyBookingStatus,
-  updateGuestBooking,
   confirmCheckout,
   cancelBooking,
+<<<<<<< HEAD
   changeRoomInBooking,
   updateBookingDamages,
+=======
+  confirmCheckin,
+  adminMarkNoShow,
+  adminMarkRefunded,
+  calculateLateFee,
+  uploadReceipt,
+  uploadReceiptMiddleware,
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
 } from "../controllers/bookingscontroller.js";
 import { requireAuth, requireRole, optionalAuth } from "../middlewares/auth.js";
 import { validateBookingCreate } from "../middlewares/bookingvalidate.js";
-
 const router = express.Router();
-
-router.get("/", requireAuth, requireRole("staff"), getBookings);
-// register specific routes before parameterized routes
+router.post(
+  "/:id/confirm-checkin",
+  requireAuth,
+  requireRole("admin"),
+  confirmCheckin
+);
+router.get("/", requireAuth, requireRole("admin"), getBookings);
 router.get("/mine", requireAuth, getMyBookings);
 router.get("/:id", getBookingById);
-// POST /bookings - Require auth: customer or staff can create booking
 router.post("/", requireAuth, validateBookingCreate, createBooking);
-// Cancel booking - both user and admin can use this endpoint
 router.post("/:id/cancel", requireAuth, cancelBooking);
-// Guest update booking payment info (auth required)
-router.patch("/:id", requireAuth, updateGuestBooking);
-// Client can update their own booking (check-in, check-out)
 router.patch("/:id/my-status", requireAuth, updateMyBookingStatus);
-// Admin updates booking status
 router.patch(
   "/:id/status",
   requireAuth,
-  requireRole("staff"),
-  updateBookingStatus
+  requireRole("admin"),
+  setBookingStatus
 );
 router.post(
   "/:id/confirm-checkout",
   requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   confirmCheckout
 );
+<<<<<<< HEAD
 
 // Change room in booking - both customer and staff can use
 router.patch("/:id/change-room", requireAuth, changeRoomInBooking);
@@ -52,4 +58,26 @@ router.put(
   updateBookingDamages
 );
 
+=======
+router.post("/:id/no-show", requireAuth, requireRole("admin"), adminMarkNoShow);
+router.post(
+  "/:id/calculate-late-fee",
+  requireAuth,
+  requireRole("admin"),
+  calculateLateFee
+);
+router.patch(
+  "/:id/mark-refunded",
+  requireAuth,
+  requireRole("admin"),
+  adminMarkRefunded
+);
+router.post(
+  "/upload-receipt",
+  requireAuth,
+  requireRole("admin"),
+  uploadReceiptMiddleware.single("file"),
+  uploadReceipt
+);
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
 export default router;

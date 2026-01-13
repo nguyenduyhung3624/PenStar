@@ -1,7 +1,9 @@
 import pool from "../db.js";
 
 export const getFloors = async () => {
-  const resuit = await pool.query("SELECT * FROM floors");
+  const resuit = await pool.query(
+    "SELECT * FROM floors ORDER BY created_at DESC"
+  );
   return resuit.rows;
 };
 

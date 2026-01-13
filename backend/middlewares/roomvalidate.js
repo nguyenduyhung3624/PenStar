@@ -1,5 +1,4 @@
 import Joi from "joi";
-
 const roomSchema = Joi.object({
   name: Joi.string().required(),
   type_id: Joi.number().positive().required(),
@@ -9,9 +8,7 @@ const roomSchema = Joi.object({
   thumbnail: Joi.string().required(),
   floor_id: Joi.number().positive().required(),
 });
-
 export const validateRoomCreate = (req, res, next) => {
-  // For create, allow thumbnail to be optional (frontend may upload later)
   const createSchema = roomSchema.fork(["thumbnail"], (field) =>
     field.optional()
   );
@@ -21,17 +18,13 @@ export const validateRoomCreate = (req, res, next) => {
       .status(400)
       .json({ success: false, message: error.details[0].message });
   }
-  // Use the validated/coerced values from Joi (e.g., string->number conversions)
   req.body = value;
   next();
 };
-
 export const validateRoomUpdate = (req, res, next) => {
   const { id } = req.params;
   if (!id || isNaN(Number(id)))
     return res.status(400).json({ message: "Invalid ID" });
-
-  // Cho phép update partial
   const partialSchema = roomSchema.fork(
     Object.keys(roomSchema.describe().keys),
     (field) => field.optional()
@@ -42,11 +35,9 @@ export const validateRoomUpdate = (req, res, next) => {
       .status(400)
       .json({ success: false, message: error.details[0].message });
   }
-  // assign validated/coerced values back to req.body for downstream handlers
   req.body = value;
   next();
 };
-
 export const validateRoomIdParam = (req, res, next) => {
   const { id } = req.params;
   if (!id || isNaN(Number(id))) {

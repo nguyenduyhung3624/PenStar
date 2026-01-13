@@ -5,7 +5,6 @@ import { login } from "@/services/usersApi";
 import { useMutation } from "@tanstack/react-query";
 import { message } from "antd";
 import useAuth from "@/hooks/useAuth";
-
 const SignIn = () => {
   const navigate = useNavigate();
   const authRaw = useAuth();
@@ -14,9 +13,7 @@ const SignIn = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-
   const [loading, setLoading] = useState(false);
-
   const loginMutation = useMutation({
     mutationFn: ({ email, password }: { email: string; password: string }) =>
       login(email, password),
@@ -34,7 +31,8 @@ const SignIn = () => {
         return;
       }
       try {
-        // Persist token to localStorage in case context isn't available or fails
+        message.success("Đăng nhập thành công");
+
         try {
           localStorage.setItem("penstar_token", token);
           console.debug(
@@ -47,7 +45,6 @@ const SignIn = () => {
         if (auth && typeof auth.loginWithToken === "function") {
           auth.loginWithToken(token);
         }
-        // Lấy thông tin user từ backend và lưu vào localStorage
         try {
           const { getCurrentUser } = await import("@/services/usersApi");
           const user = await getCurrentUser();
@@ -59,10 +56,10 @@ const SignIn = () => {
           console.debug("[SignIn] getCurrentUser failed", e);
         }
       } catch (e) {
-        // fallback and expose debug info
         console.debug("loginWithToken failed", e);
         localStorage.setItem("penstar_token", token);
       }
+<<<<<<< HEAD
       message.success("Đăng nhập thành công");
 
       // Xác định role để điều hướng đúng trang
@@ -78,6 +75,8 @@ const SignIn = () => {
       }
 
       // Ensure token is persisted and app re-initializes auth state
+=======
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
       try {
         console.debug(
           "[SignIn] final localStorage token:",
@@ -86,23 +85,26 @@ const SignIn = () => {
       } catch (e) {
         console.debug("[SignIn] localStorage read failed", e);
       }
+<<<<<<< HEAD
 
       // Admin/staff/manager -> /admin; Customer -> home
       navigate(isCustomer ? "/" : "/admin");
       // Reload để AuthProvider pick token và layout theo role hiện tại
+=======
+      navigate("/");
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
       setTimeout(() => window.location.reload(), 200);
     },
     onError: (err) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const axiosErr = (err as any)?.response?.data?.message;
       const errMsg =
         typeof axiosErr === "string" ? axiosErr : "Đăng nhập thất bại";
       setError(errMsg);
       message.error(errMsg);
     },
+
     onSettled: () => setLoading(false),
   });
-
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -111,7 +113,6 @@ const SignIn = () => {
       return;
     }
     setLoading(true);
-    // Log before login
     try {
       localStorage.setItem("test_key", "test_value");
       console.debug(
@@ -123,7 +124,6 @@ const SignIn = () => {
     }
     loginMutation.mutate({ email, password });
   };
-
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
       <div className="max-w-md w-full bg-white shadow-lg p-8">
@@ -140,7 +140,6 @@ const SignIn = () => {
               placeholder="you@example.com"
             />
           </div>
-
           <div>
             <label className="block text-sm text-gray-600 mb-1">Mật khẩu</label>
             <input
@@ -151,19 +150,17 @@ const SignIn = () => {
               placeholder="••••••••"
             />
           </div>
-
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+            className="w-full bg-yellow-600 text-white py-2 rounded hover:bg-yellow-700"
           >
             {loading ? "Đang đăng nhập..." : "Đăng nhập"}
           </button>
         </form>
-
         <div className="mt-4 text-sm text-gray-600">
           Chưa có tài khoản?{" "}
-          <Link to="/signup" className="text-blue-600 hover:underline">
+          <Link to="/signup" className="text-yellow-600 hover:underline">
             Đăng ký
           </Link>
         </div>
@@ -171,5 +168,4 @@ const SignIn = () => {
     </div>
   );
 };
-
 export default SignIn;

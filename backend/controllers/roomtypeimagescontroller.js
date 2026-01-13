@@ -10,16 +10,19 @@ import fs from "fs";
 import path from "path";
 import multer from "multer";
 import pool from "../db.js";
+import { ERROR_MESSAGES } from "../utils/constants.js";
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadDir = path.join(process.cwd(), "uploads", "roomtypes");
+    // Luôn lưu vào uploads/room_types/
+    const uploadDir = path.join(process.cwd(), "uploads", "room_types");
     fs.mkdirSync(uploadDir, { recursive: true });
     cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
+    // Đặt tên file: {timestamp}_{random}.{ext}
     const ext = path.extname(file.originalname) || ".jpg";
-    const name = `${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+    const name = `${Date.now()}_${Math.round(Math.random() * 1e9)}${ext}`;
     cb(null, name);
   },
 });
@@ -30,17 +33,13 @@ export const uploadMiddleware = multer({ storage });
 export const getAllRoomTypeImages = async (req, res) => {
   try {
     const images = await getRoomTypeImages();
-    res.json({
-      success: true,
-      message: "✅ Fetched all room type images",
-      data: images,
-    });
+    res.success(images, "Lấy danh sách ảnh loại phòng thành công");
   } catch (error) {
     console.error(
       "roomtypeimagescontroller.getAllRoomTypeImages error:",
       error
     );
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -50,18 +49,12 @@ export const getRoomTypeImage = async (req, res) => {
   try {
     const image = await getRoomTypeImageById(Number(id));
     if (!image) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Image not found" });
+      return res.error("Không tìm thấy ảnh", null, 404);
     }
-    res.json({
-      success: true,
-      message: "✅ Fetched room type image",
-      data: image,
-    });
+    res.success(image, "Lấy ảnh loại phòng thành công");
   } catch (error) {
     console.error("roomtypeimagescontroller.getRoomTypeImage error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -70,14 +63,10 @@ export const getImagesByRoomType = async (req, res) => {
   const { roomTypeId } = req.params;
   try {
     const images = await getRoomTypeImagesByRoomTypeId(Number(roomTypeId));
-    res.json({
-      success: true,
-      message: "✅ Fetched images for room type",
-      data: images,
-    });
+    res.success(images, "Lấy ảnh loại phòng thành công");
   } catch (error) {
     console.error("roomtypeimagescontroller.getImagesByRoomType error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -85,14 +74,10 @@ export const getImagesByRoomType = async (req, res) => {
 export const createImage = async (req, res) => {
   try {
     const newImage = await createRoomTypeImage(req.body);
-    res.status(201).json({
-      success: true,
-      message: "✅ Created room type image",
-      data: newImage,
-    });
+    res.success(newImage, "Tạo ảnh loại phòng thành công", 201);
   } catch (error) {
     console.error("roomtypeimagescontroller.createImage error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -103,57 +88,73 @@ export const uploadImageForRoomType = async (req, res) => {
     req.body.is_thumbnail === "true" || req.body.is_thumbnail === true;
 
   if (!req.file) {
-    return res
-      .status(400)
-      .json({ success: false, message: "No file uploaded" });
+    return res.error("Không có file được tải lên", null, 400);
   }
 
   const filename = req.file.filename;
-  const imageUrl = `/uploads/roomtypes/${filename}`;
-
+  const filePath = path.join(process.cwd(), "uploads", "room_types", filename);
+  const crypto = await import("crypto");
+  const fileBuffer = fs.readFileSync(filePath);
+  const fileHash = crypto.createHash("sha1").update(fileBuffer).digest("hex");
   const client = await pool.connect();
   try {
-    await client.query("BEGIN");
+    // Kiểm tra hash trên toàn bảng room_type_images
+    const checkRes = await client.query(
+      "SELECT * FROM room_type_images WHERE file_hash = $1",
+      [fileHash]
+    );
+    if (checkRes.rows.length > 0) {
+      // Đã có file vật lý, không lưu file mới, chỉ insert bản ghi DB trỏ tới file cũ
+      fs.unlinkSync(filePath);
+      const oldImage = checkRes.rows[0];
+      await client.query("BEGIN");
+      if (isThumbnail) {
+        await client.query(
+          "UPDATE room_type_images SET is_thumbnail = FALSE WHERE room_type_id = $1 AND is_thumbnail = TRUE",
+          [Number(roomTypeId)]
+        );
+      }
+      const result = await client.query(
+        "INSERT INTO room_type_images (room_type_id, image_url, is_thumbnail, file_hash) VALUES ($1, $2, $3, $4) RETURNING *",
+        [Number(roomTypeId), oldImage.image_url, isThumbnail, fileHash]
+      );
+      const newImage = result.rows[0];
+      if (isThumbnail) {
+        await client.query(
+          "UPDATE room_types SET thumbnail = $1 WHERE id = $2",
+          [oldImage.image_url, Number(roomTypeId)]
+        );
+      }
+      await client.query("COMMIT");
+      return res.success(newImage, "Đã dùng lại file ảnh cũ.", 201);
+    }
 
-    // If this is a thumbnail, unset other thumbnails for this room type
+    // Nếu chưa có file vật lý, lưu file như bình thường
+    const imageUrl = `/uploads/room_types/${filename}`;
+    await client.query("BEGIN");
     if (isThumbnail) {
       await client.query(
         "UPDATE room_type_images SET is_thumbnail = FALSE WHERE room_type_id = $1 AND is_thumbnail = TRUE",
         [Number(roomTypeId)]
       );
     }
-
-    // Insert new image
     const result = await client.query(
-      "INSERT INTO room_type_images (room_type_id, image_url, is_thumbnail) VALUES ($1, $2, $3) RETURNING *",
-      [Number(roomTypeId), imageUrl, isThumbnail]
+      "INSERT INTO room_type_images (room_type_id, image_url, is_thumbnail, file_hash) VALUES ($1, $2, $3, $4) RETURNING *",
+      [Number(roomTypeId), imageUrl, isThumbnail, fileHash]
     );
     const newImage = result.rows[0];
-
-    // Update room_types.thumbnail if this is a thumbnail
     if (isThumbnail) {
       await client.query("UPDATE room_types SET thumbnail = $1 WHERE id = $2", [
         imageUrl,
         Number(roomTypeId),
       ]);
     }
-
     await client.query("COMMIT");
-    res.status(201).json({
-      success: true,
-      message: "✅ Uploaded image",
-      data: newImage,
-    });
+    res.success(newImage, "Tải ảnh lên thành công", 201);
   } catch (e) {
     await client.query("ROLLBACK");
     // Remove uploaded file if transaction fails
     try {
-      const filePath = path.join(
-        process.cwd(),
-        "uploads",
-        "roomtypes",
-        filename
-      );
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     } catch (unlinkErr) {
       console.warn("Failed to unlink uploaded file:", unlinkErr.message);
@@ -169,14 +170,10 @@ export const updateImage = async (req, res) => {
   const { id } = req.params;
   try {
     const updated = await updateRoomTypeImage(Number(id), req.body);
-    res.json({
-      success: true,
-      message: "✅ Updated room type image",
-      data: updated,
-    });
+    res.success(updated, "Cập nhật ảnh thành công");
   } catch (error) {
     console.error("roomtypeimagescontroller.updateImage error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };
 
@@ -186,9 +183,7 @@ export const deleteImage = async (req, res) => {
   try {
     const deleted = await deleteRoomTypeImage(Number(id));
     if (!deleted) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Image not found" });
+      return res.error("Không tìm thấy ảnh", null, 404);
     }
 
     // Try to delete physical file
@@ -202,13 +197,9 @@ export const deleteImage = async (req, res) => {
       console.warn("Failed to delete physical file:", e.message);
     }
 
-    res.json({
-      success: true,
-      message: "✅ Deleted room type image",
-      data: deleted,
-    });
+    res.success(deleted, "Xóa ảnh thành công");
   } catch (error) {
     console.error("roomtypeimagescontroller.deleteImage error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    res.error(ERROR_MESSAGES.INTERNAL_ERROR, error.message, 500);
   }
 };

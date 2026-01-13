@@ -6,6 +6,10 @@ import {
   updateRoom,
   deleteRoom,
   searchRooms,
+  searchAllRooms,
+  getOccupiedRoomsController,
+  getRoomBookingHistoryController,
+  getRoomStatsController,
 } from "../controllers/roomscontroller.js";
 import { requireAuth, requireRole } from "../middlewares/auth.js";
 import {
@@ -13,15 +17,22 @@ import {
   validateRoomUpdate,
   validateRoomIdParam,
 } from "../middlewares/roomvalidate.js";
-
 const roomsRouter = express.Router();
-
-// Public: tìm kiếm phòng trống
 roomsRouter.get("/search", searchRooms);
-
-// Public: list rooms for client pages
+roomsRouter.get("/search-all", searchAllRooms);
+roomsRouter.get(
+  "/occupied",
+  requireAuth,
+  requireRole("admin"),
+  getOccupiedRoomsController
+);
+roomsRouter.get(
+  "/stats",
+  requireAuth,
+  requireRole("admin"),
+  getRoomStatsController
+);
 roomsRouter.get("/", getRooms);
-// Check if a room name exists for a given type (query params: name, type_id, excludeId)
 roomsRouter.get("/check-name", async (req, res) => {
   try {
     const { name, type_id, excludeId } = req.query;
@@ -41,19 +52,25 @@ roomsRouter.get("/check-name", async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 });
-// Public: get room details
+roomsRouter.get(
+  "/:id/bookings",
+  requireAuth,
+  requireRole("admin"),
+  validateRoomIdParam,
+  getRoomBookingHistoryController
+);
 roomsRouter.get("/:id", validateRoomIdParam, getRoomID);
 roomsRouter.post(
   "/",
   requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   validateRoomCreate,
   createRoom
 );
 roomsRouter.put(
   "/:id",
   requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   validateRoomIdParam,
   validateRoomUpdate,
   updateRoom
@@ -61,9 +78,8 @@ roomsRouter.put(
 roomsRouter.delete(
   "/:id",
   requireAuth,
-  requireRole("staff"),
+  requireRole("admin"),
   validateRoomIdParam,
   deleteRoom
 );
-
 export default roomsRouter;

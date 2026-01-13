@@ -1,9 +1,15 @@
-import { Button, message, Space } from "antd";
-import { PhoneOutlined } from "@ant-design/icons";
+import { Button, message, Dropdown, Avatar } from "antd";
+import FullLogo from "@/assets/images/FullLogo.jpg";
+import {
+  UserOutlined,
+  ProfileOutlined,
+  BookOutlined,
+  LogoutOutlined,
+  GiftOutlined,
+} from "@ant-design/icons";
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import useAuth from "@/hooks/useAuth";
-
 const AppHeader = () => {
   const [scrolled, setScrolled] = useState(false);
   const authRaw = useAuth();
@@ -11,25 +17,19 @@ const AppHeader = () => {
   const auth = authRaw as AuthShape;
   const isLogged = !!auth?.token;
   const navigate = useNavigate();
-
   useEffect(() => {
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
     };
-
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
-
-  // We rely on AuthProvider to update auth state across the app.
-
   const handleLogout = () => {
     try {
       if (auth && typeof auth.logout === "function") {
         auth.logout();
         message.success("Đã đăng xuất");
       } else {
-        // fallback
         localStorage.removeItem("penstar_token");
         message.success("Đã đăng xuất");
         navigate("/");
@@ -38,103 +38,106 @@ const AppHeader = () => {
       console.error(e);
     }
   };
-
   return (
     <header
-      className={`bg-[#0a4f86] text-white sticky top-0 z-50 transition-all duration-300 ${
-        scrolled ? "shadow-xl py-1" : "py-2"
+      className={`bg-white text-gray-800 sticky top-0 z-50 transition-all duration-300 border-b border-gray-200 ${
+        scrolled ? "shadow-md py-2" : "py-4"
       }`}
     >
-      <div className="container mx-auto px-4 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/10 rounded flex items-center justify-center text-white font-bold">
-            PS
+      <div
+        className="container mx-auto px-4 flex items-center relative"
+        style={{ minHeight: 72 }}
+      >
+        {}
+        <div className="flex flex-col justify-center z-10 min-w-[180px]">
+          <div className="text-xl font-bold text-gray-800 leading-tight">
+            Khách sạn Penstar
           </div>
-          <div>
-            <div className="text-lg font-semibold">Khách sạn Penstar</div>
-            <div className="text-xs text-white/80">
-              Trải nghiệm thoải mái, tiện nghi hiện đại
-            </div>
+          <div className="text-xs text-gray-600 leading-tight">
+            Trải nghiệm thoải mái, tiện nghi hiện đại
           </div>
-        </Link>
-
-        <nav className="hidden md:flex items-center gap-6">
-          <Link to="/" className="text-white/90 hover:text-white">
-            Trang chủ
+        </div>
+        {}
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-0 flex flex-col items-center">
+          <Link to="/">
+            <img
+              src={FullLogo}
+              alt="Logo"
+              className="h-24 w-auto object-contain"
+              style={{ maxHeight: 120 }}
+            />
           </Link>
-          <Link to="/rooms" className="text-white/90 hover:text-white">
-            Phòng
-          </Link>
-          <Link to="/bookings" className="text-white/90 hover:text-white">
-            Đặt phòng
-          </Link>
-          <Link to="/contact" className="text-white/90 hover:text-white">
-            Liên hệ
-          </Link>
-        </nav>
-
-        <div className="flex items-center gap-3">
-          <a
-            href="tel:+84 394879813"
-            className="hidden md:flex items-center gap-2 text-sm text-white/90"
-          >
-            <PhoneOutlined className="text-base" /> <span>+84 394879813</span>
-          </a>
+        </div>
+        {}
+        <div className="flex items-center gap-3 flex-shrink-0 ml-auto z-10">
           {isLogged ? (
-            <Space>
-              <Link to="/profile">
-                <Button
-                  style={{
-                    backgroundColor: "#0a66a3",
-                    borderColor: "#0a66a3",
-                    color: "#ffffff",
-                  }}
-                >
-                  Tài khoản
-                </Button>
-              </Link>
-              <Button
-                onClick={handleLogout}
-                style={{
-                  backgroundColor: "#e53e3e",
-                  borderColor: "#e53e3e",
-                  color: "#ffffff",
-                }}
-              >
-                Đăng xuất
-              </Button>
-            </Space>
+            <Dropdown
+              menu={{
+                items: [
+                  {
+                    key: "profile",
+                    icon: <ProfileOutlined />,
+                    label: <Link to="/profile">Thông tin</Link>,
+                  },
+                  {
+                    key: "bookings",
+                    icon: <BookOutlined />,
+                    label: <Link to="/bookings">Đặt phòng</Link>,
+                  },
+                  {
+                    key: "vouchers",
+                    icon: <GiftOutlined />,
+                    label: <Link to="/vouchers">Voucher của tôi</Link>,
+                  },
+                  { type: "divider" },
+                  {
+                    key: "logout",
+                    icon: <LogoutOutlined style={{ color: "#dc2626" }} />,
+                    label: <span style={{ color: "#dc2626" }}>Đăng xuất</span>,
+                    onClick: handleLogout,
+                  },
+                ],
+              }}
+              placement="bottomRight"
+              trigger={["click"]}
+            >
+              <Avatar
+                style={{ backgroundColor: "#444", cursor: "pointer" }}
+                size={40}
+                icon={<UserOutlined style={{ fontSize: 24 }} />}
+              />
+            </Dropdown>
           ) : (
             <Link to="/signin">
               <Button
                 style={{
-                  backgroundColor: "#0a66a3",
-                  borderColor: "#0a66a3",
+                  backgroundColor: "#dc2626",
+                  borderColor: "#dc2626",
                   color: "#ffffff",
+                  fontWeight: "500",
                 }}
               >
                 Đăng nhập
               </Button>
             </Link>
           )}
-        </div>
-        <div className="md:hidden">
-          <Link to="/booking">
-            <Button
-              size="small"
-              style={{
-                backgroundColor: "#0a66a3",
-                borderColor: "#0a66a3",
-                color: "#ffffff",
-              }}
-            >
-              Đặt
-            </Button>
-          </Link>
+          <div className="md:hidden">
+            <Link to="/booking">
+              <Button
+                size="small"
+                style={{
+                  backgroundColor: "#0a66a3",
+                  borderColor: "#0a66a3",
+                  color: "#ffffff",
+                }}
+              >
+                Đặt
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </header>
   );
 };
-
 export default AppHeader;

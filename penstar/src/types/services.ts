@@ -3,6 +3,10 @@ export interface Services {
   name: string;
   description: string;
   price: number;
-  createdAt: string;
-  updatedAt: string;
+  unit?: string;
+  thumbnail?: string;
+  created_at?: string;
+  updated_at?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }

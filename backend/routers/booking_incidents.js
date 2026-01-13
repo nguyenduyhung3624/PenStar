@@ -1,0 +1,12 @@
+import express from "express";
+import * as controller from "../controllers/booking_incidentscontroller.js";
+import { requireAuth, requireRole } from "../middlewares/auth.js";
+const router = express.Router();
+router.use(requireAuth, requireRole("admin"));
+router.get("/", controller.getIncidentsByBooking);
+router.get("/all", controller.getAllIncidents);
+router.get("/room", controller.getIncidentsByRoom);
+router.post("/", controller.createIncident);
+router.delete("/:id", controller.deleteIncident);
+router.put("/:id/resolve", controller.resolveIncident);
+export default router;

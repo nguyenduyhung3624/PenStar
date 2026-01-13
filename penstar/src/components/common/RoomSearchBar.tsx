@@ -1,25 +1,18 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useAuth from "@/hooks/useAuth";
-import { DatePicker, Select, Input, Button, message } from "antd";
-import {
-  SearchOutlined,
-  CalendarOutlined,
-  HomeOutlined,
-  GiftOutlined,
-} from "@ant-design/icons";
+import { DatePicker, Button, message } from "antd";
+import { SearchOutlined, CalendarOutlined } from "@ant-design/icons";
 import type { RoomSearchParams } from "@/types/room";
-import dayjs, { Dayjs } from "dayjs";
-
+import { nowVN } from "@/utils/dayjs";
+import type { Dayjs } from "dayjs";
 const { RangePicker } = DatePicker;
-
 interface RoomSearchBarProps {
   onSearch: (params: RoomSearchParams) => void;
   loading?: boolean;
-  variant?: "floating" | "inline"; // floating cho HomePage, inline cho Results
-  requireAuthForSearch?: boolean; // if true, redirect to signin when not authenticated
+  variant?: "floating" | "inline";
+  requireAuthForSearch?: boolean;
 }
-
 const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
   onSearch,
   loading,
@@ -29,11 +22,77 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
   const auth = useAuth();
   const navigate = useNavigate();
   const [dates, setDates] = useState<[Dayjs, Dayjs] | null>(null);
-  const [promoCode, setPromoCode] = useState("");
   const [dateError, setDateError] = useState<string | null>(null);
-
+  const validateDates = (
+    checkInDate: Dayjs,
+    checkOutDate: Dayjs,
+    now: Dayjs
+  ) => {
+    if (!checkInDate || !checkOutDate) {
+      return {
+        valid: false,
+        error: "Vui lòng chọn ngày check-in và check-out",
+      };
+    }
+    const todayStart = now.startOf("day");
+    if (checkInDate.isBefore(todayStart)) {
+      return {
+        valid: false,
+        error: "Ngày check-in không được là ngày trong quá khứ.",
+      };
+    }
+    const isCheckInToday = checkInDate.isSame(now, "day");
+    if (isCheckInToday && now.hour() < 14) {
+      return {
+        valid: false,
+        error: "Check-in từ 14:00. Vui lòng chọn ngày khác hoặc đợi đến 14:00.",
+      };
+    }
+    if (isCheckInToday && now.hour() >= 21) {
+      return {
+        valid: false,
+        error:
+          "Quá 21:00, không thể đặt phòng check-in hôm nay. Vui lòng chọn ngày mai.",
+      };
+    }
+    if (checkOutDate.isBefore(todayStart)) {
+      return {
+        valid: false,
+        error: "Ngày check-out không được là ngày trong quá khứ.",
+      };
+    }
+    const isCheckOutToday = checkOutDate.isSame(now, "day");
+    if (isCheckOutToday && now.hour() >= 14) {
+      return {
+        valid: false,
+        error: "Check-out trước 14:00. Đã quá giờ check-out cho ngày hôm nay.",
+      };
+    }
+    if (
+      checkOutDate.isBefore(checkInDate) ||
+      checkOutDate.isSame(checkInDate)
+    ) {
+      return { valid: false, error: "Ngày check-out phải sau ngày check-in." };
+    }
+    const nights = checkOutDate.diff(checkInDate, "day");
+    const MAX_NIGHTS = 30;
+    if (nights > MAX_NIGHTS) {
+      return {
+        valid: false,
+        error: `Không thể đặt phòng quá ${MAX_NIGHTS} đêm. Vui lòng liên hệ khách sạn.`,
+      };
+    }
+    const MAX_ADVANCE_DAYS = 365;
+    const daysInAdvance = checkInDate.diff(todayStart, "day");
+    if (daysInAdvance > MAX_ADVANCE_DAYS) {
+      return {
+        valid: false,
+        error: `Không thể đặt phòng trước quá ${MAX_ADVANCE_DAYS} ngày.`,
+      };
+    }
+    return { valid: true, error: "" };
+  };
   const handleSearch = () => {
-    // If required, check authentication and redirect to signin
     if (requireAuthForSearch && auth?.initialized && !auth?.token) {
       message.error("Vui lòng đăng nhập để tìm kiếm và đặt phòng");
       navigate("/signin");
@@ -43,62 +102,37 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
       message.warning("Vui lòng chọn ngày check-in và check-out");
       return;
     }
-
-    // Validate thời điểm check-in: từ 14:00
     const checkInDate = dates[0];
-    const now = dayjs();
-    const isToday = checkInDate.isSame(now, "day");
-    const currentHour = now.hour();
-    
-    // Nếu check-in là hôm nay và chưa đến 14:00 thì không cho phép
-    if (isToday && currentHour < 14) {
-      message.warning("Check-in từ 14:00. Vui lòng chọn ngày khác hoặc đợi đến 14:00.");
-      return;
-    }
-
-    // Validate thời điểm check-out: trước 12:00
     const checkOutDate = dates[1];
-    const isCheckOutToday = checkOutDate.isSame(now, "day");
-    
-    // Nếu check-out là hôm nay và đã quá 12:00 thì không cho phép
-    if (isCheckOutToday && currentHour >= 12) {
-      message.warning("Check-out trước 12:00. Vui lòng chọn ngày khác hoặc check-out trước 12:00.");
+    const now = nowVN();
+    const { valid, error } = validateDates(checkInDate, checkOutDate, now);
+    if (!valid) {
+      message.warning(error);
       return;
     }
-    
-    // Kiểm tra check-out phải sau check-in
-    if (checkOutDate.isBefore(checkInDate) || checkOutDate.isSame(checkInDate)) {
-      message.warning("Ngày check-out phải sau ngày check-in.");
-      return;
-    }
-
     const searchParams: RoomSearchParams = {
-      check_in: dates[0].format("YYYY-MM-DD"),
-      check_out: dates[1].format("YYYY-MM-DD"),
-      promo_code: promoCode || undefined,
+      check_in: checkInDate.format("YYYY-MM-DD"),
+      check_out: checkOutDate.format("YYYY-MM-DD"),
+      status: "available",
+      booking_statuses: [1, 2, 6],
     };
     onSearch(searchParams);
   };
-
   const containerClass =
     variant === "floating"
-      ? "absolute left-1/2 -translate-x-1/2 bottom-0 translate-y-1/2 w-full max-w-6xl px-4 z-20"
-      : "w-full max-w-6xl mx-auto";
-
+      ? "absolute left-1/2 -translate-x-1/2 bottom-[-40px] md:bottom-[-50px] w-[95%] md:w-auto z-20"
+      : "w-full max-w-6xl mx-auto mb-8";
   return (
     <div className={containerClass}>
-      <div
-        className="bg-white p-6"
-        style={{
-          boxShadow: "0 20px 60px rgba(0, 0, 0, 0.3)",
-        }}
-      >
-        <div className="flex flex-wrap gap-3 items-center">
-          {/* Dates */}
-          <div className="flex-1 min-w-[250px]">
-            <div className="text-xs font-semibold text-gray-700 mb-1">
-              Ngày nhận - trả phòng
+      {}
+      <div className="bg-white shadow-xl border border-gray-100 p-2 md:p-3 flex flex-col md:flex-row gap-2 items-center justify-between max-w-5xl mx-auto">
+        {}
+        <div className="flex-1 w-full md:w-auto relative group px-2">
+          <div className="flex items-center gap-3 h-14 md:h-16 px-4 bg-gray-50 rounded-lg border border-transparent group-hover:border-gray-200 transition-colors cursor-pointer">
+            <div className="text-yellow-600 bg-yellow-50 p-2">
+              <CalendarOutlined style={{ fontSize: "18px" }} />
             </div>
+<<<<<<< HEAD
             <RangePicker
               size="large"
               format="DD/MM/YYYY"
@@ -126,58 +160,72 @@ const RoomSearchBar: React.FC<RoomSearchBarProps> = ({
                 } else {
                   setDates(null);
                   setDateError(null);
+=======
+            <div className="flex-1 flex flex-col justify-center">
+              <span className="text-[10px] md:text-xs font-bold text-gray-400 uppercase tracking-wider mb-[2px]">
+                Ngày nhận - Trả phòng
+              </span>
+              {}
+              <RangePicker
+                format="DD/MM/YYYY"
+                placeholder={["Nhận phòng", "Trả phòng"]}
+                suffixIcon={null}
+                variant="borderless"
+                className="p-0 w-full hover:bg-transparent"
+                style={{ background: "transparent" }}
+                inputReadOnly={true}
+                disabledDate={(current) =>
+                  current && current < nowVN().startOf("day")
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
                 }
-              }}
-            />
-            {/* Hiển thị lỗi validation ngày */}
-            {dateError && (
-              <div className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded border border-red-200">
-                ⚠️ {dateError}
-              </div>
-            )}
-          </div>
-
-          {/* Đã xóa phần chọn số lượng phòng. Số lượng phòng sẽ chọn ở từng loại phòng trong RoomSearchResults. */}
-
-          {/* Mã khuyến mãi */}
-          <div className="flex-1 min-w-[180px]">
-            <div className="text-xs font-semibold text-gray-700 mb-1">
-              Mã khuyến mãi
+                onChange={(values) => {
+                  if (values && values[0] && values[1]) {
+                    setDates([values[0], values[1]]);
+                    const { valid, error } = validateDates(
+                      values[0],
+                      values[1],
+                      nowVN()
+                    );
+                    setDateError(valid ? null : error);
+                  } else {
+                    setDates(null);
+                    setDateError(null);
+                  }
+                }}
+              />
             </div>
-            <Input
-              size="large"
-              placeholder="Nhập mã khuyến mãi"
-              prefix={<GiftOutlined className="text-orange-500" />}
-              value={promoCode}
-              onChange={(e) => setPromoCode(e.target.value)}
-              className="border-0 bg-gray-50"
-              style={{ borderRadius: 0 }}
-            />
           </div>
-
-          {/* Button */}
-          <div className="self-end">
-            <Button
-              type="primary"
-              size="large"
-              icon={<SearchOutlined />}
-              onClick={handleSearch}
-              loading={loading}
-              disabled={!!dateError}
-              className="h-[40px] px-8 font-bold"
-              style={{
-                background: "#fbbf24",
-                borderColor: "#fbbf24",
-                borderRadius: 0,
-              }}
-            >
-              TÌM KIẾM
-            </Button>
-          </div>
+          {}
+          {dateError && (
+            <div className="absolute top-full left-4 mt-2 z-10 animate-fade-in-down">
+              <div className="bg-red-50 text-red-600 text-xs px-3 py-1.5 rounded-md border border-red-100 shadow-sm flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
+                {dateError}
+              </div>
+            </div>
+          )}
+        </div>
+        {}
+        <div className="w-full md:w-auto">
+          <Button
+            type="primary"
+            size="large"
+            onClick={handleSearch}
+            loading={loading}
+            disabled={!!dateError}
+            className="w-full md:w-auto h-14 md:h-16 px-8 md:px-12 rounded-lg text-base md:text-lg font-semibold shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5"
+            style={{
+              backgroundColor: "#d97706",
+              borderColor: "#d97706",
+              color: "#fff",
+            }}
+            icon={<SearchOutlined />}
+          >
+            TÌM PHÒNG
+          </Button>
         </div>
       </div>
     </div>
   );
 };
-
 export default RoomSearchBar;

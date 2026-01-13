@@ -1,160 +1,129 @@
 import React from "react";
-import { List, Card, Button, message, Tag, Modal } from "antd";
-import { cancelBooking, getMyBookings } from "@/services/bookingsApi";
+import { Card, Table, Tag, Button, Space, Empty, Typography } from "antd";
+import { EyeOutlined, CheckCircleOutlined } from "@ant-design/icons";
+import { getMyBookings } from "@/services/bookingsApi";
 import useAuth from "@/hooks/useAuth";
+import dayjs from "dayjs";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import type { BookingShort } from "@/types/bookings";
-
+const { Title } = Typography;
 const MyBookings: React.FC = () => {
-  const [data, setData] = React.useState<BookingShort[]>([]);
-  const [loading, setLoading] = React.useState(false);
-  const [updating, setUpdating] = React.useState(false);
+  const navigate = useNavigate();
   const auth = useAuth() as unknown as { user?: { id?: number } };
-  const nav = useNavigate();
-
-  const fetchBookings = async () => {
-    if (!auth?.user) return;
-    setLoading(true);
-    try {
-      const bookings = await getMyBookings();
-      setData(bookings);
-    } finally {
-      setLoading(false);
-    }
+  const { data: bookings = [], isLoading } = useQuery<BookingShort[]>({
+    queryKey: ["my-bookings"],
+    queryFn: getMyBookings,
+    enabled: !!auth?.user,
+  });
+  const formatPrice = (price?: number) =>
+    new Intl.NumberFormat("vi-VN").format(price || 0) + "đ";
+  const getStatusTag = (statusId: number) => {
+    const config: Record<number, { color: string; label: string }> = {
+      6: { color: "orange", label: "Chờ xác nhận" },
+      1: { color: "yellow", label: "Đã xác nhận" },
+      2: { color: "green", label: "Đã Check-in" },
+      3: { color: "cyan", label: "Đã Check-out" },
+      4: { color: "red", label: "Đã hủy" },
+      5: { color: "purple", label: "No show" },
+    };
+    const c = config[statusId] || { color: "default", label: "Không rõ" };
+    return <Tag color={c.color}>{c.label}</Tag>;
   };
-
-  React.useEffect(() => {
-    fetchBookings();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth]);
-
-  const getStatusTag = (statusId?: number, statusName?: string) => {
-    const id = statusId || 0;
-    const name = statusName || "";
-
-    // Database: 1=reserved, 2=checked_in, 3=checked_out, 4=canceled, 5=no_show, 6=pending
-    if (id === 6) return <Tag color="gold">Chờ xác nhận</Tag>;
-    if (id === 1) return <Tag color="blue">Đã xác nhận</Tag>;
-    if (id === 2) return <Tag color="green">Đã Check-in</Tag>;
-    if (id === 3) return <Tag color="cyan">Đã Check-out</Tag>;
-    if (id === 4) return <Tag color="red">Đã hủy</Tag>;
-    if (id === 5) return <Tag color="purple">No show</Tag>;
-
-    return <Tag>{name || id || "-"}</Tag>;
+  const getPaymentTag = (status: string, isRefunded: boolean) => {
+    if (isRefunded)
+      return (
+        <Tag color="purple" icon={<CheckCircleOutlined />}>
+          Đã hoàn tiền
+        </Tag>
+      );
+    const config: Record<string, { color: string; label: string }> = {
+      paid: { color: "green", label: "Đã thanh toán" },
+      unpaid: { color: "red", label: "Chưa thanh toán" },
+      pending: { color: "orange", label: "Đang xử lý" },
+    };
+    const c = config[status] || { color: "default", label: status };
+    return <Tag color={c.color}>{c.label}</Tag>;
   };
-
-  const handleCancelBooking = async (bookingId: number) => {
-    Modal.confirm({
-      title: "Xác nhận hủy booking",
-      content:
-        "Bạn có chắc muốn hủy booking này? Nếu hủy trước 24h check-in, bạn sẽ được hoàn tiền 100%.",
-      okText: "Hủy booking",
-      cancelText: "Không",
-      okType: "danger",
-      onOk: async () => {
-        setUpdating(true);
-        try {
-          await cancelBooking(bookingId);
-          message.success("Đã hủy booking thành công!");
-          fetchBookings(); // Reload list
-        } catch (error) {
-          console.error("Cancel booking error:", error);
-          const err = error as { response?: { data?: { message?: string } } };
-          message.error(err.response?.data?.message || "Lỗi hủy booking");
-        } finally {
-          setUpdating(false);
-        }
-      },
-    });
-  };
-
-  const formatPrice = (price?: number) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(price || 0);
-  };
-
+  const columns = [
+    {
+      title: "Mã Booking",
+      key: "id",
+      render: (_: any, record: BookingShort) => (
+        <span className="font-bold">#{record.id}</span>
+      ),
+    },
+    {
+      title: "Ngày tạo",
+      dataIndex: "created_at",
+      key: "created_at",
+      render: (date: string) => dayjs(date).format("DD/MM/YYYY HH:mm"),
+      sorter: (a: BookingShort, b: BookingShort) =>
+        new Date(b.created_at || "").getTime() -
+        new Date(a.created_at || "").getTime(),
+      defaultSortOrder: "ascend" as const,
+    },
+    {
+      title: "Khách hàng",
+      dataIndex: "customer_name",
+      key: "customer_name",
+    },
+    {
+      title: "Tổng tiền",
+      dataIndex: "total_price",
+      key: "total_price",
+      render: (price: number) => (
+        <span className="font-semibold text-yellow-600">
+          {formatPrice(price)}
+        </span>
+      ),
+    },
+    {
+      title: "Trạng thái",
+      key: "status",
+      render: (_: any, record: BookingShort) => (
+        <Space direction="vertical" size={0}>
+          {getStatusTag(record.stay_status_id)}
+          {getPaymentTag(record.payment_status, record.is_refunded ?? false)}
+        </Space>
+      ),
+    },
+    {
+      title: "Thao tác",
+      key: "action",
+      render: (_: any, record: BookingShort) => (
+        <Button
+          type="primary"
+          icon={<EyeOutlined />}
+          onClick={() => navigate(`/my-bookings/${record.id}`)}
+        >
+          Chi tiết
+        </Button>
+      ),
+    },
+  ];
   return (
-    <div className="p-4 max-w-4xl mx-auto">
-      <Card title="Booking của tôi">
-        <List
-          loading={loading}
-          dataSource={data}
-          renderItem={(b: BookingShort) => {
-            // Có thể hủy khi: pending (6) HOẶC reserved (1)
-            // Backend sẽ kiểm tra thêm điều kiện 24h
-            const canCancel = b.stay_status_id === 6 || b.stay_status_id === 1;
-
-            return (
-              <List.Item
-                actions={[
-                  <Button
-                    type="primary"
-                    onClick={() => nav(`/bookings/success/${b.id}`)}
-                  >
-                    Xem chi tiết
-                  </Button>,
-                  canCancel && (
-                    <Button
-                      danger
-                      onClick={() => handleCancelBooking(b.id)}
-                      loading={updating}
-                    >
-                      Hủy
-                    </Button>
-                  ),
-                ].filter(Boolean)}
-              >
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-semibold text-lg">
-                      Booking #{b.id}
-                    </span>
-                    {getStatusTag(b.stay_status_id, b.stay_status_name)}
-                  </div>
-                  <div className="text-gray-600">
-                    Khách hàng: {b.customer_name}
-                  </div>
-                  <div className="text-gray-600">
-                    Tổng tiền:{" "}
-                    <span className="font-semibold text-blue-600">
-                      {formatPrice(b.total_price)}
-                    </span>
-                  </div>
-                  <div className="text-gray-600">
-                    Thanh toán:{" "}
-                    <Tag
-                      color={
-                        b.payment_status === "paid"
-                          ? "green"
-                          : b.payment_status === "pending"
-                          ? "gold"
-                          : b.payment_status === "failed"
-                          ? "red"
-                          : b.payment_status === "refunded"
-                          ? "purple"
-                          : b.payment_status === "cancelled"
-                          ? "red"
-                          : "default"
-                      }
-                    >
-                      {b.payment_status?.toUpperCase()}
-                    </Tag>
-                    {b.is_refunded && (
-                      <Tag color="purple" className="ml-1">
-                        ✓ Đã hoàn tiền
-                      </Tag>
-                    )}
-                  </div>
-                </div>
-              </List.Item>
-            );
-          }}
-        />
+    <div className="p-4 max-w-6xl mx-auto">
+      <Card
+        title={
+          <Title level={3} style={{ margin: 0 }}>
+            Booking của tôi
+          </Title>
+        }
+        loading={isLoading}
+      >
+        {bookings.length === 0 ? (
+          <Empty description="Bạn chưa có booking nào" />
+        ) : (
+          <Table
+            dataSource={bookings}
+            columns={columns}
+            rowKey="id"
+            pagination={{ pageSize: 10 }}
+          />
+        )}
       </Card>
     </div>
   );
 };
-
 export default MyBookings;

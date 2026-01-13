@@ -1,18 +1,21 @@
 import type { Room } from "./room";
 import type { RoomType } from "./roomtypes";
-
-// Types for room booking configuration
 export interface RoomBookingConfig {
   room_id: number;
   room_type_id: number;
+  quantity: number; 
   num_adults: number;
   num_children: number;
-  num_babies?: number; // Em bé (0-5 tuổi) - optional, tối đa 2, không tính vào giới hạn
+  num_babies?: number; 
   special_requests?: string;
   price: number;
+  base_price?: number; 
+  extra_fees?: number; 
+  extra_adult_fees?: number; 
+  extra_child_fees?: number; 
+  extra_adults_count?: number; 
+  extra_children_count?: number; 
 }
-
-// Props for RoomTypeCard component
 export interface RoomTypeCardProps {
   roomType: RoomType | undefined;
   roomsInType: Room[];
@@ -20,7 +23,6 @@ export interface RoomTypeCardProps {
   selectedRoomIds: number[];
   roomsConfig: RoomBookingConfig[];
   disabled?: boolean;
-  // useCapacity = true -> use room_type.capacity instead of per-type max adults/children
   onSelectRoomType: (
     rooms: Room[],
     roomsConfig: RoomBookingConfig[],
@@ -28,8 +30,6 @@ export interface RoomTypeCardProps {
   ) => void;
   onRoomSelect: (room: Room) => void;
 }
-
-// Props for RoomCard component
 export interface RoomCardProps {
   room: Room;
   isSelected: boolean;

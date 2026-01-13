@@ -1,5 +1,14 @@
-﻿################################################################################
+﻿# Bỏ qua folder schemadb và sql
+schemadb/
+sql/
+################################################################################
 # This .gitignore file was automatically created by Microsoft(R) Visual Studio.
 ################################################################################
 
 /.vs
+/.hintrc
+GEMINI.md
+*.md
+*.sh
+*.DS_Store
+.DS_Store

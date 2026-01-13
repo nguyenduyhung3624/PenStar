@@ -1,5 +1,5 @@
 import React from "react";
-import { Table, Space, Tag, Button, Input, Select } from "antd";
+import { Table, Space, Tag, Button, Input, Select, Card } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -7,7 +7,6 @@ import { getBookings } from "@/services/bookingsApi";
 import { getStayStatuses } from "@/services/stayStatusApi";
 import type { BookingShort } from "@/types/bookings";
 import type { StayStatus } from "@/types/stayStatus";
-
 const BookingsList: React.FC = () => {
   const nav = useNavigate();
   const [search, setSearch] = React.useState("");
@@ -19,18 +18,15 @@ const BookingsList: React.FC = () => {
   );
   const [current, setCurrent] = React.useState(1);
   const [pageSize, setPageSize] = React.useState(5);
-
   const { data: bookings = [], isLoading } = useQuery<BookingShort[]>({
     queryKey: ["bookings"],
     queryFn: getBookings,
   });
-
   const { data: stayStatusesData } = useQuery<StayStatus[], Error>({
     queryKey: ["stay_statuses"],
     queryFn: getStayStatuses,
   });
   const stayStatuses: StayStatus[] = stayStatusesData ?? [];
-
   const columns: ColumnsType<BookingShort> = [
     {
       title: "STT",
@@ -38,9 +34,9 @@ const BookingsList: React.FC = () => {
       render: (_text, _record, index) => index + 1,
       width: 70,
     },
-    { title: "Customer", dataIndex: "customer_name", key: "customer_name" },
+    { title: "Khách hàng", dataIndex: "customer_name", key: "customer_name" },
     {
-      title: "Total",
+      title: "Tổng tiền",
       dataIndex: "total_price",
       key: "total_price",
       render: (v: number) =>
@@ -50,10 +46,17 @@ const BookingsList: React.FC = () => {
         }).format(Number(v) || 0),
     },
     {
-      title: "Payment",
+      title: "Thanh toán",
       dataIndex: "payment_status",
       key: "payment_status",
       render: (v: string, record: BookingShort) => {
+        if (record.is_refunded) {
+          return (
+            <Tag color="purple" style={{ fontSize: 13, fontWeight: 600 }}>
+              ĐÃ HOÀN TIỀN
+            </Tag>
+          );
+        }
         const vv = String(v || "").toLowerCase();
         const color =
           vv === "paid"
@@ -67,47 +70,36 @@ const BookingsList: React.FC = () => {
                   : vv === "cancelled"
                     ? "red"
                     : "default";
-        return (
-          <Space direction="vertical" size="small">
-            <Tag color={color}>{String(v || "").toUpperCase()}</Tag>
-            {record.is_refunded && (
-              <Tag color="purple" style={{ fontSize: 11 }}>
-                ✓ Hoàn tiền
-              </Tag>
-            )}
-          </Space>
-        );
+        return <Tag color={color}>{String(v || "").toUpperCase()}</Tag>;
       },
     },
     {
-      title: "Method",
+      title: "Hình thức",
       dataIndex: "booking_method",
       key: "booking_method",
       render: (method: string) => {
         const isOnline = method === "online";
         return (
-          <Tag color={isOnline ? "blue" : "green"} style={{ fontSize: 11 }}>
-            {isOnline ? "📱 Online" : "🏨 Trực tiếp"}
+          <Tag color={isOnline ? "yellow" : "green"} style={{ fontSize: 11 }}>
+            {isOnline ? " Online" : " Trực tiếp"}
           </Tag>
         );
       },
       width: 100,
     },
     {
-      title: "Status",
+      title: "Trạng thái",
       dataIndex: "stay_status_id",
       key: "stay_status_id",
       render: (val: number) => {
-        // Map theo database: 1=reserved, 2=checked_in, 3=checked_out, 4=canceled, 5=no_show, 6=pending
         const statusId = Number(val);
         let color = "default";
         let displayName = String(val);
-
         if (statusId === 6) {
           color = "gold";
           displayName = "Chờ xác nhận";
         } else if (statusId === 1) {
-          color = "blue";
+          color = "yellow";
           displayName = "Đã xác nhận";
         } else if (statusId === 2) {
           color = "green";
@@ -122,24 +114,21 @@ const BookingsList: React.FC = () => {
           color = "purple";
           displayName = "Không đến";
         }
-
         return <Tag color={color}>{displayName}</Tag>;
       },
     },
     {
-      title: "Action",
+      title: "Thao tác",
       key: "action",
       render: (_: unknown, record: BookingShort) => (
         <Space>
           <Button onClick={() => nav(`/admin/bookings/${record.id}`)}>
-            View
+            Xem chi tiết
           </Button>
         </Space>
       ),
     },
   ];
-
-  // apply client-side filters
   const filtered = bookings.filter((b) => {
     if (search) {
       const q = search.trim().toLowerCase();
@@ -157,106 +146,109 @@ const BookingsList: React.FC = () => {
       return false;
     return true;
   });
-
   const total = filtered.length;
-
   const pagedData = filtered.slice(
     (current - 1) * pageSize,
     current * pageSize
   );
-
   return (
-    <div className="p-4">
-      <div className="mb-4 flex items-center gap-3">
-        <h3 className="text-3xl font-bold">BOOKINGS</h3>
-        <Button
-          type="primary"
-          style={{ marginLeft: 16 }}
-          onClick={() => nav("/admin/bookings/create?method=offline")}
-        >
-          Tạo booking trực tiếp
-        </Button>
-        <div style={{ flex: 1 }}>
+    <div>
+      <div className="mb-4 flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Danh sách đặt phòng</h1>
+        <div className="flex items-center gap-3">
           <Input.Search
-            placeholder="Search by customer or id"
+            placeholder="Tìm kiếm theo khách hàng hoặc mã đặt phòng"
             allowClear
-            onSearch={(v) => {
-              setSearch(v);
-              setCurrent(1);
-            }}
+            style={{ width: 260 }}
             onChange={(e) => {
               setSearch(e.target.value);
               setCurrent(1);
             }}
             value={search}
-            style={{ width: 360 }}
           />
+          <Select
+            placeholder="Trạng thái thanh toán"
+            allowClear
+            style={{ width: 160 }}
+            value={paymentFilter}
+            onChange={(v) => {
+              setPaymentFilter(v);
+              setCurrent(1);
+            }}
+          >
+            <Select.Option value="pending">Chờ thanh toán</Select.Option>
+            <Select.Option value="paid">Đã thanh toán</Select.Option>
+            <Select.Option value="failed">Thất bại</Select.Option>
+          </Select>
+          <Select
+            placeholder="Trạng thái đặt phòng"
+            allowClear
+            style={{ width: 200 }}
+            value={statusFilter}
+            onChange={(v) => {
+              setStatusFilter(v);
+              setCurrent(1);
+            }}
+          >
+            {stayStatuses.map((s) => {
+              let name = s.name;
+              if (s.id === 1) name = "Đã xác nhận";
+              if (s.id === 2) name = "Đã Check-in";
+              if (s.id === 3) name = "Đã Checkout";
+              if (s.id === 4) name = "Đã hủy";
+              if (s.id === 5) name = "Không đến";
+              if (s.id === 6) name = "Chờ xác nhận";
+              return (
+                <Select.Option key={s.id} value={s.id}>
+                  {name}
+                </Select.Option>
+              );
+            })}
+          </Select>
+          <Button
+            type="primary"
+            icon={null}
+            onClick={() => nav("/admin/bookings/create?method=offline")}
+          >
+            Tạo đặt phòng trực tiếp
+          </Button>
+          <Button
+            onClick={() => {
+              setSearch("");
+              setPaymentFilter(undefined);
+              setStatusFilter(undefined);
+              setCurrent(1);
+              setPageSize(5);
+            }}
+          >
+            Đặt lại
+          </Button>
         </div>
-        <Select
-          placeholder="Payment"
-          allowClear
-          style={{ width: 160 }}
-          value={paymentFilter}
-          onChange={(v) => {
-            setPaymentFilter(v);
-            setCurrent(1);
-          }}
-        >
-          <Select.Option value="pending">pending</Select.Option>
-          <Select.Option value="paid">paid</Select.Option>
-          <Select.Option value="failed">failed</Select.Option>
-        </Select>
-        <Select
-          placeholder="Status"
-          allowClear
-          style={{ width: 200 }}
-          value={statusFilter}
-          onChange={(v) => {
-            setStatusFilter(v);
-            setCurrent(1);
-          }}
-        >
-          {stayStatuses.map((s) => (
-            <Select.Option key={s.id} value={s.id}>
-              {s.name}
-            </Select.Option>
-          ))}
-        </Select>
-        <Button
-          onClick={() => {
-            setSearch("");
-            setPaymentFilter(undefined);
-            setStatusFilter(undefined);
-            setCurrent(1);
-            setPageSize(5);
-          }}
-        >
-          Clear
-        </Button>
       </div>
-
-      <Table
-        columns={columns}
-        dataSource={pagedData}
-        rowKey="id"
-        loading={isLoading}
-        pagination={{
-          current,
-          pageSize,
-          total,
-          showSizeChanger: true,
-          pageSizeOptions: [5, 10, 20],
-          showTotal: (total, range) => `${range[0]}-${range[1]} of ${total}`,
-          showQuickJumper: true,
-          size: "default",
-          onChange: (page, size) => {
-            setCurrent(page);
-            setPageSize(size || 5);
-          },
-        }}
-      />
+      <Card>
+        <Table
+          columns={columns}
+          dataSource={pagedData}
+          rowKey="id"
+          loading={isLoading}
+          pagination={{
+            current,
+            pageSize,
+            total,
+            showSizeChanger: true,
+            pageSizeOptions: [5, 10, 20],
+            showTotal: (total, range) =>
+              `${range[0]}-${range[1]} trong tổng ${total}`,
+            showQuickJumper: true,
+            size: "default",
+            onChange: (page, size) => {
+              setCurrent(page);
+              setPageSize(size || 5);
+            },
+          }}
+        />
+      </Card>
     </div>
   );
 };
-
 export default BookingsList;

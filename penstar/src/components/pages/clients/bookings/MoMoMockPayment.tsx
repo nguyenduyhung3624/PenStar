@@ -1,20 +1,24 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, Button, Typography, Space, Divider } from "antd";
 import { LoadingOutlined } from "@ant-design/icons";
-
 const { Title, Text } = Typography;
-
 const MoMoMockPayment: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [processing, setProcessing] = useState(false);
   const [countdown, setCountdown] = useState(3);
-
+  const intervalRef = useRef<number | null>(null);
   const orderId = searchParams.get("orderId");
   const amount = searchParams.get("amount");
   const returnUrl = searchParams.get("returnUrl") || "/payment-result";
   const orderInfo = searchParams.get("orderInfo") || "Thanh toán đơn hàng";
-
+  useEffect(() => {
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, []);
   const formatPrice = (price: number | string) => {
     const num = typeof price === "string" ? parseFloat(price) : price;
     return new Intl.NumberFormat("vi-VN", {
@@ -22,16 +26,15 @@ const MoMoMockPayment: React.FC = () => {
       currency: "VND",
     }).format(num);
   };
-
   const handlePayment = () => {
     setProcessing(true);
-    
-    // Simulate payment processing với countdown
-    const interval = setInterval(() => {
+    intervalRef.current = window.setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
-          clearInterval(interval);
-          // Redirect về returnUrl với status=success
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+          }
           const url = new URL(returnUrl, window.location.origin);
           url.searchParams.set("status", "success");
           url.searchParams.set("orderId", orderId || "");
@@ -45,9 +48,7 @@ const MoMoMockPayment: React.FC = () => {
       });
     }, 1000);
   };
-
   const handleCancel = () => {
-    // Redirect về returnUrl với status=cancel
     const url = new URL(returnUrl, window.location.origin);
     url.searchParams.set("status", "cancel");
     url.searchParams.set("orderId", orderId || "");
@@ -55,7 +56,6 @@ const MoMoMockPayment: React.FC = () => {
     url.searchParams.set("paymentMethod", "momo");
     window.location.href = url.toString();
   };
-
   if (processing) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50 flex items-center justify-center p-4">
@@ -64,18 +64,15 @@ const MoMoMockPayment: React.FC = () => {
           <Title level={3} className="mt-6 mb-2" style={{ color: "#A50064" }}>
             Đang xử lý thanh toán...
           </Title>
-          <Text type="secondary">
-            Vui lòng đợi {countdown} giây
-          </Text>
+          <Text type="secondary">Vui lòng đợi {countdown} giây</Text>
         </Card>
       </div>
     );
   }
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-pink-50 to-purple-50 flex items-center justify-center p-4">
       <Card className="max-w-md w-full shadow-lg">
-        {/* MoMo Header */}
+        {}
         <div className="text-center mb-6">
           <div className="mb-4">
             <img
@@ -87,7 +84,9 @@ const MoMoMockPayment: React.FC = () => {
                 target.style.display = "none";
               }}
             />
-            {!document.querySelector('img[alt="MoMo"]')?.getAttribute("src") && (
+            {!document
+              .querySelector('img[alt="MoMo"]')
+              ?.getAttribute("src") && (
               <div className="text-3xl font-bold" style={{ color: "#A50064" }}>
                 MoMo
               </div>
@@ -100,10 +99,8 @@ const MoMoMockPayment: React.FC = () => {
             (Chế độ test - Mock Payment)
           </Text>
         </div>
-
         <Divider />
-
-        {/* Order Info */}
+        {}
         <div className="mb-6">
           <Text strong className="block mb-2">
             Thông tin đơn hàng:
@@ -128,16 +125,15 @@ const MoMoMockPayment: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {/* Warning */}
+        {}
         <div className="mb-6 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
           <Text type="warning" className="text-xs">
-            ⚠️ Đây là trang thanh toán giả lập (Mock) để test flow. 
-            Trong môi trường thực tế, bạn sẽ được chuyển đến trang thanh toán MoMo chính thức.
+            ⚠️ Đây là trang thanh toán giả lập (Mock) để test flow. Trong môi
+            trường thực tế, bạn sẽ được chuyển đến trang thanh toán MoMo chính
+            thức.
           </Text>
         </div>
-
-        {/* Action Buttons */}
+        {}
         <Space direction="vertical" className="w-full" size="middle">
           <Button
             type="primary"
@@ -156,7 +152,6 @@ const MoMoMockPayment: React.FC = () => {
             Hủy thanh toán
           </Button>
         </Space>
-
         <div className="mt-4 text-center">
           <Text type="secondary" className="text-xs">
             Bằng việc xác nhận, bạn đồng ý với{" "}
@@ -170,6 +165,4 @@ const MoMoMockPayment: React.FC = () => {
     </div>
   );
 };
-
 export default MoMoMockPayment;
-

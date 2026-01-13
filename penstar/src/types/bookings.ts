@@ -5,18 +5,48 @@ export type BookingItem = {
   check_out: string;
   room_price: number;
   room_type_price?: number;
-  num_adults?: number;
-  num_children?: number;
+  num_adults: number;
+  num_children: number;
+  num_babies?: number;
   special_requests?: string;
+  base_price?: number;
+  extra_fees?: number;
+  extra_adult_fees?: number;
+  extra_child_fees?: number;
+  extra_adults_count?: number;
+  extra_children_count?: number;
+  room_type_id?: number;
+  room_type_name?: string;
+  refund_amount?: number;
+  status?: string;
+  room_name?: string;
+  receipt_image?: string;
+  refund_status?: string;
+  refund_request_id?: number;
+  cancelled_at?: string;
+  room_type_image?: string;
 };
-
+export interface BookingRoom {
+  id: number;
+  name: string;
+  type_name: string;
+  price: number;
+  num_adults: number;
+  num_children: number;
+  num_babies?: number;
+  extra_fees?: number;
+  base_price?: number;
+  extra_adult_fees?: number;
+  extra_child_fees?: number;
+  extra_adults_count?: number;
+  extra_children_count?: number;
+}
 export type BookingService = {
   service_id: number;
   booking_item_id?: number;
   quantity: number;
   total_service_price: number;
 };
-
 export type Booking = {
   id?: number;
   customer_name: string;
@@ -24,7 +54,16 @@ export type Booking = {
   phone?: string;
   notes?: string;
   total_price: number;
+<<<<<<< HEAD
   damage_total?: number;
+=======
+  total_room_price?: number;
+  total_service_price?: number;
+  cancel_reason?: string;
+  canceled_by?: number;
+  canceled_at?: string;
+  canceled_by_name?: string;
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
   payment_status: string;
   payment_method?: string;
   booking_method: string;
@@ -32,17 +71,21 @@ export type Booking = {
   user_id?: number;
   is_refunded?: boolean;
   change_count?: number;
+  refund_amount?: number;
+  original_total?: number;
+  discount_amount?: number;
+  discount_code?: string;
+  discount_type?: string;
+  discount_value?: number;
+  promo_code?: string;
   items: BookingItem[];
+  payment_proof_image?: string;
+  amount_paid?: number;
   services?: BookingService[];
   damages?: BookingDamage[];
   created_at?: string;
   stay_status_name?: string;
-  promo_code?: string;
-  discount_amount?: number;
-  original_total?: number;
 };
-
-// For listing bookings
 export type BookingShort = {
   id: number;
   customer_name: string;
@@ -53,17 +96,22 @@ export type BookingShort = {
   created_at?: string;
   is_refunded?: boolean;
 };
-
-// For booking detail page
 export type BookingDetails = Booking & {
   check_in?: string;
   check_out?: string;
   total_room_price?: number;
   total_service_price?: number;
-  total_amount?: number;
+  cancel_reason?: string;
+  canceled_by?: number;
+  canceled_at?: string;
   status?: string;
   is_refunded?: boolean;
+  checked_in_by_email?: string;
+  checked_out_by_email?: string;
+  canceled_by_email?: string;
+  refund_amount?: number;
 };
+<<<<<<< HEAD
 
 export type BookingDamage = {
   id?: number;
@@ -75,22 +123,14 @@ export type BookingDamage = {
   amount?: number;
 };
 
+=======
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
 export type BookingUpdatePayload = {
   payment_status?: string;
   payment_method?: string;
   stay_status_id?: number;
   is_refunded?: boolean;
   notes?: string;
-};
-
-// For multi-room booking form
-export type RoomBookingData = {
-  room_id: number;
-  num_adults: number;
-  num_children: number;
-  children_ages?: number[];
-  special_requests?: string;
-  room_type_id: number;
-  price: number;
-  room_type_price?: number;
+  total_price?: number;
+  amount_paid?: number;
 };

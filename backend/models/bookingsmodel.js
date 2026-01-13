@@ -1,28 +1,166 @@
 import pool from "../db.js";
-
+import moment from "moment-timezone";
+import { DiscountCodesModel } from "./discount_codesmodel.js";
+export const getNow = () => new Date().toISOString();
+export const confirmCheckin = async (id, userId) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const itemsRes = await client.query(
+      `SELECT bi.room_id, bi.check_in
+       FROM booking_items bi
+       WHERE bi.booking_id = $1`,
+      [id]
+    );
+    if (itemsRes.rows.length === 0) {
+      throw new Error("Booking không có phòng nào.");
+    }
+    const checkBooking = await client.query(
+      "SELECT stay_status_id FROM bookings WHERE id = $1",
+      [id]
+    );
+    if (checkBooking.rows[0].stay_status_id !== 1) {
+      throw new Error("Chỉ có thể check-in booking ở trạng thái Đã đặt.");
+    }
+    const timeZone = "Asia/Ho_Chi_Minh";
+    const now = moment.tz(Date.now(), timeZone);
+    let hasReadyRoom = false;
+    for (const item of itemsRes.rows) {
+      const checkInDate = moment.tz(item.check_in, timeZone).startOf("day");
+      const checkInLimit = checkInDate
+        .clone()
+        .set({ hour: 14, minute: 0, second: 0, millisecond: 0 });
+      if (now.isSameOrAfter(checkInLimit)) {
+        await client.query(
+          "UPDATE rooms SET status = 'occupied' WHERE id = $1",
+          [item.room_id]
+        );
+        hasReadyRoom = true;
+      }
+    }
+    if (!hasReadyRoom) {
+      const earliestCheckIn = itemsRes.rows.reduce(
+        (min, curr) =>
+          new Date(curr.check_in) < new Date(min) ? curr.check_in : min,
+        itemsRes.rows[0].check_in
+      );
+      const limit = moment
+        .tz(earliestCheckIn, timeZone)
+        .startOf("day")
+        .set({ hour: 14, minute: 0 });
+      if (process.env.NODE_ENV === "development") {
+        console.log(
+          "⚠️ DEV MODE: Bypassing check-in time validation. Auto check-in enabled."
+        );
+        // Force set status occupied for all rooms
+        for (const item of itemsRes.rows) {
+          await client.query(
+            "UPDATE rooms SET status = 'occupied' WHERE id = $1",
+            [item.room_id]
+          );
+        }
+      } else {
+        throw new Error(
+          `Chưa đến giờ nhận phòng nào! Sớm nhất là sau 14:00 ngày ${limit.format(
+            "DD/MM/YYYY"
+          )}`
+        );
+      }
+    }
+    await client.query(
+      "UPDATE bookings SET stay_status_id = 2, checked_in_by = $1 WHERE id = $2",
+      [userId, id]
+    );
+    await client.query("COMMIT");
+    return (await client.query(`SELECT * FROM bookings WHERE id = $1`, [id]))
+      .rows[0];
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+};
+export const confirmCheckout = async (id, userId) => {
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const checkBooking = await client.query(
+      `SELECT b.stay_status_id, bi.check_out
+       FROM bookings b
+       JOIN booking_items bi ON bi.booking_id = b.id
+       WHERE b.id = $1
+       ORDER BY bi.check_out DESC
+       LIMIT 1`,
+      [id]
+    );
+    if (!checkBooking.rows[0]) throw new Error("Booking không tồn tại");
+    const { stay_status_id, check_out } = checkBooking.rows[0];
+    if (![2, 3].includes(stay_status_id)) {
+      throw new Error("Booking không ở trạng thái hợp lệ để checkout");
+    }
+    const timeZone = "Asia/Ho_Chi_Minh";
+    const now = moment.tz(Date.now(), timeZone);
+    console.log("[CheckOut Security] Allowing checkout at any time.");
+    const incidentsRes = await client.query(
+      "SELECT 1 FROM booking_incidents WHERE booking_id = $1 AND deleted_at IS NULL AND status = 'pending' LIMIT 1",
+      [id]
+    );
+    const hasIncidents = incidentsRes.rowCount > 0;
+    const items = await client.query(
+      "SELECT room_id FROM booking_items WHERE booking_id = $1",
+      [id]
+    );
+    for (const item of items.rows) {
+      const newStatus = hasIncidents ? "maintenance" : "cleaning";
+      await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
+        newStatus,
+        item.room_id,
+      ]);
+    }
+    await client.query(
+      "UPDATE bookings SET stay_status_id = 3, checked_out_by = $1 WHERE id = $2",
+      [userId, id]
+    );
+    await client.query("COMMIT");
+    return (await client.query(`SELECT * FROM bookings WHERE id = $1`, [id]))
+      .rows[0];
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+};
 export const getBookings = async () => {
   const resuit = await pool.query(
-    `SELECT b.*, ss.name as stay_status_name, u.email, u.phone 
+    `SELECT b.*, ss.name as stay_status_name, u.email, u.phone,
+            checked_in_user.email as checked_in_by_email, checked_out_user.email as checked_out_by_email
      FROM bookings b
      LEFT JOIN stay_status ss ON ss.id = b.stay_status_id
      LEFT JOIN users u ON u.id = b.user_id
+    LEFT JOIN users checked_in_user ON checked_in_user.id = b.checked_in_by
+    LEFT JOIN users checked_out_user ON checked_out_user.id = b.checked_out_by
      ORDER BY b.created_at DESC`
   );
   return resuit.rows;
 };
-
 export const getBookingById = async (id) => {
   const resuit = await pool.query(
-    `SELECT b.*, ss.name as stay_status_name, u.email, u.phone 
+    `SELECT b.*, ss.name as stay_status_name, u.email, u.phone,
+            checked_in_user.email as checked_in_by_email, checked_out_user.email as checked_out_by_email,
+            dc.type as discount_type, dc.value as discount_value
      FROM bookings b
      LEFT JOIN stay_status ss ON ss.id = b.stay_status_id
      LEFT JOIN users u ON u.id = b.user_id
+    LEFT JOIN users checked_in_user ON checked_in_user.id = b.checked_in_by
+    LEFT JOIN users checked_out_user ON checked_out_user.id = b.checked_out_by
+    LEFT JOIN discount_codes dc ON dc.code = b.discount_code
      WHERE b.id = $1`,
     [id]
   );
   return resuit.rows[0];
 };
-
 export const getBookingsByUser = async (userId) => {
   const resuit = await pool.query(
     `SELECT b.*, ss.name as stay_status_name FROM bookings b
@@ -32,6 +170,7 @@ export const getBookingsByUser = async (userId) => {
   );
   return resuit.rows;
 };
+<<<<<<< HEAD
 
 /**
  * Auto-assign available rooms based on room type, quantity, dates, and capacity
@@ -161,59 +300,12 @@ export const autoAssignRooms = async (
   }
 };
 
+=======
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
 export const createBooking = async (data) => {
-  // data: { customer_name, total_price, payment_status, booking_method, stay_status_id, user_id, items: [{room_id, check_in, check_out, room_type_price}], services: [{service_id, quantity, total_service_price}] }
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-
-    console.log(
-      "[DEBUG] createBooking received data.rooms_config:",
-      data.rooms_config
-    );
-    console.log("[DEBUG] createBooking received data.items:", data.items);
-
-    // === AUTO ASSIGN ROOMS ===
-    if (Array.isArray(data.rooms_config)) {
-      console.log(
-        "[DEBUG] rooms_config received:",
-        JSON.stringify(data.rooms_config, null, 2)
-      );
-      let bookingItems = [];
-      let assignedRoomIds = []; // Track phòng đã assign trong transaction này
-
-      for (const cfg of data.rooms_config) {
-        console.log("[DEBUG] Processing config:", cfg);
-        console.log("[DEBUG] cfg.services:", cfg.services);
-        const assignedRooms = await autoAssignRooms(
-          cfg.room_type_id,
-          cfg.quantity,
-          cfg.check_in,
-          cfg.check_out,
-          cfg.num_adults,
-          cfg.num_children,
-          assignedRoomIds // Truyền danh sách phòng đã assign
-        );
-        for (let i = 0; i < cfg.quantity; i++) {
-          const roomId = assignedRooms[i].id;
-          assignedRoomIds.push(roomId); // Thêm vào danh sách đã assign
-          bookingItems.push({
-            room_id: roomId,
-            room_type_id: cfg.room_type_id,
-            check_in: cfg.check_in,
-            check_out: cfg.check_out,
-            room_type_price: cfg.room_type_price,
-            num_adults: cfg.num_adults,
-            num_children: cfg.num_children,
-            services: cfg.services || [], // 🔧 Thêm services từ config
-          });
-        }
-      }
-      data.items = bookingItems;
-    }
-
-    console.log("Creating booking with data:", JSON.stringify(data, null, 2));
-
     const {
       customer_name,
       total_price,
@@ -223,8 +315,6 @@ export const createBooking = async (data) => {
       user_id,
       notes,
     } = data;
-
-    // Validate required fields
     if (
       !customer_name ||
       !total_price ||
@@ -238,15 +328,12 @@ export const createBooking = async (data) => {
       if (!payment_status) missing.push("Trạng thái thanh toán");
       if (!booking_method) missing.push("Phương thức đặt phòng");
       if (!stay_status_id) missing.push("Trạng thái booking");
-
       throw new Error(
         `Thiếu thông tin bắt buộc: ${missing.join(
           ", "
-        )}. Vui lòng kiểm tra lại form.`
+        )}. Vui lòng điền đầy đủ form.`
       );
     }
-
-    // Check room availability & validate guest numbers
     if (Array.isArray(data.items)) {
       for (const item of data.items) {
         const {
@@ -257,31 +344,28 @@ export const createBooking = async (data) => {
           num_children,
           room_type_price,
         } = item;
-        // Validate room_type_price
         if (room_type_price === undefined || room_type_price === null) {
           throw new Error("Thiếu trường room_type_price cho từng phòng!");
         }
-
-        // Check 1: Room must be available (not booked/occupied/unavailable/maintenance)
         const roomCheck = await client.query(
           `SELECT id, name, status, type_id FROM rooms WHERE id = $1`,
           [room_id]
         );
-
         if (roomCheck.rows.length === 0) {
           throw new Error(`Phòng ID ${room_id} không tồn tại.`);
         }
-
         const room = roomCheck.rows[0];
         if (room.status !== "available") {
           throw new Error(
-            `Phòng \"${room.name}\" hiện đang ở trạng thái \"${room.status}\" và không thể đặt. Vui lòng chọn phòng khác.`
+            `Phòng "${room.name}" hiện đang ở trạng thái "${room.status}" và không thể đặt. Vui lòng chọn phòng khác.`
           );
         }
-
-        // Check 2: Validate guest numbers against room type
         const typeRes = await client.query(
+<<<<<<< HEAD
           `SELECT max_adults, max_children, capacity, name, adult_surcharge, child_surcharge FROM room_types WHERE id = $1`,
+=======
+          `SELECT base_adults, base_children, name FROM room_types WHERE id = $1`,
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
           [room.type_id]
         );
         if (typeRes.rows.length === 0) {
@@ -289,22 +373,22 @@ export const createBooking = async (data) => {
         }
         const type = typeRes.rows[0];
         const totalGuests = num_adults + num_children;
-
-        // Kiểm tra 1: Tổng số khách (người lớn + trẻ em, không tính em bé) <= 4 (mặc định)
         const MAX_GUESTS_DEFAULT = 4;
         if (totalGuests > MAX_GUESTS_DEFAULT) {
           throw new Error(
             `Tổng số người (${totalGuests}) vượt quá giới hạn tối đa ${MAX_GUESTS_DEFAULT} người (không bao gồm em bé). Vui lòng chọn lại.`
           );
         }
-
-        // Kiểm tra 2: Tổng số khách <= capacity (nếu capacity < 4 thì dùng capacity)
-        const maxCapacity = Math.min(type.capacity || MAX_GUESTS_DEFAULT, MAX_GUESTS_DEFAULT);
+        const maxCapacity = Math.min(
+          type.capacity || MAX_GUESTS_DEFAULT,
+          MAX_GUESTS_DEFAULT
+        );
         if (totalGuests > maxCapacity) {
           throw new Error(
-            `Tổng số khách (${totalGuests}) vượt quá sức chứa (${maxCapacity}) cho loại phòng "${type.name}". Vui lòng chọn lại.`
+            `Tổng số người (${totalGuests}) vượt quá sức chứa (${maxCapacity}) cho loại phòng "${type.name}". Vui lòng chọn lại.`
           );
         }
+<<<<<<< HEAD
 
         // Kiểm tra 3: Số người lớn có thể vượt quá tối đa 1 người (max_adults + 1)
         const maxAllowedAdults = type.max_adults + 1;
@@ -340,56 +424,46 @@ export const createBooking = async (data) => {
         // Check 3: Room availability in booking time range
         // Logic: Conflict khi khoảng thời gian CHỒNG LẤN
         // Sử dụng ::date để so sánh chính xác ngày, tránh vấn đề timezone/time
+=======
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
         const availabilityCheck = await client.query(
           `SELECT bi.id, b.id as booking_id, b.customer_name, bi.check_in, bi.check_out
            FROM booking_items bi
            JOIN bookings b ON bi.booking_id = b.id
            WHERE bi.room_id = $1
-             AND b.stay_status_id IN (1, 2, 3)
+             AND b.stay_status_id IN (1, 2, 6)
              AND NOT (
-               bi.check_out::date <= $2::date 
+               bi.check_out::date <= $2::date
                OR bi.check_in::date >= $3::date
-             )`,
+             )
+           FOR UPDATE`,
           [room_id, check_in, check_out]
         );
-
         if (availabilityCheck.rows.length > 0) {
-          const conflict = availabilityCheck.rows[0];
+          const conflicting = availabilityCheck.rows[0];
           throw new Error(
-            `Phòng đã được đặt! Phòng này đã có booking từ ${conflict.check_in} đến ${conflict.check_out}. Vui lòng chọn phòng khác hoặc thời gian khác.`
+            `Phòng đã được đặt bởi "${conflicting.customer_name}" từ ${conflicting.check_in} đến ${conflicting.check_out}. Vui lòng chọn phòng khác.`
           );
         }
       }
     }
-
-    // Lưu thông tin mã giảm giá vào notes nếu có
-    let finalNotes = notes || null;
-    if (data.promo_code) {
-      const discountInfo = {
-        promo_code: data.promo_code,
-        discount_amount: data.discount_amount || null,
-        original_total: data.original_total || total_price,
-      };
-      finalNotes = finalNotes 
-        ? `${finalNotes}\n[Discount: ${JSON.stringify(discountInfo)}]`
-        : `[Discount: ${JSON.stringify(discountInfo)}]`;
-    }
-    
-    const insertBookingText = `INSERT INTO bookings (customer_name, total_price, payment_status, payment_method, booking_method, stay_status_id, user_id, notes, created_at, is_refunded)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), FALSE) RETURNING *`;
+    const insertBookingText = `INSERT INTO bookings (
+      customer_name, total_price, payment_status, booking_method, stay_status_id, user_id, notes, payment_method, discount_code, discount_amount, payment_proof_image, created_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW()) RETURNING *`;
     const bookingRes = await client.query(insertBookingText, [
       customer_name,
-      total_price, // Đã được áp dụng mã giảm giá nếu có
+      total_price,
       payment_status,
-      data.payment_method || null, // Phương thức thanh toán (optional)
       booking_method,
       stay_status_id,
       user_id,
-      finalNotes, // Ghi chú từ khách hàng + thông tin mã giảm giá
+      notes || null,
+      data.payment_method || null,
+      data.discount_code || null,
+      data.discount_amount || 0,
+      data.payment_proof_image || null,
     ]);
     const booking = bookingRes.rows[0];
-
-    // fetch joined stay_status name
     const joined = await client.query(
       `SELECT b.*, ss.name as stay_status_name FROM bookings b
        LEFT JOIN stay_status ss ON ss.id = b.stay_status_id
@@ -397,14 +471,15 @@ export const createBooking = async (data) => {
       [booking.id]
     );
     const bookingWithStatus = joined.rows[0];
-
-    // insert booking_items if provided
     if (Array.isArray(data.items)) {
+<<<<<<< HEAD
       console.log("[DEBUG] data.items:", JSON.stringify(data.items, null, 2));
       const insertItemText = `INSERT INTO booking_items (booking_id, room_id, room_type_id, check_in, check_out, room_type_price, num_adults, num_children, adult_surcharge_total, child_surcharge_total) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`;
+=======
+      const insertItemText = `INSERT INTO booking_items (booking_id, room_id, room_type_id, check_in, check_out, room_type_price, num_adults, num_children, extra_adult_fees, extra_child_fees, extra_fees, quantity) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`;
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
       for (const item of data.items) {
-        console.log("[DEBUG] Processing item:", item);
-        const {
+        let {
           room_id,
           room_type_id,
           check_in,
@@ -412,6 +487,7 @@ export const createBooking = async (data) => {
           room_type_price,
           num_adults,
           num_children,
+<<<<<<< HEAD
           services,
           adult_surcharge_total = 0,
           child_surcharge_total = 0,
@@ -420,6 +496,17 @@ export const createBooking = async (data) => {
         console.log("[DEBUG] Surcharges - Adult:", adult_surcharge_total, "Child:", child_surcharge_total);
         // Không validate hay insert room_price nữa
         const itemResult = await client.query(insertItemText, [
+=======
+          extra_adult_fees = 0,
+          extra_child_fees = 0,
+          extra_fees = 0,
+          quantity = 1,
+        } = item;
+        if (!num_children || num_children === 0) {
+          extra_child_fees = 0;
+        }
+        await client.query(insertItemText, [
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
           booking.id,
           room_id,
           room_type_id,
@@ -428,39 +515,16 @@ export const createBooking = async (data) => {
           room_type_price,
           num_adults || 1,
           num_children || 0,
+<<<<<<< HEAD
           adult_surcharge_total,
           child_surcharge_total,
+=======
+          extra_adult_fees,
+          extra_child_fees,
+          extra_fees,
+          quantity,
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
         ]);
-
-        const booking_item_id = itemResult.rows[0].id;
-
-        // Insert services cho phòng này (nếu có)
-        console.log(
-          `[DEBUG] Processing services for booking_item_id ${booking_item_id}:`,
-          services
-        );
-        if (Array.isArray(services) && services.length > 0) {
-          console.log(
-            `[DEBUG] Inserting ${services.length} services for room ${booking_item_id}`
-          );
-          const insertServiceText = `INSERT INTO booking_services (booking_id, booking_item_id, service_id, quantity, total_service_price) VALUES ($1, $2, $3, $4, $5) RETURNING *`;
-          for (const service of services) {
-            const { service_id, quantity, total_service_price } = service;
-            const serviceResult = await client.query(insertServiceText, [
-              booking.id,
-              booking_item_id,
-              service_id,
-              quantity,
-              total_service_price,
-            ]);
-            console.log(`[DEBUG] Inserted service:`, serviceResult.rows[0]);
-          }
-        } else {
-          console.log(
-            `[DEBUG] No services to insert for booking_item_id ${booking_item_id}`
-          );
-        }
-
         await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
           "pending",
           room_id,
@@ -489,9 +553,6 @@ export const createBooking = async (data) => {
         console.log(`[DEBUG] Added surcharge ${totalSurcharge} to booking ${booking.id}`);
       }
     }
-
-    // Insert booking_services chung (backward compatibility - nếu có)
-    // Ưu tiên dùng services trong từng item thay vì services chung
     if (Array.isArray(data.services) && data.services.length > 0) {
       const insertServiceText = `INSERT INTO booking_services (booking_id, service_id, quantity, total_service_price) VALUES ($1, $2, $3, $4) RETURNING *`;
       for (const service of data.services) {
@@ -504,7 +565,22 @@ export const createBooking = async (data) => {
         ]);
       }
     }
-
+    // Record voucher usage if voucher code exists
+    if (data.discount_code && data.discount_code.trim()) {
+      const codeRes = await client.query(
+        "SELECT id FROM discount_codes WHERE code = $1",
+        [data.discount_code]
+      );
+      if (codeRes.rows[0]) {
+        await client.query(
+          `INSERT INTO discount_code_usages (discount_code_id, user_id, booking_id, usage_count, used_at)
+           VALUES ($1, $2, $3, 1, NOW())
+           ON CONFLICT (discount_code_id, user_id)
+           DO UPDATE SET usage_count = discount_code_usages.usage_count + 1, used_at = NOW()`,
+          [codeRes.rows[0].id, user_id, booking.id]
+        );
+      }
+    }
     await client.query("COMMIT");
     return bookingWithStatus;
   } catch (err) {
@@ -514,26 +590,33 @@ export const createBooking = async (data) => {
     client.release();
   }
 };
-
-export const updateBookingStatus = async (id, fields) => {
-  // fields: { payment_status?, stay_status_id?, is_refunded? }
+export const setBookingStatus = async (id, fields) => {
   const client = await pool.connect();
+  console.log("[setBookingStatus] Called with:", { id, fields });
   try {
     await client.query("BEGIN");
-
-    // Check if booking is cancelled before allowing payment_status update
     if (fields.payment_status && fields.payment_status !== "refunded") {
       const checkResult = await client.query(
-        "SELECT stay_status_id FROM bookings WHERE id = $1",
+        "SELECT stay_status_id, total_price FROM bookings WHERE id = $1",
         [id]
       );
       if (checkResult.rows[0]?.stay_status_id === 4) {
+        console.warn(
+          "[setBookingStatus] Attempt to update payment_status for cancelled booking:",
+          id
+        );
         throw new Error(
           "Không thể cập nhật trạng thái thanh toán khi booking đã hủy. Chỉ có thể chọn 'Refunded' để hoàn tiền."
         );
       }
+      // Auto-set amount_paid if marking as paid and amount_paid not provided
+      if (
+        fields.payment_status === "paid" &&
+        fields.amount_paid === undefined
+      ) {
+        fields.amount_paid = checkResult.rows[0]?.total_price || 0;
+      }
     }
-
     const keys = [];
     const vals = [];
     let idx = 1;
@@ -541,32 +624,27 @@ export const updateBookingStatus = async (id, fields) => {
       keys.push(`${k} = $${idx++}`);
       vals.push(fields[k]);
     }
-    if (!keys.length) return null;
+    if (!keys.length) {
+      return null;
+    }
     const q = `UPDATE bookings SET ${keys.join(
       ", "
     )} WHERE id = $${idx} RETURNING *`;
     vals.push(id);
     const res = await client.query(q, vals);
     const updated = res.rows[0];
-
-    // Auto update room status based on booking status
     if (fields.stay_status_id) {
       const items = await client.query(
         "SELECT room_id FROM booking_items WHERE booking_id = $1",
         [id]
       );
-
       let roomStatus = null;
       const statusId = Number(fields.stay_status_id);
-
-      // Database mapping: 1=reserved, 2=checked_in, 3=checked_out, 4=canceled, 5=no_show, 6=pending
-      if (statusId === 6) roomStatus = "pending"; // pending -> chờ duyệt
-      else if (statusId === 1) roomStatus = "booked"; // reserved -> đã đặt
-      else if (statusId === 2) roomStatus = "occupied"; // checked_in -> đang ở
-      else if (statusId === 3)
-        roomStatus = "checkout"; // checked_out -> chờ admin xác nhận
-      else if (statusId === 4 || statusId === 5) roomStatus = "available"; // canceled/no_show -> trống
-
+      if (statusId === 6) roomStatus = "pending";
+      else if (statusId === 1) roomStatus = "booked";
+      else if (statusId === 2) roomStatus = "occupied";
+      else if (statusId === 3) roomStatus = "checkout";
+      else if (statusId === 4 || statusId === 5) roomStatus = "available";
       if (roomStatus) {
         for (const item of items.rows) {
           await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
@@ -576,10 +654,7 @@ export const updateBookingStatus = async (id, fields) => {
         }
       }
     }
-
     await client.query("COMMIT");
-
-    // return joined row with stay_status_name
     const joined = await client.query(
       `SELECT b.*, ss.name as stay_status_name FROM bookings b
        LEFT JOIN stay_status ss ON ss.id = b.stay_status_id
@@ -594,331 +669,156 @@ export const updateBookingStatus = async (id, fields) => {
     client.release();
   }
 };
-
-export const confirmCheckout = async (id) => {
-  // Admin confirms checkout -> room status changes to "cleaning", booking stays at checked_out (3)
+export const cancelBooking = async (
+  id,
+  userId,
+  isAdmin = false,
+  cancelReason = ""
+) => {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-
-    // Check if booking is at checked_out status
-    const checkBooking = await client.query(
-      "SELECT stay_status_id FROM bookings WHERE id = $1",
-      [id]
-    );
-    if (
-      !checkBooking.rows[0] ||
-      ![2, 3].includes(checkBooking.rows[0].stay_status_id)
-    ) {
-      throw new Error("Booking không ở trạng thái đang thuê hoặc checked_out");
-    }
-
-    // Get rooms from this booking
-    const items = await client.query(
-      "SELECT room_id FROM booking_items WHERE booking_id = $1",
-      [id]
-    );
-
-    // Update all rooms to "cleaning" status
-
-    for (const item of items.rows) {
-      await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
-        "cleaning",
-        item.room_id,
-      ]);
-    }
-
-    // Update booking stay_status_id to checked_out (3)
-    await client.query(
-      "UPDATE bookings SET stay_status_id = $1 WHERE id = $2",
-      [3, id]
-    );
-
-    await client.query("COMMIT");
-
-    // Return updated booking
-    const booking = await client.query(
-      `SELECT b.*, ss.name as stay_status_name FROM bookings b
-       LEFT JOIN stay_status ss ON ss.id = b.stay_status_id
-       WHERE b.id = $1`,
-      [id]
-    );
-    return booking.rows[0];
-  } catch (err) {
-    await client.query("ROLLBACK");
-    throw err;
-  } finally {
-    client.release();
-  }
-};
-
-export const cancelBooking = async (id, userId, isAdmin = false) => {
-  // Cancel booking with business logic: check permissions, calculate refund
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-
-    // Get booking details
     const bookingRes = await client.query(
-      `SELECT b.*, bi.check_in 
+      `SELECT b.*, bi.check_in
        FROM bookings b
        LEFT JOIN booking_items bi ON bi.booking_id = b.id
        WHERE b.id = $1
        LIMIT 1`,
       [id]
     );
-
     if (bookingRes.rows.length === 0) {
       throw new Error("Booking không tồn tại");
     }
-
     const booking = bookingRes.rows[0];
     const currentStatus = booking.stay_status_id;
-    const paymentStatus = booking.payment_status;
     const checkInDate = new Date(booking.check_in);
+    checkInDate.setUTCHours(7, 0, 0, 0);
     const now = new Date();
     const hoursUntilCheckIn = (checkInDate - now) / (1000 * 60 * 60);
-
-    // Permission check based on role and status
     if (!isAdmin) {
-      // User cancellation rules
-      if (currentStatus === 1) {
-        // reserved (1) - can cancel but check time
-        if (hoursUntilCheckIn < 24) {
-          throw new Error(
-            "Không thể hủy booking trong vòng 24h trước check-in. Vui lòng liên hệ admin."
-          );
-        }
-      } else if (currentStatus === 0) {
-        // pending (0) - can cancel freely
-        // Allow cancellation
+      if (currentStatus === 6) {
+      } else if (currentStatus === 1) {
+        throw new Error(
+          "Không thể hủy booking đã được xác nhận. Vui lòng liên hệ admin."
+        );
       } else if (currentStatus === 2) {
-        // checked_in (2) - cannot cancel, only checkout
         throw new Error(
           "Không thể hủy khi đã check-in. Vui lòng liên hệ admin."
         );
       } else if ([3, 4].includes(currentStatus)) {
-        // checked_out/cancelled - already finished
         throw new Error("Booking đã hoàn tất hoặc đã bị hủy trước đó");
       } else {
         throw new Error("Không thể hủy booking ở trạng thái này");
       }
-
-      // User can only cancel their own bookings
       if (booking.user_id !== userId) {
         throw new Error("Bạn không có quyền hủy booking này");
       }
     } else {
-      // Admin/Staff/Manager cancellation rules - more permissive
-      if (currentStatus === 0) {
-        // pending (0) - staff can cancel
-        // Allow
-      } else if (currentStatus === 1) {
-        // reserved (1) - staff can cancel
-        // Allow
+      if (currentStatus === 6 || currentStatus === 1) {
       } else if (currentStatus === 2) {
-        // checked_in (2) - staff CAN cancel (force cancel)
-        // Allow (staff has more power)
+        throw new Error("Không thể hủy booking đã check-in");
       } else if ([3, 4].includes(currentStatus)) {
-        // checked_out/cancelled
         throw new Error("Booking đã hoàn tất hoặc đã bị hủy trước đó");
+      } else {
+        throw new Error("Không thể hủy booking ở trạng thái này");
       }
     }
-
-    // NEW LOGIC: When cancel, set payment_status to "failed"
-    // Admin can later change to "refunded" if needed
-    await client.query(
-      `UPDATE bookings 
-       SET stay_status_id = 4,
-           payment_status = 'failed'
-       WHERE id = $1`,
-      [id]
-    );
-
-    // Update room status to available
     const items = await client.query(
-      "SELECT room_id FROM booking_items WHERE booking_id = $1",
+      "SELECT room_id, room_type_id, room_type_price FROM booking_items WHERE booking_id = $1",
       [id]
     );
-
+    let totalRefund = 0;
+    for (const item of items.rows) {
+      const refundRes = await client.query(
+        `SELECT refundable, refund_percent, refund_deadline_hours, non_refundable
+         FROM refund_policies WHERE room_type_id = $1`,
+        [item.room_type_id]
+      );
+      const refundPolicy = refundRes.rows[0] || {};
+      let refundPercent = 0;
+      let refundable = false;
+      let deadline = 24;
+      let nonRefundable = false;
+      if (refundPolicy && Object.keys(refundPolicy).length > 0) {
+        refundable = refundPolicy.refundable ?? false;
+        refundPercent = 80; // Enforce 80% refund policy
+        deadline = refundPolicy.refund_deadline_hours ?? 24;
+        nonRefundable = refundPolicy.non_refundable ?? false;
+      }
+      if (currentStatus === 5) {
+        refundPercent = 0;
+      } else if (nonRefundable) {
+        refundPercent = 0;
+      } else if (refundable && hoursUntilCheckIn >= deadline) {
+        refundPercent = refundPercent;
+      } else {
+        refundPercent = 0;
+      }
+      const itemRefund = Math.round(
+        (item.room_type_price || 0) * (refundPercent / 100)
+      );
+      totalRefund += itemRefund;
+      await client.query(
+        `UPDATE booking_items
+         SET refund_amount = $1,
+             status = 'cancelled',
+             cancelled_at = NOW(),
+             cancel_reason = $4
+         WHERE booking_id = $2 AND room_id = $3`,
+        [itemRefund, id, item.room_id, cancelReason]
+      );
+    }
+    await client.query(
+      `UPDATE bookings
+         SET stay_status_id = 4,
+             cancel_reason = $2,
+             canceled_by = $3,
+             canceled_at = NOW(),
+             refund_amount = $4,
+             is_refunded = CASE WHEN $4 > 0 THEN false ELSE NULL END
+         WHERE id = $1`,
+      [id, cancelReason, userId, totalRefund]
+    );
     for (const item of items.rows) {
       await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
         "available",
         item.room_id,
       ]);
     }
-
+    // Remove usage if voucher was used
+    if (booking.discount_code) {
+      const codeRes = await client.query(
+        "SELECT id FROM discount_codes WHERE code = $1",
+        [booking.discount_code]
+      );
+      if (codeRes.rows[0]) {
+        await client.query(
+          `UPDATE discount_code_usages
+           SET usage_count = usage_count - 1
+           WHERE discount_code_id = $1 AND user_id = $2 AND usage_count > 0`,
+          [codeRes.rows[0].id, userId] // Use booking user_id, which is passed as userId arg (verified in controller)
+        );
+      }
+    }
     await client.query("COMMIT");
-
-    // Return updated booking
     const result = await client.query(
-      `SELECT b.*, ss.name as stay_status_name 
+      `SELECT b.*, ss.name as stay_status_name
        FROM bookings b
        LEFT JOIN stay_status ss ON ss.id = b.stay_status_id
        WHERE b.id = $1`,
       [id]
     );
-
     return {
       booking: result.rows[0],
+      refund_amount: totalRefund,
       message:
-        "Booking đã được hủy (payment_status = Failed). Admin có thể cập nhật thành Refunded nếu cần hoàn tiền.",
+        totalRefund > 0
+          ? `Đã hủy booking. Số tiền hoàn lại: ${totalRefund} VND.`
+          : `Đã hủy booking. Không đủ điều kiện hoàn tiền theo chính sách.`,
     };
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
-  } finally {
-    client.release();
-  }
-};
-
-export const changeRoomInBooking = async (data) => {
-  const { booking_id, booking_item_id, new_room_id, changed_by, reason } = data;
-
-  const client = await pool.connect();
-  try {
-    await client.query("BEGIN");
-
-    // 1. Get booking info
-    const bookingRes = await client.query(
-      "SELECT * FROM bookings WHERE id = $1",
-      [booking_id]
-    );
-    if (!bookingRes.rows[0]) {
-      throw new Error("Booking not found");
-    }
-    const booking = bookingRes.rows[0];
-
-    // 2. Check change_count limit
-    if (booking.change_count >= 1) {
-      throw new Error("Bạn chỉ được đổi phòng 1 lần duy nhất");
-    }
-
-    // 3. Check booking status (only allow for reserved/pending)
-    if (![1, 6].includes(booking.stay_status_id)) {
-      throw new Error(
-        "Chỉ có thể đổi phòng khi booking ở trạng thái Đã xác nhận hoặc Chờ xác nhận"
-      );
-    }
-
-    // 4. Get booking_item info
-    const itemRes = await client.query(
-      "SELECT * FROM booking_items WHERE id = $1 AND booking_id = $2",
-      [booking_item_id, booking_id]
-    );
-    if (!itemRes.rows[0]) {
-      throw new Error("Booking item not found");
-    }
-    const bookingItem = itemRes.rows[0];
-    const old_room_id = bookingItem.room_id;
-
-    // 5. Get new room info
-    const newRoomRes = await client.query("SELECT * FROM rooms WHERE id = $1", [
-      new_room_id,
-    ]);
-    if (!newRoomRes.rows[0]) {
-      throw new Error("New room not found");
-    }
-    const newRoom = newRoomRes.rows[0];
-
-    // 6. Check if new room is available (status)
-    if (newRoom.status !== "available") {
-      throw new Error(
-        "Phòng mới không khả dụng (đang được sử dụng hoặc bảo trì)"
-      );
-    }
-
-    // 7. Check if new room conflicts with other bookings in the date range
-    const conflictCheck = await client.query(
-      `SELECT bi.id, b.customer_name, bi.check_in, bi.check_out
-       FROM booking_items bi
-       JOIN bookings b ON bi.booking_id = b.id
-       WHERE bi.room_id = $1
-         AND b.stay_status_id IN (1, 2, 3)
-         AND bi.id != $2
-         AND NOT (
-           bi.check_out::date <= $3::date 
-           OR bi.check_in::date >= $4::date
-         )`,
-      [
-        new_room_id,
-        booking_item_id,
-        bookingItem.check_in,
-        bookingItem.check_out,
-      ]
-    );
-
-    if (conflictCheck.rows.length > 0) {
-      const conflict = conflictCheck.rows[0];
-      throw new Error(
-        `Phòng mới đã được đặt trong khoảng thời gian ${conflict.check_in} - ${conflict.check_out}. Vui lòng chọn phòng khác.`
-      );
-    }
-
-    // 8. Calculate price difference
-    const checkIn = new Date(bookingItem.check_in);
-    const checkOut = new Date(bookingItem.check_out);
-    const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
-    const new_price = newRoom.price * nights;
-    const price_difference = new_price - bookingItem.room_type_price;
-
-    // 8. Update booking_item
-    await client.query(
-      "UPDATE booking_items SET room_id = $1, room_type_price = $2 WHERE id = $3",
-      [new_room_id, new_price, booking_item_id]
-    );
-
-    // 9. Update total price in booking
-    await client.query(
-      "UPDATE bookings SET total_price = total_price + $1 WHERE id = $2",
-      [price_difference, booking_id]
-    );
-
-    // 10. Insert change log
-    const logRes = await client.query(
-      `INSERT INTO booking_change_logs 
-       (booking_id, booking_item_id, changed_by, old_room_id, new_room_id, price_difference, reason) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [
-        booking_id,
-        booking_item_id,
-        changed_by,
-        old_room_id,
-        new_room_id,
-        price_difference,
-        reason,
-      ]
-    );
-
-    // 11. Increment change_count
-    await client.query(
-      "UPDATE bookings SET change_count = change_count + 1 WHERE id = $1",
-      [booking_id]
-    );
-
-    // 12. Update room status
-    await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
-      "available",
-      old_room_id,
-    ]);
-    await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
-      "pending",
-      new_room_id,
-    ]);
-
-    await client.query("COMMIT");
-
-    return {
-      success: true,
-      old_room_id,
-      new_room_id,
-      price_difference,
-      new_total_price: booking.total_price + price_difference,
-      log: logRes.rows[0],
-    };
-  } catch (error) {
-    await client.query("ROLLBACK");
-    throw error;
   } finally {
     client.release();
   }

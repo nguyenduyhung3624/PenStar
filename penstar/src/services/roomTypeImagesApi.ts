@@ -12,7 +12,7 @@ export interface RoomTypeImage {
 export const getImagesByRoomType = async (
   roomTypeId: number
 ): Promise<RoomTypeImage[]> => {
-  const response = await api.get(`/roomtype-images/roomtype/${roomTypeId}`);
+  const response = await api.get(`/room-type-images/roomtype/${roomTypeId}`);
   return response.data.data;
 };
 
@@ -26,7 +26,7 @@ export const uploadRoomTypeImage = async (
   formData.append("is_thumbnail", isThumbnail.toString());
 
   const response = await api.post(
-    `/roomtype-images/roomtype/${roomTypeId}/upload`,
+    `/room-type-images/roomtype/${roomTypeId}/upload`,
     formData,
     {
       headers: {
@@ -38,5 +38,5 @@ export const uploadRoomTypeImage = async (
 };
 
 export const deleteRoomTypeImage = async (imageId: number): Promise<void> => {
-  await api.delete(`/roomtype-images/${imageId}`);
+  await api.delete(`/room-type-images/${imageId}`);
 };

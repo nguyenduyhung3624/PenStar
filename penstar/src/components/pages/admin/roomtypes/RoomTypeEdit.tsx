@@ -6,28 +6,41 @@ import {
   InputNumber,
   message,
   Select,
-  Upload,
   Row,
   Col,
   Spin,
 } from "antd";
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import QuillEditor from "@/components/common/QuillEditor";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+<<<<<<< HEAD
 import { getRoomTypeById, updateRoomType } from "@/services/roomTypeApi";
 import { getDevices } from "@/services/devicesApi";
 import { useNavigate, useParams } from "react-router-dom";
 import { PlusOutlined } from "@ant-design/icons";
 import type { RcFile } from "antd/lib/upload";
+=======
+import {
+  getRoomTypeById,
+  updateRoomType,
+  getRoomTypeEquipments,
+} from "@/services/roomTypeApi";
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
 import {
   uploadRoomTypeImage,
   getImagesByRoomType,
   deleteRoomTypeImage,
 } from "@/services/roomTypeImagesApi";
+// Removed getMasterEquipments import
+import { updateDeviceStandards } from "@/services/roomTypeEquipmentsAdminApi";
+import type { RcFile } from "antd/lib/upload";
 import type { RoomTypeImage } from "@/types/roomTypeImage";
-
-type FileWithMeta = RcFile & { lastModified?: number };
+import RoomTypeEquipmentSelector, {
+  type EquipmentSelection,
+} from "./components/RoomTypeEquipmentSelector";
+import RoomTypeImageUploader from "./components/RoomTypeImageUploader";
+import { FIXED_AMENITIES } from "@/utils/amenities";
 
 const RoomTypeEdit = () => {
   const [form] = Form.useForm();
@@ -35,13 +48,18 @@ const RoomTypeEdit = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // File upload states
+  // Image State
   const [fileList, setFileList] = useState<RcFile[]>([]);
   const [thumbFile, setThumbFile] = useState<RcFile | null>(null);
   const [existingThumbUrl, setExistingThumbUrl] = useState<string | null>(null);
-  const [previews, setPreviews] = useState<Record<string, string>>({});
   const [existingExtras, setExistingExtras] = useState<RoomTypeImage[]>([]);
 
+  // Equipment State
+  const [selectedEquipments, setSelectedEquipments] = useState<
+    EquipmentSelection[]
+  >([]);
+
+  // Queries
   const { data, isLoading } = useQuery({
     queryKey: ["roomtype", id],
     queryFn: () => getRoomTypeById(id as string),
@@ -54,6 +72,7 @@ const RoomTypeEdit = () => {
     enabled: !!id,
   });
 
+<<<<<<< HEAD
   // Load danh sách thiết bị
   const { data: devices = [] } = useQuery({
     queryKey: ["devices"],
@@ -74,26 +93,80 @@ const RoomTypeEdit = () => {
       Object.values(previews).forEach((u) => URL.revokeObjectURL(u));
     };
   }, [previews]);
+=======
+  // Removed master equipments query
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
 
-  // Load existing images
+  const { data: existingStandards = [] } = useQuery({
+    queryKey: ["roomtype_standards", id],
+    queryFn: () => getRoomTypeEquipments(Number(id)),
+    enabled: !!id,
+  });
+
+  // Effects
   useEffect(() => {
-    if (!existingImages || existingImages.length === 0) return;
+    if (!existingImages || existingImages.length === 0) {
+      if (existingThumbUrl || existingExtras.length > 0) {
+        setExistingThumbUrl(null);
+        setExistingExtras([]);
+      }
+      return;
+    }
+
     const thumb = existingImages.find((img) => img.is_thumbnail);
     const extras = existingImages.filter((img) => !img.is_thumbnail);
-    if (thumb) setExistingThumbUrl(thumb.image_url);
-    setExistingExtras(extras);
+
+    if (thumb && thumb.image_url !== existingThumbUrl) {
+      setExistingThumbUrl(thumb.image_url);
+    }
+
+    // Deep compare check to avoid loop
+    const isSame =
+      extras.length === existingExtras.length &&
+      extras.every((e, i) => e.id === existingExtras[i]?.id);
+
+    if (!isSame) {
+      setExistingExtras(extras);
+    }
   }, [existingImages]);
+
+  useEffect(() => {
+    if (existingStandards.length > 0 && selectedEquipments.length === 0) {
+      const selections: EquipmentSelection[] = existingStandards.map(
+        (std: any) => ({
+          id: std.id,
+          name: std.name, // Was equipment_name, now name in API response (see model)
+          quantity: std.quantity,
+          price: std.price || 0,
+        })
+      );
+      setSelectedEquipments(selections);
+    }
+  }, [existingStandards]);
 
   useEffect(() => {
     if (!data) return;
     form.setFieldsValue({
       name: data.name,
       description: data.description,
+<<<<<<< HEAD
       devices_id: data.devices_id || (data.devices?.map((d) => d.id) || []),
+=======
+      free_amenities: [
+        ...(data.free_amenities || []),
+        ...(data.paid_amenities || []),
+      ],
+      paid_amenities: [],
+
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
       capacity: data.capacity,
-      max_adults: data.max_adults,
-      max_children: data.max_children,
+      base_adults: data.base_adults,
+      base_children: data.base_children,
+      extra_adult_fee: data.extra_adult_fee,
+      extra_child_fee: data.extra_child_fee,
+      child_age_limit: data.child_age_limit,
       price: data.price,
+<<<<<<< HEAD
       adult_surcharge: data.adult_surcharge,
       child_surcharge: data.child_surcharge,
     });
@@ -109,25 +182,56 @@ const RoomTypeEdit = () => {
     price?: number;
     // removed base_occupancy
   }) => {
+=======
+      bed_type: data.bed_type,
+      view_direction: data.view_direction,
+      room_size: data.room_size,
+      policies: data.policies || {},
+    });
+  }, [data, form]);
+
+  const handleFinish = async (values: any) => {
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
     try {
-      // 1. Update room type basic info
+      // 1. Update Room Type Info
       await updateRoomType(id as string, {
         name: values.name,
         description: values.description,
+<<<<<<< HEAD
         devices_id: values.devices_id || [],
+=======
+        free_amenities: values.free_amenities || [],
+        paid_amenities: [], // Legacy compat
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
         capacity: values.capacity ? Number(values.capacity) : undefined,
-        max_adults: values.max_adults ? Number(values.max_adults) : undefined,
-        max_children: values.max_children
-          ? Number(values.max_children)
+        base_adults: values.base_adults
+          ? Number(values.base_adults)
           : undefined,
+        base_children: values.base_children
+          ? Number(values.base_children)
+          : undefined,
+        extra_adult_fee: values.extra_adult_fee
+          ? Number(values.extra_adult_fee)
+          : undefined,
+        extra_child_fee: values.extra_child_fee
+          ? Number(values.extra_child_fee)
+          : undefined,
+        // child_age_limit removed from UI
         price: values.price ? Number(values.price) : undefined,
+<<<<<<< HEAD
         adult_surcharge: values.adult_surcharge ? Number(values.adult_surcharge) : undefined,
         child_surcharge: values.child_surcharge ? Number(values.child_surcharge) : undefined,
+=======
+        bed_type: values.bed_type,
+        view_direction: values.view_direction,
+        room_size: values.room_size ? Number(values.room_size) : undefined,
+        policies: values.policies || {},
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
       });
 
-      // 2. Handle thumbnail
+      // 2. Handle Thumbnail
       if (thumbFile) {
-        // Delete old thumbnail if exists
+        // Find old thumbnail to delete
         const oldThumb = existingImages.find((img) => img.is_thumbnail);
         if (oldThumb) {
           try {
@@ -141,10 +245,11 @@ const RoomTypeEdit = () => {
           await uploadRoomTypeImage(Number(id), thumbFile, true);
         } catch (e) {
           console.error("Failed to upload new thumbnail:", e);
+          message.error("Lỗi khi tải lên thumbnail mới");
         }
       }
 
-      // 3. Upload new gallery images
+      // 3. Handle Gallery Images
       if (fileList.length > 0) {
         for (const f of fileList) {
           try {
@@ -155,16 +260,30 @@ const RoomTypeEdit = () => {
         }
       }
 
-      message.success("Room type updated successfully");
+      // 4. Handle Equipments
+      try {
+        await updateDeviceStandards(
+          Number(id),
+          selectedEquipments.map((e) => ({
+            name: e.name,
+            quantity: e.quantity,
+            price: e.price,
+          }))
+        );
+      } catch (e) {
+        console.error("Error saving equipments:", e);
+      }
+
+      message.success("Cập nhật loại phòng thành công");
       queryClient.invalidateQueries({ queryKey: ["room_types"] });
       queryClient.invalidateQueries({ queryKey: ["roomtype", id] });
       queryClient.invalidateQueries({ queryKey: ["roomtype_images", id] });
-      queryClient.invalidateQueries({ queryKey: ["roomtype_images", id] });
+      queryClient.invalidateQueries({ queryKey: ["roomtype_standards", id] });
       navigate("/admin/roomtypes");
     } catch (err) {
       const error = err as { response?: { data?: { message?: string } } };
       const errorMsg =
-        error?.response?.data?.message || "Failed to update room type";
+        error?.response?.data?.message || "Cập nhật loại phòng thất bại";
       message.error(errorMsg);
     }
   };
@@ -173,12 +292,13 @@ const RoomTypeEdit = () => {
     try {
       await deleteRoomTypeImage(imageId);
       setExistingExtras((prev) => prev.filter((img) => img.id !== imageId));
-      message.success("Image deleted");
+      message.success("Xóa ảnh thành công");
     } catch (err) {
       console.error("Failed to delete image:", err);
-      message.error("Failed to delete image");
+      message.error("Xóa ảnh thất bại");
     }
   };
+
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -190,19 +310,25 @@ const RoomTypeEdit = () => {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold mb-4">EDIT ROOM TYPE</h2>
+        <h2 className="text-2xl font-bold mb-4">CHỈNH SỬA LOẠI PHÒNG</h2>
         <Link to="/admin/roomtypes">
-          <Button type="primary">Back</Button>
+          <Button type="primary">Quay lại</Button>
         </Link>
       </div>
       <Card>
         <Form form={form} layout="vertical" onFinish={handleFinish}>
           <Row gutter={24}>
+            {/* Left Column: Info & Equipments */}
             <Col span={16}>
-              <Form.Item name="name" label="Name" rules={[{ required: true }]}>
-                <Input placeholder="Enter room type name (e.g., Deluxe, Suite)" />
+              <Form.Item
+                name="name"
+                label="Tên loại phòng"
+                rules={[{ required: true }]}
+              >
+                <Input placeholder="Nhập tên loại phòng (VD: Deluxe, Suite)" />
               </Form.Item>
 
+<<<<<<< HEAD
               <div className="grid grid-cols-4 gap-4">
                 <Form.Item
                   name="price"
@@ -280,15 +406,54 @@ const RoomTypeEdit = () => {
                   />
                 </Form.Item>
               </div>
+=======
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item
+                    name="price"
+                    label="Giá (VND)"
+                    rules={[{ required: true }]}
+                  >
+                    <InputNumber style={{ width: "100%" }} min={0} />
+                  </Form.Item>
+                </Col>
+                <Col span={12}>
+                  <Form.Item
+                    name="capacity"
+                    label="Sức chứa tối đa"
+                    rules={[{ required: true }]}
+                  >
+                    <InputNumber style={{ width: "100%" }} min={1} />
+                  </Form.Item>
+                </Col>
+              </Row>
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
 
-              <Form.Item
-                name="description"
-                label="Description"
-                valuePropName="value"
-              >
+              <Form.Item name="free_amenities" label="Tiện nghi phòng">
+                <Select
+                  mode="tags"
+                  placeholder="Chọn tiện nghi từ danh sách hoặc nhập mới"
+                  style={{ width: "100%" }}
+                  options={FIXED_AMENITIES}
+                />
+              </Form.Item>
+
+              <Form.Item label="Thiết bị tiêu chuẩn">
+                <RoomTypeEquipmentSelector
+                  value={selectedEquipments}
+                  onChange={setSelectedEquipments}
+                />
+              </Form.Item>
+
+              <Form.Item name="room_size" label="Diện tích sử dụng (m²)">
+                <InputNumber style={{ width: "100%" }} min={0} />
+              </Form.Item>
+
+              <Form.Item name="description" label="Mô tả" valuePropName="value">
                 <QuillEditor />
               </Form.Item>
 
+<<<<<<< HEAD
               <Form.Item name="devices_id" label="Thiết bị trong phòng">
                 <Select
                   mode="multiple"
@@ -304,171 +469,94 @@ const RoomTypeEdit = () => {
                   }))}
                 />
               </Form.Item>
+=======
+              <div className="grid grid-cols-2 gap-4">
+                <Form.Item name="bed_type" label="Loại giường">
+                  <Input placeholder="VD: King, Queen..." />
+                </Form.Item>
+                <Form.Item name="view_direction" label="Hướng nhìn">
+                  <Input placeholder="VD: Biển, Thành phố..." />
+                </Form.Item>
+              </div>
+
+              {/* Extra Pricing Details (Optional but preserved) */}
+              <div className="bg-gray-50 p-4 rounded mb-4 border border-gray-100">
+                <div className="font-semibold mb-3 text-gray-700">
+                  Cấu hình chi tiết (Người & Phụ thu)
+                </div>
+                <Row gutter={16}>
+                  <Col span={6}>
+                    <Form.Item name="base_adults" label="Người lớn (gốc)">
+                      <InputNumber style={{ width: "100%" }} min={0} />
+                    </Form.Item>
+                  </Col>
+                  <Col span={6}>
+                    <Form.Item name="base_children" label="Trẻ em (gốc)">
+                      <InputNumber style={{ width: "100%" }} min={0} />
+                    </Form.Item>
+                  </Col>
+                  <Col span={6}>
+                    <Form.Item
+                      name="extra_adult_fee"
+                      label="Phụ thu NL"
+                      tooltip="Phụ thu cho mỗi người lớn vượt quá số lượng gốc"
+                    >
+                      <InputNumber
+                        style={{ width: "100%" }}
+                        min={0}
+                        formatter={(value) =>
+                          `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                        }
+                        parser={(value) =>
+                          Number(value?.replace(/\$\s?|(,*)/g, "")) as any
+                        }
+                      />
+                    </Form.Item>
+                  </Col>
+                  <Col span={6}>
+                    <Form.Item
+                      name="extra_child_fee"
+                      label="Phụ thu TE"
+                      tooltip="Phụ thu cho mỗi trẻ em vượt quá số lượng gốc"
+                    >
+                      <InputNumber
+                        style={{ width: "100%" }}
+                        min={0}
+                        formatter={(value) =>
+                          `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                        }
+                        parser={(value) =>
+                          Number(value?.replace(/\$\s?|(,*)/g, "")) as any
+                        }
+                      />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              </div>
+>>>>>>> 5db319d5f2855bc1711f9175ef8880e356a3210b
             </Col>
 
+            {/* Right Column: Images */}
             <Col span={8}>
-              <Form.Item label="Thumbnail">
-                <Upload
-                  accept="image/*"
-                  listType="picture-card"
-                  fileList={
-                    thumbFile
-                      ? [
-                          {
-                            uid: "new-thumb",
-                            name: thumbFile.name,
-                            status: "done",
-                            originFileObj: thumbFile,
-                            url: previews.thumb,
-                          },
-                        ]
-                      : existingThumbUrl
-                      ? [
-                          {
-                            uid: "existing",
-                            name: "current",
-                            status: "done",
-                            url: `http://localhost:5000${existingThumbUrl}`,
-                          },
-                        ]
-                      : []
-                  }
-                  beforeUpload={(file) => {
-                    const f = file as RcFile;
-                    setThumbFile(f);
-                    setPreviews((p) => ({
-                      ...p,
-                      thumb: URL.createObjectURL(f),
-                    }));
-                    return false;
-                  }}
-                  onRemove={() => {
-                    if (thumbFile) {
-                      setThumbFile(null);
-                      setPreviews((p) => {
-                        const copy = { ...p };
-                        if (copy.thumb) URL.revokeObjectURL(copy.thumb);
-                        delete copy.thumb;
-                        return copy;
-                      });
-                      return true;
-                    }
-                    // If removing existing thumbnail
-                    setExistingThumbUrl(null);
-                    return true;
-                  }}
-                >
-                  {!thumbFile && !existingThumbUrl && (
-                    <div className="flex flex-col items-center justify-center">
-                      <PlusOutlined className="text-2xl" />
-                      <div className="mt-2">Upload</div>
-                    </div>
-                  )}
-                </Upload>
-              </Form.Item>
-
-              <Form.Item label="Gallery Images">
-                {/* Existing images */}
-                {existingExtras.length > 0 && (
-                  <div className="mb-3">
-                    <div className="text-xs text-gray-500 mb-2">
-                      Existing images:
-                    </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      {existingExtras.map((img) => (
-                        <div key={img.id} className="relative group">
-                          <img
-                            src={`http://localhost:5000${img.image_url}`}
-                            alt=""
-                            className="w-full h-20 object-cover rounded border"
-                          />
-                          <Button
-                            danger
-                            size="small"
-                            className="absolute top-1 right-1 opacity-0 group-hover:opacity-100"
-                            onClick={() => handleDeleteExistingImage(img.id)}
-                          >
-                            ×
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* New image uploads */}
-                <Upload
-                  accept="image/*"
-                  listType="picture-card"
-                  multiple
-                  fileList={fileList.map((f, i) => ({
-                    uid: `${i}`,
-                    name: f.name,
-                    status: "done",
-                    originFileObj: f,
-                    url: previews[
-                      `${f.name}-${f.size}-${(f as FileWithMeta).lastModified}`
-                    ],
-                  }))}
-                  beforeUpload={(file) => {
-                    const f = file as RcFile;
-                    setFileList((prev) => {
-                      const exists = prev.some(
-                        (p) =>
-                          p.name === f.name &&
-                          p.size === f.size &&
-                          (p as FileWithMeta).lastModified ===
-                            (f as FileWithMeta).lastModified
-                      );
-                      if (exists) return prev;
-                      return [...prev, f];
-                    });
-                    const key = `${f.name}-${f.size}-${
-                      (f as FileWithMeta).lastModified
-                    }`;
-                    setPreviews((p) => ({
-                      ...p,
-                      [key]: URL.createObjectURL(f),
-                    }));
-                    return false;
-                  }}
-                  onRemove={(file) => {
-                    const origin = (
-                      file as unknown as { originFileObj?: RcFile }
-                    ).originFileObj;
-                    if (!origin) return true;
-                    const key = `${origin.name}-${origin.size}-${
-                      (origin as FileWithMeta).lastModified
-                    }`;
-                    setFileList((prev) => prev.filter((p) => p !== origin));
-                    setPreviews((p) => {
-                      const copy = { ...p };
-                      if (copy[key]) URL.revokeObjectURL(copy[key]);
-                      delete copy[key];
-                      return copy;
-                    });
-                    return true;
-                  }}
-                >
-                  <div className="flex flex-col items-center justify-center">
-                    <PlusOutlined className="text-2xl" />
-                    <div className="mt-2">Upload</div>
-                  </div>
-                </Upload>
-                <div className="text-xs text-gray-500 mt-2">
-                  New images to upload: {fileList.length}
-                </div>
-              </Form.Item>
+              <RoomTypeImageUploader
+                thumbnail={thumbFile}
+                onThumbnailChange={setThumbFile}
+                gallery={fileList}
+                onGalleryChange={setFileList}
+                existingThumbnailUrl={existingThumbUrl}
+                existingGallery={existingExtras}
+                onDeleteExisting={handleDeleteExistingImage}
+              />
             </Col>
           </Row>
 
           <div className="mt-6 pt-4 border-t">
             <div className="flex gap-3">
               <Button type="primary" htmlType="submit" size="large">
-                Update Room Type
+                Lưu thay đổi
               </Button>
               <Link to="/admin/roomtypes">
-                <Button size="large">Cancel</Button>
+                <Button size="large">Hủy</Button>
               </Link>
             </div>
           </div>

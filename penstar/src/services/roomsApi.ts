@@ -1,6 +1,5 @@
 import { instance } from "./api";
 import type { RoomSearchParams, RoomSearchResponse } from "@/types/room";
-
 export const getRooms = async () => {
   try {
     const response = await instance.get("/rooms");
@@ -11,7 +10,6 @@ export const getRooms = async () => {
     throw error;
   }
 };
-
 export const getRoomID = async (id: number | string) => {
   try {
     const response = await instance.get(`/rooms/${id}`);
@@ -21,19 +19,16 @@ export const getRoomID = async (id: number | string) => {
     throw error;
   }
 };
-
 export const createRoom = async (roomData: Record<string, unknown>) => {
   try {
     const response = await instance.post("/rooms", roomData);
     console.log("Payload sent to createRoom:", roomData);
-    // controller returns { success, message, data }
     return response.data?.data ?? null;
   } catch (error) {
     console.error("Error creating room:", error);
     throw error;
   }
 };
-
 export const updateRoom = async (
   id: number | string,
   roomData: Record<string, unknown>
@@ -46,7 +41,6 @@ export const updateRoom = async (
     throw error;
   }
 };
-
 export const deleteRoom = async (id: number | string) => {
   try {
     const response = await instance.delete(`/rooms/${id}`);
@@ -56,7 +50,6 @@ export const deleteRoom = async (id: number | string) => {
     throw error;
   }
 };
-
 export const checkRoomNameExists = async (
   name: string,
   type_id: number | string,
@@ -72,8 +65,6 @@ export const checkRoomNameExists = async (
     throw error;
   }
 };
-
-// Tìm kiếm phòng trống theo thời gian và yêu cầu
 export const searchAvailableRooms = async (
   params: RoomSearchParams
 ): Promise<RoomSearchResponse> => {
@@ -83,6 +74,47 @@ export const searchAvailableRooms = async (
     return response.data;
   } catch (error) {
     console.error("Error searching available rooms:", error);
+    throw error;
+  }
+};
+export const searchAllRoomsWithAvailability = async (
+  params: RoomSearchParams
+): Promise<RoomSearchResponse> => {
+  try {
+    const response = await instance.get("/rooms/search-all", { params });
+    console.log("🔍 Search all rooms response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error searching all rooms:", error);
+    throw error;
+  }
+};
+export const getOccupiedRooms = async () => {
+  try {
+    const response = await instance.get("/rooms/occupied");
+    return response.data?.data || [];
+  } catch (error) {
+    console.error("Error fetching occupied rooms:", error);
+    throw error;
+  }
+};
+export const getRoomBookingHistory = async (roomId: number, limit = 20) => {
+  try {
+    const response = await instance.get(`/rooms/${roomId}/bookings`, {
+      params: { limit },
+    });
+    return response.data?.data || [];
+  } catch (error) {
+    console.error("Error fetching room booking history:", error);
+    throw error;
+  }
+};
+export const getRoomStats = async () => {
+  try {
+    const response = await instance.get("/rooms/stats");
+    return response.data?.data || {};
+  } catch (error) {
+    console.error("Error fetching room stats:", error);
     throw error;
   }
 };
