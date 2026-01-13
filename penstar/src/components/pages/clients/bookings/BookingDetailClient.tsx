@@ -137,6 +137,16 @@ const BookingDetailClient: React.FC = () => {
         </Button>
       </div>
     );
+  const calculateItemTotal = (item: BookingItem | null) => {
+    if (!item) return 0;
+    return (
+      (Number(item.room_type_price) || 0) +
+      (Number(item.extra_adult_fees) || 0) +
+      (Number(item.extra_child_fees) || 0) +
+      (Number(item.extra_fees) || 0)
+    );
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-8">
       <Button
@@ -313,11 +323,7 @@ const BookingDetailClient: React.FC = () => {
                 key: "price",
                 align: "right",
                 render: (_, item) => {
-                  const total =
-                    (Number(item.room_type_price) || 0) +
-                    (Number(item.extra_adult_fees) || 0) +
-                    (Number(item.extra_child_fees) || 0) +
-                    (Number(item.extra_fees) || 0);
+                  const total = calculateItemTotal(item);
                   return (
                     <Text delete={item.status === "cancelled"}>
                       {formatPrice(total)}
@@ -427,7 +433,7 @@ const BookingDetailClient: React.FC = () => {
         open={refundModalOpen}
         bookingId={booking.id}
         bookingItemId={selectedItem?.id}
-        refundAmount={selectedItem?.refund_amount || 0}
+        refundAmount={calculateItemTotal(selectedItem)}
         onClose={() => {
           setRefundModalOpen(false);
           setSelectedItem(null);
