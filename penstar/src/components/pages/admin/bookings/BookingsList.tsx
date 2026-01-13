@@ -95,22 +95,22 @@ const BookingsList: React.FC = () => {
         const statusId = Number(val);
         let color = "default";
         let displayName = String(val);
-        if (statusId === 6) {
+        if (statusId === 1) {
           color = "gold";
           displayName = "Chờ xác nhận";
-        } else if (statusId === 1) {
-          color = "yellow";
-          displayName = "Đã xác nhận";
         } else if (statusId === 2) {
+          color = "blue";
+          displayName = "Đã xác nhận";
+        } else if (statusId === 3) {
           color = "green";
           displayName = "Đã Check-in";
-        } else if (statusId === 3) {
+        } else if (statusId === 4) {
           color = "cyan";
           displayName = "Đã Checkout";
-        } else if (statusId === 4) {
+        } else if (statusId === 5) {
           color = "red";
           displayName = "Đã hủy";
-        } else if (statusId === 5) {
+        } else if (statusId === 6) {
           color = "purple";
           displayName = "Không đến";
         }
@@ -192,12 +192,12 @@ const BookingsList: React.FC = () => {
           >
             {stayStatuses.map((s) => {
               let name = s.name;
-              if (s.id === 1) name = "Đã xác nhận";
-              if (s.id === 2) name = "Đã Check-in";
-              if (s.id === 3) name = "Đã Checkout";
-              if (s.id === 4) name = "Đã hủy";
-              if (s.id === 5) name = "Không đến";
-              if (s.id === 6) name = "Chờ xác nhận";
+              if (s.id === 1) name = "Chờ xác nhận";
+              if (s.id === 2) name = "Đã xác nhận";
+              if (s.id === 3) name = "Đã Check-in";
+              if (s.id === 4) name = "Đã Checkout";
+              if (s.id === 5) name = "Đã hủy";
+              if (s.id === 6) name = "Không đến";
               return (
                 <Select.Option key={s.id} value={s.id}>
                   {name}

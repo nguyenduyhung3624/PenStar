@@ -98,6 +98,7 @@ const AdminWalkInBooking = () => {
   const { data: allRooms = [], isLoading: loadingRooms } = useQuery<Room[]>({
     queryKey: ["rooms"],
     queryFn: getRooms,
+    refetchInterval: 10000, // Auto-refresh every 10s to keep room status current
   });
 
   const nights = useMemo(() => {
@@ -316,7 +317,7 @@ const AdminWalkInBooking = () => {
         payment_status: "paid", // Admin booking implies paid or verified
         payment_method: paymentMethod,
         booking_method: "offline",
-        stay_status_id: immediateCheckin ? 2 : 1, // 2: Check-in, 1: Booked (Confirmed)
+        stay_status_id: immediateCheckin ? 3 : 2, // 3: Check-in, 2: Booked (Confirmed)
         payment_proof_image: paymentProofUrl,
         items: selectedRooms.map((room) => ({
           room_id: room.roomId,
