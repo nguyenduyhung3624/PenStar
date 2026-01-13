@@ -168,8 +168,8 @@ const RoomTypeEdit = () => {
       });
 
       // 2. Handle Thumbnail
+      // Case A: User selected a new thumbnail -> Delete old one (if any) and upload new
       if (thumbFile) {
-        // Find old thumbnail to delete
         const oldThumb = existingImages.find((img) => img.is_thumbnail);
         if (oldThumb) {
           try {
@@ -178,12 +178,25 @@ const RoomTypeEdit = () => {
             console.error("Failed to delete old thumbnail:", e);
           }
         }
-        // Upload new thumbnail
         try {
           await uploadRoomTypeImage(Number(id), thumbFile, true);
         } catch (e) {
           console.error("Failed to upload new thumbnail:", e);
           message.error("Lỗi khi tải lên thumbnail mới");
+        }
+      }
+      // Case B: User removed existing thumbnail (and didn't select new one) -> Delete old one
+      else if (!existingThumbUrl) {
+        const oldThumb = existingImages.find((img) => img.is_thumbnail);
+        if (oldThumb) {
+          try {
+            await deleteRoomTypeImage(oldThumb.id);
+          } catch (e) {
+            console.error(
+              "Failed to delete old thumbnail (user removed it):",
+              e
+            );
+          }
         }
       }
 
@@ -386,6 +399,7 @@ const RoomTypeEdit = () => {
                 existingThumbnailUrl={existingThumbUrl}
                 existingGallery={existingExtras}
                 onDeleteExisting={handleDeleteExistingImage}
+                onRemoveExistingThumbnail={() => setExistingThumbUrl(null)}
               />
             </Col>
           </Row>

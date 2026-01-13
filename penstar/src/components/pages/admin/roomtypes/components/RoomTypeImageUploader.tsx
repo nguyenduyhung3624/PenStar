@@ -15,8 +15,11 @@ interface RoomTypeImageUploaderProps {
   existingThumbnailUrl?: string | null;
   existingGallery?: RoomTypeImage[];
   onDeleteExisting?: (id: number) => void;
+  onRemoveExistingThumbnail?: () => void;
 }
+
 type FileWithMeta = RcFile & { lastModified?: number };
+
 const RoomTypeImageUploader: React.FC<RoomTypeImageUploaderProps> = ({
   thumbnail,
   onThumbnailChange,
@@ -25,28 +28,36 @@ const RoomTypeImageUploader: React.FC<RoomTypeImageUploaderProps> = ({
   existingThumbnailUrl,
   existingGallery = [],
   onDeleteExisting,
+  onRemoveExistingThumbnail,
 }) => {
   const [previews, setPreviews] = useState<Record<string, string>>({});
+
   useEffect(() => {
     return () => {
       Object.values(previews).forEach((u) => URL.revokeObjectURL(u));
     };
   }, [previews]);
+
   const handleThumbnailUpload = (file: RcFile) => {
     const url = URL.createObjectURL(file);
     setPreviews((prev) => ({ ...prev, thumb: url }));
     onThumbnailChange(file);
-    return false;
+    return false; // Prevent auto upload
   };
+
   const handleRemoveThumbnail = () => {
-    onThumbnailChange(null);
-    if (previews["thumb"]) {
-      URL.revokeObjectURL(previews["thumb"]);
-      setPreviews((prev) => {
-        const copy = { ...prev };
-        delete copy.thumb;
-        return copy;
-      });
+    if (thumbnail) {
+      onThumbnailChange(null);
+      if (previews["thumb"]) {
+        URL.revokeObjectURL(previews["thumb"]);
+        setPreviews((prev) => {
+          const copy = { ...prev };
+          delete copy.thumb;
+          return copy;
+        });
+      }
+    } else if (existingThumbnailUrl && onRemoveExistingThumbnail) {
+      onRemoveExistingThumbnail();
     }
   };
   const handleGalleryUpload = (file: RcFile) => {
