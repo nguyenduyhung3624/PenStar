@@ -36,7 +36,7 @@ const RoomTypeImageUploader: React.FC<RoomTypeImageUploaderProps> = ({
     const url = URL.createObjectURL(file);
     setPreviews((prev) => ({ ...prev, thumb: url }));
     onThumbnailChange(file);
-    return false; 
+    return false;
   };
   const handleRemoveThumbnail = () => {
     onThumbnailChange(null);
@@ -100,7 +100,7 @@ const RoomTypeImageUploader: React.FC<RoomTypeImageUploaderProps> = ({
             status: "done",
             url: existingThumbnailUrl.startsWith("http")
               ? existingThumbnailUrl
-              : `${import.meta.env.VITE_BASE_URL?.replace(/\/api\/?$/, "")}${existingThumbnailUrl}`, 
+              : `${import.meta.env.VITE_BASE_URL?.replace(/\/api\/?$/, "")}${existingThumbnailUrl}`,
           },
         ]
       : [];
@@ -156,8 +156,9 @@ const RoomTypeImageUploader: React.FC<RoomTypeImageUploaderProps> = ({
                   {onDeleteExisting && (
                     <Button
                       danger
+                      type="primary"
                       size="small"
-                      className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 scale-75"
+                      className="absolute top-0 right-0 scale-75 shadow-sm"
                       icon={<DeleteOutlined />}
                       onClick={() => onDeleteExisting(img.id)}
                     />
