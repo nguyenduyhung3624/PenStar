@@ -1,4 +1,6 @@
 import pool from "../db.js";
+import { STAY_STATUS } from "./constants.js";
+
 export const markNoShow = async (bookingId) => {
   const bookingRes = await pool.query(
     `SELECT b.stay_status_id, b.checked_in_by, bi.check_in
@@ -10,9 +12,10 @@ export const markNoShow = async (bookingId) => {
   );
   if (!bookingRes.rows[0]) throw new Error("Booking không tồn tại");
   const { stay_status_id, checked_in_by, check_in } = bookingRes.rows[0];
-  if (stay_status_id === 4)
+  if (stay_status_id === STAY_STATUS.CANCELLED)
     throw new Error("Booking đã bị hủy, không thể no show");
-  if (stay_status_id === 5) throw new Error("Booking đã bị no show");
+  if (stay_status_id === STAY_STATUS.NO_SHOW)
+    throw new Error("Booking đã bị no show");
   if (checked_in_by) throw new Error("Booking đã check-in, không thể no show");
   if (!check_in) throw new Error("Không tìm thấy thời gian check-in");
   const now = new Date();
@@ -24,8 +27,9 @@ export const markNoShow = async (bookingId) => {
     `SELECT bi.room_id FROM booking_items bi WHERE bi.booking_id = $1`,
     [bookingId]
   );
-  await pool.query("UPDATE bookings SET stay_status_id = 5 WHERE id = $1", [
+  await pool.query("UPDATE bookings SET stay_status_id = $2 WHERE id = $1", [
     bookingId,
+    STAY_STATUS.NO_SHOW,
   ]);
   for (const row of res.rows) {
     await pool.query("UPDATE rooms SET status = 'available' WHERE id = $1", [

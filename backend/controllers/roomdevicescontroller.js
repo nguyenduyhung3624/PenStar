@@ -11,12 +11,12 @@ export const restoreDeviceStatus = async (req, res) => {
       console.log("[RESTORE DEVICE] Thiết bị không tồn tại");
       return res.error("Thiết bị không tồn tại", null, 404);
     }
-    const pool = (await import("../db.js")).default;
+    const { STAY_STATUS } = await import("../utils/constants.js");
     const bookingRes = await pool.query(
       `SELECT b.stay_status_id FROM bookings b
         JOIN booking_items bi ON bi.booking_id = b.id
-        WHERE bi.room_id = $1 AND b.stay_status_id = 3 LIMIT 1`,
-      [device.room_id]
+        WHERE bi.room_id = $1 AND b.stay_status_id = $2 LIMIT 1`,
+      [device.room_id, STAY_STATUS.CHECKED_OUT]
     );
     console.log("[RESTORE DEVICE] bookingRes:", bookingRes.rows);
     if (!bookingRes.rows.length) {

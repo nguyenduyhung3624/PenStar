@@ -7,7 +7,7 @@ import {
 } from "../models/booking_servicesmodel.js";
 import { createBookingServiceLog } from "../models/booking_service_logsmodel.js";
 import pool from "../db.js";
-import { ERROR_MESSAGES } from "../utils/constants.js";
+import { ERROR_MESSAGES, STAY_STATUS } from "../utils/constants.js";
 
 export const getBookingServices = async (req, res) => {
   try {
@@ -61,7 +61,7 @@ export const createBookingService = async (req, res) => {
       return res.error("Booking không tồn tại", null, 404);
     }
     const stayStatus = Number(bookingRes.rows[0].stay_status_id);
-    if (stayStatus !== 2) {
+    if (stayStatus !== STAY_STATUS.CHECKED_IN) {
       return res.error(
         "Chỉ có thể thêm dịch vụ khi booking đã check-in!",
         null,

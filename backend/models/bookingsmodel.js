@@ -1,5 +1,6 @@
 import pool from "../db.js";
 import moment from "moment-timezone";
+import { STAY_STATUS } from "../utils/constants.js";
 import { DiscountCodesModel } from "./discount_codesmodel.js";
 export const getNow = () => new Date().toISOString();
 export const confirmCheckin = async (id, userId) => {
@@ -19,8 +20,13 @@ export const confirmCheckin = async (id, userId) => {
       "SELECT stay_status_id FROM bookings WHERE id = $1",
       [id]
     );
-    if (checkBooking.rows[0].stay_status_id !== 1) {
-      throw new Error("Chỉ có thể check-in booking ở trạng thái Đã đặt.");
+    if (
+      checkBooking.rows[0].stay_status_id !== STAY_STATUS.PENDING &&
+      checkBooking.rows[0].stay_status_id !== STAY_STATUS.RESERVED
+    ) {
+      throw new Error(
+        "Chỉ có thể check-in booking ở trạng thái Đã đặt hoặc Chờ xác nhận."
+      );
     }
     const timeZone = "Asia/Ho_Chi_Minh";
     const now = moment.tz(Date.now(), timeZone);
@@ -68,8 +74,8 @@ export const confirmCheckin = async (id, userId) => {
       }
     }
     await client.query(
-      "UPDATE bookings SET stay_status_id = 2, checked_in_by = $1 WHERE id = $2",
-      [userId, id]
+      "UPDATE bookings SET stay_status_id = $1, checked_in_by = $2 WHERE id = $3",
+      [STAY_STATUS.CHECKED_IN, userId, id]
     );
     await client.query("COMMIT");
     return (await client.query(`SELECT * FROM bookings WHERE id = $1`, [id]))
@@ -96,7 +102,9 @@ export const confirmCheckout = async (id, userId) => {
     );
     if (!checkBooking.rows[0]) throw new Error("Booking không tồn tại");
     const { stay_status_id, check_out } = checkBooking.rows[0];
-    if (![2, 3].includes(stay_status_id)) {
+    if (
+      ![STAY_STATUS.RESERVED, STAY_STATUS.CHECKED_IN].includes(stay_status_id)
+    ) {
       throw new Error("Booking không ở trạng thái hợp lệ để checkout");
     }
     const timeZone = "Asia/Ho_Chi_Minh";
@@ -112,15 +120,15 @@ export const confirmCheckout = async (id, userId) => {
       [id]
     );
     for (const item of items.rows) {
-      const newStatus = hasIncidents ? "maintenance" : "cleaning";
+      const newStatus = hasIncidents ? "maintenance" : "available";
       await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
         newStatus,
         item.room_id,
       ]);
     }
     await client.query(
-      "UPDATE bookings SET stay_status_id = 3, checked_out_by = $1 WHERE id = $2",
-      [userId, id]
+      "UPDATE bookings SET stay_status_id = $1, checked_out_by = $2 WHERE id = $3",
+      [STAY_STATUS.CHECKED_OUT, userId, id]
     );
     await client.query("COMMIT");
     return (await client.query(`SELECT * FROM bookings WHERE id = $1`, [id]))
@@ -277,13 +285,16 @@ export const createBooking = async (data) => {
         }
       }
     }
+    // If immediate check-in (status=CHECKED_IN), set checked_in_by to current user
+    const checked_in_by =
+      stay_status_id === STAY_STATUS.CHECKED_IN ? user_id : null;
     const insertBookingText = `INSERT INTO bookings (
-      customer_name, customer_email, customer_phone, total_price, payment_status, booking_method, stay_status_id, user_id, notes, payment_method, discount_code, discount_amount, payment_proof_image, created_at
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW()) RETURNING *`;
+      customer_name, customer_email, customer_phone, total_price, payment_status, booking_method, stay_status_id, user_id, notes, payment_method, discount_code, discount_amount, payment_proof_image, checked_in_by, created_at
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW()) RETURNING *`;
     const bookingRes = await client.query(insertBookingText, [
       customer_name,
-      data.customer_email || null,
-      data.customer_phone || null,
+      data.customer_email || null, // customer_email
+      data.customer_phone || null, // customer_phone
       total_price,
       payment_status,
       booking_method,
@@ -294,6 +305,7 @@ export const createBooking = async (data) => {
       data.discount_code || null,
       data.discount_amount || 0,
       data.payment_proof_image || null,
+      checked_in_by, // checked_in_by
     ]);
     const booking = bookingRes.rows[0];
     const joined = await client.query(
@@ -389,7 +401,7 @@ export const setBookingStatus = async (id, fields) => {
         "SELECT stay_status_id, total_price FROM bookings WHERE id = $1",
         [id]
       );
-      if (checkResult.rows[0]?.stay_status_id === 4) {
+      if (checkResult.rows[0]?.stay_status_id === STAY_STATUS.CANCELLED) {
         console.warn(
           "[setBookingStatus] Attempt to update payment_status for cancelled booking:",
           id
@@ -429,11 +441,15 @@ export const setBookingStatus = async (id, fields) => {
       );
       let roomStatus = null;
       const statusId = Number(fields.stay_status_id);
-      if (statusId === 6) roomStatus = "pending";
-      else if (statusId === 1) roomStatus = "booked";
-      else if (statusId === 2) roomStatus = "occupied";
-      else if (statusId === 3) roomStatus = "checkout";
-      else if (statusId === 4 || statusId === 5) roomStatus = "available";
+      if (statusId === STAY_STATUS.PENDING) roomStatus = "pending";
+      else if (statusId === STAY_STATUS.RESERVED) roomStatus = "booked";
+      else if (statusId === STAY_STATUS.CHECKED_IN) roomStatus = "occupied";
+      else if (statusId === STAY_STATUS.CHECKED_OUT) roomStatus = "checkout";
+      else if (
+        statusId === STAY_STATUS.CANCELLED ||
+        statusId === STAY_STATUS.NO_SHOW
+      )
+        roomStatus = "available";
       if (roomStatus) {
         for (const item of items.rows) {
           await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [
@@ -485,16 +501,18 @@ export const cancelBooking = async (
     const now = new Date();
     const hoursUntilCheckIn = (checkInDate - now) / (1000 * 60 * 60);
     if (!isAdmin) {
-      if (currentStatus === 6) {
-      } else if (currentStatus === 1) {
+      if (currentStatus === STAY_STATUS.PENDING) {
+      } else if (currentStatus === STAY_STATUS.RESERVED) {
         throw new Error(
           "Không thể hủy booking đã được xác nhận. Vui lòng liên hệ admin."
         );
-      } else if (currentStatus === 2) {
+      } else if (currentStatus === STAY_STATUS.CHECKED_IN) {
         throw new Error(
           "Không thể hủy khi đã check-in. Vui lòng liên hệ admin."
         );
-      } else if ([3, 4].includes(currentStatus)) {
+      } else if (
+        [STAY_STATUS.CHECKED_OUT, STAY_STATUS.CANCELLED].includes(currentStatus)
+      ) {
         throw new Error("Booking đã hoàn tất hoặc đã bị hủy trước đó");
       } else {
         throw new Error("Không thể hủy booking ở trạng thái này");
@@ -503,10 +521,15 @@ export const cancelBooking = async (
         throw new Error("Bạn không có quyền hủy booking này");
       }
     } else {
-      if (currentStatus === 6 || currentStatus === 1) {
-      } else if (currentStatus === 2) {
+      if (
+        currentStatus === STAY_STATUS.PENDING ||
+        currentStatus === STAY_STATUS.RESERVED
+      ) {
+      } else if (currentStatus === STAY_STATUS.CHECKED_IN) {
         throw new Error("Không thể hủy booking đã check-in");
-      } else if ([3, 4].includes(currentStatus)) {
+      } else if (
+        [STAY_STATUS.CHECKED_OUT, STAY_STATUS.CANCELLED].includes(currentStatus)
+      ) {
         throw new Error("Booking đã hoàn tất hoặc đã bị hủy trước đó");
       } else {
         throw new Error("Không thể hủy booking ở trạng thái này");
@@ -534,7 +557,7 @@ export const cancelBooking = async (
         deadline = refundPolicy.refund_deadline_hours ?? 24;
         nonRefundable = refundPolicy.non_refundable ?? false;
       }
-      if (currentStatus === 5) {
+      if (currentStatus === STAY_STATUS.CANCELLED) {
         refundPercent = 0;
       } else if (nonRefundable) {
         refundPercent = 0;
@@ -559,14 +582,14 @@ export const cancelBooking = async (
     }
     await client.query(
       `UPDATE bookings
-         SET stay_status_id = 4,
+         SET stay_status_id = $5,
              cancel_reason = $2,
              canceled_by = $3,
              canceled_at = NOW(),
              refund_amount = $4,
              is_refunded = CASE WHEN $4 > 0 THEN false ELSE NULL END
          WHERE id = $1`,
-      [id, cancelReason, userId, totalRefund]
+      [id, cancelReason, userId, totalRefund, STAY_STATUS.CANCELLED]
     );
     for (const item of items.rows) {
       await client.query("UPDATE rooms SET status = $1 WHERE id = $2", [

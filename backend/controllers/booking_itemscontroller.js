@@ -8,7 +8,7 @@ import {
   getItemsWithRefundInfo as modelGetItemsWithRefundInfo,
 } from "../models/booking_itemsmodel.js";
 import pool from "../db.js";
-import { ERROR_MESSAGES } from "../utils/constants.js";
+import { ERROR_MESSAGES, STAY_STATUS } from "../utils/constants.js";
 
 export const getBookingItems = async (req, res) => {
   try {
@@ -100,8 +100,8 @@ export const cancelBookingItemController = async (req, res) => {
       return res.error("Bạn không có quyền huỷ phòng này", null, 403);
     }
 
-    // Only allow cancel when booking is pending (stay_status_id = 6)
-    if (booking.stay_status_id !== 6) {
+    // Only allow cancel when booking is pending (stay_status_id = STAY_STATUS.PENDING)
+    if (booking.stay_status_id !== STAY_STATUS.PENDING) {
       return res.error(
         "Chỉ có thể huỷ phòng khi đơn đang ở trạng thái chờ xác nhận",
         null,

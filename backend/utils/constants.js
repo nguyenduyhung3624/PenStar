@@ -1,20 +1,19 @@
 export const STAY_STATUS = {
-  PENDING: 0,
-  RESERVED: 1,
-  CHECKED_IN: 2,
-  CHECKED_OUT: 3,
-  CANCELLED: 4,
-  NO_SHOW: 5,
-  PAYMENT_PENDING: 6,
+  PENDING: 1, // Chờ xác nhận
+  RESERVED: 2, // Đã xác nhận / Đã đặt
+  CHECKED_IN: 3, // Đang ở
+  CHECKED_OUT: 4, // Đã trả phòng
+  CANCELLED: 5, // Đã hủy
+  NO_SHOW: 6, // Không đến
 };
+
 export const STAY_STATUS_NAMES = {
   [STAY_STATUS.PENDING]: "Chờ xác nhận",
-  [STAY_STATUS.RESERVED]: "Đã đặt",
+  [STAY_STATUS.RESERVED]: "Đã xác nhận",
   [STAY_STATUS.CHECKED_IN]: "Đang ở",
   [STAY_STATUS.CHECKED_OUT]: "Đã trả phòng",
   [STAY_STATUS.CANCELLED]: "Đã hủy",
-  [STAY_STATUS.NO_SHOW]: "Không có mặt",
-  [STAY_STATUS.PAYMENT_PENDING]: "Chờ thanh toán",
+  [STAY_STATUS.NO_SHOW]: "Không đến",
 };
 export const ACTIVE_STAY_STATUS = [
   STAY_STATUS.RESERVED,
@@ -64,9 +63,9 @@ export const BOOKING = {
   CHECKIN_HOUR: 14,
   CHECKOUT_HOUR: 14,
   TIMEZONE: "Asia/Ho_Chi_Minh",
-  MAX_NIGHTS: 30, 
+  MAX_NIGHTS: 30,
   MIN_NIGHTS: 1,
-  MAX_ADVANCE_DAYS: 365, 
+  MAX_ADVANCE_DAYS: 365,
 };
 export const DISCOUNT_TYPE = {
   PERCENT: "percent",

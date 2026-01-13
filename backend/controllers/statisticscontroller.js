@@ -1,4 +1,6 @@
 import pool from "../db.js";
+import { STAY_STATUS } from "../utils/constants.js";
+
 export const getStatistics = async (req, res) => {
   try {
     const { startDate: qStart, endDate: qEnd } = req.query;
@@ -46,7 +48,7 @@ export const getStatistics = async (req, res) => {
     );
     const totalRevenue = parseFloat(revenueRes.rows[0].total) || 0;
     const pendingBookingsRes = await safeQuery(
-      `SELECT COUNT(*) as count FROM bookings WHERE stay_status_id = 6`,
+      `SELECT COUNT(*) as count FROM bookings WHERE stay_status_id = ${STAY_STATUS.PENDING}`,
       [],
       [{ count: 0 }]
     );
@@ -56,7 +58,7 @@ export const getStatistics = async (req, res) => {
        FROM bookings b
        JOIN booking_items bi ON bi.booking_id = b.id
        WHERE bi.check_in >= $1 AND bi.check_in <= $2
-       AND b.stay_status_id IN (1, 2, 3)`,
+       AND b.stay_status_id IN (${STAY_STATUS.PENDING}, ${STAY_STATUS.RESERVED}, ${STAY_STATUS.CHECKED_IN})`,
       params,
       [{ count: 0 }]
     );
@@ -66,7 +68,7 @@ export const getStatistics = async (req, res) => {
        FROM bookings b
        JOIN booking_items bi ON bi.booking_id = b.id
        WHERE bi.check_out >= $1 AND bi.check_out <= $2
-       AND b.stay_status_id = 3`,
+       AND b.stay_status_id = ${STAY_STATUS.CHECKED_OUT}`,
       params,
       [{ count: 0 }]
     );
@@ -165,7 +167,7 @@ export const getStatistics = async (req, res) => {
       `SELECT COALESCE(SUM(bi.amount), 0) as total
        FROM booking_incidents bi
        JOIN bookings b ON bi.booking_id = b.id
-       WHERE bi.created_at >= $1 AND bi.created_at <= $2
+       WHERE b.created_at >= $1 AND b.created_at <= $2
        AND b.payment_status = 'paid'`,
       params,
       [{ total: 0 }]

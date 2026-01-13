@@ -1,4 +1,5 @@
 import pool from "../db.js";
+import { STAY_STATUS } from "../utils/constants.js";
 export const CHILD_AGE_LIMIT = 8;
 export const getRooms = async () => {
   const resuit = await pool.query(`
@@ -56,7 +57,7 @@ export const hasActiveBookings = async (roomId) => {
      FROM booking_items bi
      JOIN bookings b ON bi.booking_id = b.id
      WHERE bi.room_id = $1
-       AND b.stay_status_id IN (1, 2, 6)`,
+       AND b.stay_status_id IN (${STAY_STATUS.PENDING}, ${STAY_STATUS.RESERVED}, ${STAY_STATUS.CHECKED_IN})`,
     [roomId]
   );
   return parseInt(result.rows[0].count) > 0;
@@ -154,7 +155,7 @@ export const searchAvailableRooms = async ({
           bi.check_out::date <= $2::date
           OR bi.check_in::date >= $3::date
         )
-        AND b.stay_status_id IN (1,2,6)
+        AND b.stay_status_id IN (${STAY_STATUS.PENDING}, ${STAY_STATUS.RESERVED}, ${STAY_STATUS.CHECKED_IN})
     `;
     const debugParams = [statusList, check_in, check_out];
     const res = await pool.query(conflictQuery, debugParams);
@@ -204,7 +205,9 @@ export const searchAvailableRooms = async ({
       SELECT 1 FROM booking_items bi
       JOIN bookings b ON bi.booking_id = b.id
       WHERE bi.room_id = r.id
-        AND b.stay_status_id IN (1, 2, 6) -- reserved, checked_in, pending
+        AND b.stay_status_id IN (${STAY_STATUS.PENDING}, ${
+    STAY_STATUS.RESERVED
+  }, ${STAY_STATUS.CHECKED_IN}) -- reserved, checked_in, pending
         AND NOT (
           bi.check_out::date <= $${paramIndex}::date
           OR bi.check_in::date >= $${paramIndex + 1}::date
@@ -249,7 +252,7 @@ export const searchAllRoomsWithAvailability = async ({
           SELECT 1 FROM booking_items bi
           JOIN bookings b ON bi.booking_id = b.id
           WHERE bi.room_id = r.id
-            AND b.stay_status_id IN (1, 2, 6)
+            AND b.stay_status_id IN (${STAY_STATUS.PENDING}, ${STAY_STATUS.RESERVED}, ${STAY_STATUS.CHECKED_IN})
             AND bi.status = 'active'
             AND NOT (
               bi.check_out::date <= $2::date
@@ -267,7 +270,7 @@ export const searchAllRoomsWithAvailability = async ({
         FROM booking_items bi
         JOIN bookings bk ON bi.booking_id = bk.id
         WHERE bi.room_id = r.id
-          AND bk.stay_status_id IN (1, 2, 6)
+          AND bk.stay_status_id IN (${STAY_STATUS.PENDING}, ${STAY_STATUS.RESERVED}, ${STAY_STATUS.CHECKED_IN})
           AND bi.status = 'active'
           AND NOT (
             bi.check_out::date <= $2::date
@@ -320,7 +323,7 @@ export const getOccupiedRooms = async () => {
     JOIN booking_items bi ON bi.room_id = r.id AND bi.status = 'active'
     JOIN bookings b ON bi.booking_id = b.id
     LEFT JOIN stay_status ss ON b.stay_status_id = ss.id
-    WHERE b.stay_status_id IN (1, 2, 6)
+    WHERE b.stay_status_id IN (${STAY_STATUS.PENDING}, ${STAY_STATUS.RESERVED}, ${STAY_STATUS.CHECKED_IN})
       AND bi.check_in::date <= CURRENT_DATE
       AND bi.check_out::date >= CURRENT_DATE
     ORDER BY r.floor_id ASC, r.name ASC
@@ -362,7 +365,7 @@ export const getRoomStats = async () => {
         SELECT COUNT(DISTINCT bi.room_id)
         FROM booking_items bi
         JOIN bookings b ON bi.booking_id = b.id
-        WHERE b.stay_status_id IN (1, 2, 6)
+        WHERE b.stay_status_id IN (${STAY_STATUS.PENDING}, ${STAY_STATUS.RESERVED}, ${STAY_STATUS.CHECKED_IN})
           AND bi.status = 'active'
           AND bi.check_in::date <= CURRENT_DATE
           AND bi.check_out::date >= CURRENT_DATE
