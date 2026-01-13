@@ -86,12 +86,12 @@ const BookingDetailClient: React.FC = () => {
   const getStatusTag = (statusId: number) => {
     const config: Record<number, { color: string; label: string }> = {
       // ... existing code ...
-      6: { color: "orange", label: "Chờ xác nhận" },
-      1: { color: "yellow", label: "Đã xác nhận" },
-      2: { color: "green", label: "Đã Check-in" },
-      3: { color: "cyan", label: "Đã Check-out" },
-      4: { color: "red", label: "Đã hủy" },
-      5: { color: "purple", label: "No show" },
+      1: { color: "orange", label: "Chờ xác nhận" },
+      2: { color: "blue", label: "Đã xác nhận" },
+      3: { color: "green", label: "Đã Check-in" },
+      4: { color: "cyan", label: "Đã Check-out" },
+      5: { color: "red", label: "Đã hủy" },
+      6: { color: "purple", label: "No show" },
     };
     const c = config[statusId] || { color: "default", label: "Không rõ" };
     return <Tag color={c.color}>{c.label}</Tag>;
@@ -122,13 +122,9 @@ const BookingDetailClient: React.FC = () => {
     const c = config[status] || { color: "default", label: status };
     return <Tag color={c.color}>{c.label}</Tag>;
   };
-  const allowCancelBooking =
-    (booking?.stay_status_id === 6 || booking?.stay_status_id === 1) && true;
+  const allowCancelBooking = booking?.stay_status_name === "pending";
   const canCancelItem = (item: BookingItem) => {
-    return (
-      (booking?.stay_status_id === 6 || booking?.stay_status_id === 1) &&
-      item.status === "active"
-    );
+    return booking?.stay_status_name === "pending" && item.status === "active";
   };
   const canRequestRefund = (item: BookingItem) => {
     return (

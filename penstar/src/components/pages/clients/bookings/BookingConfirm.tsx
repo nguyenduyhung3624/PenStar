@@ -287,7 +287,7 @@ const BookingConfirm = () => {
       payment_status: "unpaid",
       payment_method: paymentMethod,
       booking_method: "online",
-      stay_status_id: 6,
+      stay_status_id: 1, // 1: Chờ xác nhận (Pending)
       items: itemsWithFees,
     };
     console.log("📤 Payload gửi backend:", payload);
