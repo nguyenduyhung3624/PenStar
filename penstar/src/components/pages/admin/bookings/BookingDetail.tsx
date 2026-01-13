@@ -1657,6 +1657,20 @@ const BookingDetail = () => {
             )}
             <Divider style={{ margin: "12px 0" }} />
             <Divider style={{ margin: "12px 0" }} />
+            {booking.discount_amount && booking.discount_amount > 0 && (
+              <>
+                <Row justify="space-between" style={{ marginBottom: 12 }}>
+                  <Text type="danger">
+                    Giảm giá{" "}
+                    {booking.discount_code ? `(${booking.discount_code})` : ""}
+                  </Text>
+                  <Text type="danger">
+                    -{formatPrice(booking.discount_amount)}
+                  </Text>
+                </Row>
+                <Divider style={{ margin: "12px 0" }} />
+              </>
+            )}
             <Row justify="space-between">
               <Title level={4} style={{ margin: 0 }}>
                 Tổng cộng
