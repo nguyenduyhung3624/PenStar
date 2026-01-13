@@ -110,17 +110,7 @@ const BookingDetailClient: React.FC = () => {
     const c = config[status] || { color: "default", label: status };
     return <Tag color={c.color}>{c.label}</Tag>;
   };
-  const getRefundStatusTag = (status?: string) => {
-    if (!status) return null;
-    const config: Record<string, { color: string; label: string }> = {
-      pending: { color: "orange", label: "Đang chờ duyệt" },
-      approved: { color: "yellow", label: "Đã duyệt" },
-      completed: { color: "green", label: "Đã hoàn tiền" },
-      rejected: { color: "red", label: "Từ chối" },
-    };
-    const c = config[status] || { color: "default", label: status };
-    return <Tag color={c.color}>{c.label}</Tag>;
-  };
+
   const allowCancelBooking = booking?.stay_status_name === "pending";
   const canCancelItem = (item: BookingItem) => {
     return booking?.stay_status_name === "pending" && item.status === "active";
@@ -335,20 +325,7 @@ const BookingDetailClient: React.FC = () => {
                   );
                 },
               },
-              {
-                title: "Trạng thái",
-                key: "status",
-                render: (_, item) => (
-                  <Space direction="vertical">
-                    {item.status === "cancelled" ? (
-                      <Tag color="red">Đã hủy</Tag>
-                    ) : (
-                      <Tag color="green">Đang sử dụng</Tag>
-                    )}
-                    {getRefundStatusTag(item.refund_status)}
-                  </Space>
-                ),
-              },
+
               {
                 title: "Bill hoàn tiền",
                 key: "receipt",
