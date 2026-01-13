@@ -883,9 +883,7 @@ const BookingDetail = () => {
             {booking.stay_status_id === 4 && (
               <>
                 <Descriptions.Item label="Người hủy" span={2}>
-                  <Text type="danger">
-                    {booking.canceled_by_name || "—"}
-                  </Text>
+                  <Text type="danger">{booking.canceled_by_name || "—"}</Text>
                 </Descriptions.Item>
                 <Descriptions.Item label="Thời gian hủy">
                   <Text type="danger">
@@ -1756,7 +1754,12 @@ const BookingDetail = () => {
                     type="primary"
                     onClick={handleCheckIn}
                     loading={updating}
-                    disabled={updating}
+                    disabled={updating || booking.payment_status !== "paid"}
+                    title={
+                      booking.payment_status !== "paid"
+                        ? "Khách cần thanh toán trước khi Check-in"
+                        : ""
+                    }
                   >
                     Check In
                   </Button>
@@ -1766,7 +1769,12 @@ const BookingDetail = () => {
                     type="primary"
                     onClick={handleApprove}
                     loading={updating}
-                    disabled={updating}
+                    disabled={updating || booking.payment_status !== "paid"}
+                    title={
+                      booking.payment_status !== "paid"
+                        ? "Khách cần thanh toán trước khi Duyệt"
+                        : ""
+                    }
                   >
                     Duyệt
                   </Button>
@@ -1804,6 +1812,7 @@ const BookingDetail = () => {
                     Trả phòng (Checkout)
                   </Button>
                 )}
+                {/* ... Modals ... */}
                 <Modal
                   title="Báo cáo thiết bị hỏng khi checkout (có thể bỏ qua)"
                   open={brokenModalVisible}
@@ -2295,7 +2304,7 @@ const BookingDetail = () => {
                   </div>
                   <div>Bạn có chắc chắn muốn checkout booking này không?</div>
                 </Modal>
-                {booking.stay_status_id === 3 &&
+                {[2, 3, 4].includes(booking.stay_status_id) &&
                   booking.payment_status === "paid" && (
                     <Button
                       type="default"
