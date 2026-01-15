@@ -81,7 +81,7 @@ export function generateBillHTML(
       new Set(groupedServices.map((s: any) => s.booking_item_id))
     );
     html += `<h3 style="margin-top:32px; color:#1890ff;">Dịch vụ bổ sung</h3>`;
-    serviceRooms.forEach((booking_item_id: any, ridx: number) => {
+    serviceRooms.forEach((booking_item_id: any) => {
       const roomItem = booking.items?.find(
         (it: any) => it.id === booking_item_id
       );

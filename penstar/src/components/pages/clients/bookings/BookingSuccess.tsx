@@ -19,7 +19,6 @@ const BookingSuccess: React.FC = () => {
     (loc.state as unknown as { booking?: Booking })?.booking ?? null;
   const [booking, setBooking] = React.useState<Booking | null>(initial);
   const [loading, setLoading] = React.useState(!initial);
-  const [updating, setUpdating] = React.useState(false);
   const [services, setServices] = React.useState<
     Record<number, { name: string; price: number }>
   >({});
@@ -88,7 +87,6 @@ const BookingSuccess: React.FC = () => {
       cancelText: "Không",
       okType: "danger",
       onOk: async () => {
-        setUpdating(true);
         try {
           const res = await cancelBooking(bookingId);
           const refund = res?.refund_amount || 0;
@@ -103,7 +101,6 @@ const BookingSuccess: React.FC = () => {
           const err = error as { response?: { data?: { message?: string } } };
           message.error(err.response?.data?.message || "Lỗi hủy booking");
         } finally {
-          setUpdating(false);
         }
       },
     });
@@ -129,7 +126,6 @@ const BookingSuccess: React.FC = () => {
     );
   const statusId = booking?.stay_status_id || 0;
   const paymentStatus = booking?.payment_status || "";
-  const canCancel = statusId === 6 || statusId === 1;
   const checkIn = booking?.items?.[0]?.check_in;
   const checkOut = booking?.items?.[0]?.check_out;
   const nights =

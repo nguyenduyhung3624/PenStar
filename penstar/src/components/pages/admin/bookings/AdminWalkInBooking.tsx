@@ -85,8 +85,6 @@ const AdminWalkInBooking = () => {
   const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [previewImage, setPreviewImage] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [discountCode, setDiscountCode] = useState("");
-  const [discountAmount, setDiscountAmount] = useState(0);
 
   const { data: roomTypes = [], isLoading: loadingTypes } = useQuery<
     RoomType[]

@@ -53,7 +53,7 @@ const RoomTypeEquipmentSelector: React.FC<RoomTypeEquipmentSelectorProps> = ({
       title: "Tên thiết bị",
       dataIndex: "name",
       key: "name",
-      render: (text: string, record: EquipmentSelection, index: number) => (
+      render: (text: string, _record: EquipmentSelection, index: number) => (
         <Input
           value={text}
           onChange={(e) => updateItem(index, "name", e.target.value)}
@@ -112,7 +112,7 @@ const RoomTypeEquipmentSelector: React.FC<RoomTypeEquipmentSelectorProps> = ({
     <div>
       <Table
         dataSource={value}
-        rowKey={(record) => record.id || Math.random()}
+        rowKey={(_record) => _record.id || Math.random()}
         size="small"
         pagination={false}
         columns={columns}

@@ -3,11 +3,10 @@ import { Button, Card, Input, Table, Space, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type { User } from "@/types/users";
 import { getUsers } from "@/services/usersApi";
-import { updateUser } from "@/services/usersApi";
-import { message } from "antd";
+
 import { getRoles } from "@/services/rolesApi";
 import type { Role } from "@/types/roles";
 import useAuth from "@/hooks/useAuth";
@@ -48,16 +47,7 @@ const Userlist = () => {
     staff: "Nhân viên",
     customer: "Khách hàng",
   };
-  const queryClient = useQueryClient();
-  const banMut = useMutation({
-    mutationFn: ({ id, status }: { id: number | string; status: string }) =>
-      updateUser(id, { status }),
-    onSuccess: () => {
-      message.success("Cập nhật trạng thái người dùng thành công");
-      queryClient.invalidateQueries({ queryKey: ["users"] });
-    },
-    onError: () => message.error("Cập nhật trạng thái người dùng thất bại"),
-  });
+
   const users: User[] = Array.isArray(usersRaw?.data)
     ? usersRaw.data
     : (usersRaw ?? []);

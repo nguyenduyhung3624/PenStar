@@ -1,23 +1,13 @@
 import { PlusOutlined, EditOutlined } from "@ant-design/icons";
-import {
-  Button,
-  Card,
-  Input,
-  Space,
-  Table,
-  message,
-  Popconfirm,
-  Image,
-} from "antd";
+import { Button, Card, Input, Space, Table, Image } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { getRoomTypes, deleteRoomType } from "@/services/roomTypeApi";
+import { useQuery } from "@tanstack/react-query";
+import { getRoomTypes } from "@/services/roomTypeApi";
 import type { RoomType } from "@/types/roomtypes";
 type RoomTypeItem = RoomType;
 const RoomTypesPage = () => {
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 5;
@@ -37,19 +27,7 @@ const RoomTypesPage = () => {
         .includes(q);
     })
     .sort((a: RoomTypeItem, b: RoomTypeItem) => Number(b.id) - Number(a.id));
-  const deleteMut = useMutation({
-    mutationFn: (id: number | string) => deleteRoomType(id),
-    onSuccess: () => {
-      message.success("Xóa loại phòng thành công");
-      queryClient.invalidateQueries({ queryKey: ["room_types"] });
-    },
-    onError: (err: unknown) => {
-      const serverMsg = (err as { response?: { data?: { message?: string } } })
-        ?.response?.data?.message;
-      const msg = serverMsg || "Xóa loại phòng thất bại";
-      message.error(msg);
-    },
-  });
+
   const columns: ColumnsType<RoomTypeItem> = [
     {
       title: "STT",

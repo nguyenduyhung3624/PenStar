@@ -1,6 +1,6 @@
 import { Form, InputNumber, Button, Select, message, Card } from "antd";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { upsertDeviceStandard } from "@/services/roomTypeEquipmentsAdminApi";
+import { updateDeviceStandards } from "@/services/roomTypeEquipmentsAdminApi";
 import { getRoomTypes, getEquipments } from "@/services/masterDataApi";
 import React from "react";
 interface AddDeviceStandardFormProps {
@@ -20,7 +20,7 @@ const AddDeviceStandardForm: React.FC<AddDeviceStandardFormProps> = ({
     queryFn: getEquipments,
   });
   const mutation = useMutation({
-    mutationFn: upsertDeviceStandard,
+    mutationFn: updateDeviceStandards,
     onSuccess: () => {
       message.success("Cập nhật tiêu chuẩn thành công!");
       queryClient.invalidateQueries({ queryKey: ["device-standards"] });

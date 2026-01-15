@@ -15,7 +15,15 @@ import type { BookingDetails } from "@/types/bookings";
 import type { Room } from "@/types/room";
 import type { Services } from "@/types/services";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState, useMemo } from "react";
+import {
+  useState,
+  useMemo,
+  type JSXElementConstructor,
+  type Key,
+  type ReactElement,
+  type ReactNode,
+  type ReactPortal,
+} from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -68,6 +76,7 @@ const BookingDetail = () => {
       deviceId: number | null;
       quantity: number;
       status: string;
+      note?: string;
     }>
   >([{ roomId: null, deviceId: null, quantity: 1, status: "broken" }]);
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
@@ -281,7 +290,7 @@ const BookingDetail = () => {
         );
       }
       const uniqueRoomIds = [...new Set(roomIds)];
-      const res = await Promise.all(uniqueRoomIds.map(getRoomID));
+      await Promise.all(uniqueRoomIds.map(getRoomID));
       // Map back to original order or just return unique?
       // The original code mapped index-to-index in the render: `rooms[index]`.
       // The original code pushed roomIds in order of items: `booking.items.forEach(...) roomIds.push(...)`.
@@ -408,19 +417,6 @@ const BookingDetail = () => {
       }
     }
   }
-  const handleMarkRefunded = async () => {
-    if (!booking || !booking.id) return;
-    Modal.confirm({
-      title: "Xác nhận hoàn tiền",
-      content:
-        "Bạn có chắc chắn muốn đánh dấu booking này đã hoàn tiền cho khách?",
-      okText: "Đánh dấu đã hoàn tiền",
-      cancelText: "Hủy",
-      onOk: () => {
-        refundMutation.mutate(booking.id!);
-      },
-    });
-  };
   const handleNoShow = async () => {
     if (!booking || !booking.id) return;
     Modal.confirm({
@@ -551,7 +547,6 @@ const BookingDetail = () => {
               room_id: r.roomId,
               equipment_id: device.master_equipment_id,
               quantity: r.quantity,
-              reason: r.note || "Thiết bị hỏng khi checkout",
               amount: (device.compensation_price || 0) * r.quantity,
               compensation_price: device.compensation_price || 0,
               status: "pending",
@@ -582,7 +577,7 @@ const BookingDetail = () => {
     const totalRoomPrice = Number(booking.total_room_price || 0);
     const totalServicePrice = Number(booking.total_service_price || 0);
     const totalIncidentPrice = incidents.reduce(
-      (sum, i) => sum + Number(i.amount || 0),
+      (sum: number, i: { amount: any }) => sum + Number(i.amount || 0),
       0
     );
     const finalTotal = totalRoomPrice + totalServicePrice + totalIncidentPrice;
@@ -1616,35 +1611,100 @@ const BookingDetail = () => {
                     </Text>
                   </Col>
                 </Row>
-                {incidents.map((incident, idx) => {
-                  const roomObj = rooms.find((r) => r.id === incident.room_id);
-                  const roomName = roomObj ? roomObj.name : incident.room_id;
-                  return (
-                    <Row
-                      key={idx}
-                      justify="space-between"
-                      style={{ fontSize: 13 }}
-                    >
-                      <Col>
-                        <Text>
-                          {incident.equipment_name} (Phòng {roomName}) x{" "}
-                          {incident.quantity}
-                        </Text>
-                      </Col>
-                      <Col>
-                        <Text type="danger">
-                          {formatPrice(Number(incident.amount) || 0)}
-                        </Text>
-                      </Col>
-                    </Row>
-                  );
-                })}
+                {incidents.map(
+                  (
+                    incident: {
+                      room_id: number;
+                      equipment_name:
+                        | string
+                        | number
+                        | bigint
+                        | boolean
+                        | ReactElement<
+                            unknown,
+                            string | JSXElementConstructor<any>
+                          >
+                        | Iterable<ReactNode>
+                        | ReactPortal
+                        | Promise<
+                            | string
+                            | number
+                            | bigint
+                            | boolean
+                            | ReactPortal
+                            | ReactElement<
+                                unknown,
+                                string | JSXElementConstructor<any>
+                              >
+                            | Iterable<ReactNode>
+                            | null
+                            | undefined
+                          >
+                        | null
+                        | undefined;
+                      quantity:
+                        | string
+                        | number
+                        | bigint
+                        | boolean
+                        | ReactElement<
+                            unknown,
+                            string | JSXElementConstructor<any>
+                          >
+                        | Iterable<ReactNode>
+                        | ReactPortal
+                        | Promise<
+                            | string
+                            | number
+                            | bigint
+                            | boolean
+                            | ReactPortal
+                            | ReactElement<
+                                unknown,
+                                string | JSXElementConstructor<any>
+                              >
+                            | Iterable<ReactNode>
+                            | null
+                            | undefined
+                          >
+                        | null
+                        | undefined;
+                      amount: any;
+                    },
+                    idx: Key | null | undefined
+                  ) => {
+                    const roomObj = rooms.find(
+                      (r) => r.id === incident.room_id
+                    );
+                    const roomName = roomObj ? roomObj.name : incident.room_id;
+                    return (
+                      <Row
+                        key={idx}
+                        justify="space-between"
+                        style={{ fontSize: 13 }}
+                      >
+                        <Col>
+                          <Text>
+                            {incident.equipment_name} (Phòng {roomName}) x{" "}
+                            {incident.quantity}
+                          </Text>
+                        </Col>
+                        <Col>
+                          <Text type="danger">
+                            {formatPrice(Number(incident.amount) || 0)}
+                          </Text>
+                        </Col>
+                      </Row>
+                    );
+                  }
+                )}
                 <Row justify="space-between" style={{ marginTop: 4 }}>
                   <Text>Tổng đền bù</Text>
                   <Text strong type="danger">
                     {formatPrice(
                       incidents.reduce(
-                        (sum, i) => sum + (Number(i.amount) || 0),
+                        (sum: number, i: { amount: any }) =>
+                          sum + (Number(i.amount) || 0),
                         0
                       )
                     )}
@@ -2021,7 +2081,8 @@ const BookingDetail = () => {
                           booking.total_service_price || 0
                         );
                         const totalIncidentPrice = incidents.reduce(
-                          (sum, i) => sum + Number(i.amount || 0),
+                          (sum: number, i: { amount: any }) =>
+                            sum + Number(i.amount || 0),
                           0
                         );
                         const finalTotal =
@@ -2127,28 +2188,116 @@ const BookingDetail = () => {
                                 Đền bù thiết bị:
                               </td>
                             </tr>
-                            {incidents.map((inc, idx) => (
-                              <tr key={`inc-${idx}`}>
-                                <td
-                                  style={{
-                                    padding: "4px 8px 4px 24px",
-                                    color: "#555",
-                                  }}
-                                >
-                                  {inc.equipment_name} ({inc.equipment_type}) x{" "}
-                                  {inc.quantity}
-                                </td>
-                                <td
-                                  style={{
-                                    padding: "4px 8px",
-                                    textAlign: "right",
-                                    color: "#cf1322",
-                                  }}
-                                >
-                                  {formatPrice(inc.amount)}
-                                </td>
-                              </tr>
-                            ))}
+                            {incidents.map(
+                              (
+                                inc: {
+                                  equipment_name:
+                                    | string
+                                    | number
+                                    | bigint
+                                    | boolean
+                                    | ReactElement<
+                                        unknown,
+                                        string | JSXElementConstructor<any>
+                                      >
+                                    | Iterable<ReactNode>
+                                    | ReactPortal
+                                    | Promise<
+                                        | string
+                                        | number
+                                        | bigint
+                                        | boolean
+                                        | ReactPortal
+                                        | ReactElement<
+                                            unknown,
+                                            string | JSXElementConstructor<any>
+                                          >
+                                        | Iterable<ReactNode>
+                                        | null
+                                        | undefined
+                                      >
+                                    | null
+                                    | undefined;
+                                  equipment_type:
+                                    | string
+                                    | number
+                                    | bigint
+                                    | boolean
+                                    | ReactElement<
+                                        unknown,
+                                        string | JSXElementConstructor<any>
+                                      >
+                                    | Iterable<ReactNode>
+                                    | ReactPortal
+                                    | Promise<
+                                        | string
+                                        | number
+                                        | bigint
+                                        | boolean
+                                        | ReactPortal
+                                        | ReactElement<
+                                            unknown,
+                                            string | JSXElementConstructor<any>
+                                          >
+                                        | Iterable<ReactNode>
+                                        | null
+                                        | undefined
+                                      >
+                                    | null
+                                    | undefined;
+                                  quantity:
+                                    | string
+                                    | number
+                                    | bigint
+                                    | boolean
+                                    | ReactElement<
+                                        unknown,
+                                        string | JSXElementConstructor<any>
+                                      >
+                                    | Iterable<ReactNode>
+                                    | ReactPortal
+                                    | Promise<
+                                        | string
+                                        | number
+                                        | bigint
+                                        | boolean
+                                        | ReactPortal
+                                        | ReactElement<
+                                            unknown,
+                                            string | JSXElementConstructor<any>
+                                          >
+                                        | Iterable<ReactNode>
+                                        | null
+                                        | undefined
+                                      >
+                                    | null
+                                    | undefined;
+                                  amount: string | number;
+                                },
+                                idx: any
+                              ) => (
+                                <tr key={`inc-${idx}`}>
+                                  <td
+                                    style={{
+                                      padding: "4px 8px 4px 24px",
+                                      color: "#555",
+                                    }}
+                                  >
+                                    {inc.equipment_name} ({inc.equipment_type})
+                                    x {inc.quantity}
+                                  </td>
+                                  <td
+                                    style={{
+                                      padding: "4px 8px",
+                                      textAlign: "right",
+                                      color: "#cf1322",
+                                    }}
+                                  >
+                                    {formatPrice(inc.amount)}
+                                  </td>
+                                </tr>
+                              )
+                            )}
                             <tr>
                               <td
                                 style={{
@@ -2168,7 +2317,8 @@ const BookingDetail = () => {
                               >
                                 {formatPrice(
                                   incidents.reduce(
-                                    (sum, i) => sum + Number(i.amount || 0),
+                                    (sum: number, i: { amount: any }) =>
+                                      sum + Number(i.amount || 0),
                                     0
                                   )
                                 )}
@@ -2199,7 +2349,8 @@ const BookingDetail = () => {
                               Number(booking.total_room_price || 0) +
                                 Number(booking.total_service_price || 0) +
                                 incidents.reduce(
-                                  (sum, i) => sum + Number(i.amount || 0),
+                                  (sum: number, i: { amount: any }) =>
+                                    sum + Number(i.amount || 0),
                                   0
                                 )
                             )}
@@ -2242,7 +2393,8 @@ const BookingDetail = () => {
                         booking.total_service_price || 0
                       );
                       const totalIncidentPrice = incidents.reduce(
-                        (sum, i) => sum + Number(i.amount || 0),
+                        (sum: number, i: { amount: any }) =>
+                          sum + Number(i.amount || 0),
                         0
                       );
                       const finalTotal =
