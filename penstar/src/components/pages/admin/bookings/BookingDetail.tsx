@@ -15,7 +15,7 @@ import type { BookingDetails } from "@/types/bookings";
 import type { Room } from "@/types/room";
 import type { Services } from "@/types/services";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
