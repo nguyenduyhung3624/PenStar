@@ -9,11 +9,8 @@ import {
   Statistic,
   Table,
   Tag,
-  Progress,
   Typography,
-  Space,
   Avatar,
-  Empty,
   Button,
   Tabs,
   List,
@@ -21,10 +18,7 @@ import {
 import {
   DollarOutlined,
   CalendarOutlined,
-  UserOutlined,
   CheckCircleOutlined,
-  ClockCircleOutlined,
-  TeamOutlined,
   CloseCircleOutlined,
   TrophyOutlined,
   FallOutlined,
@@ -44,17 +38,15 @@ import {
   Cell,
   BarChart,
   Bar,
-  Legend,
 } from "recharts";
 import { useState } from "react";
 import dayjs from "dayjs";
-import { vi } from "date-fns/locale";
 
 const { RangePicker } = DatePicker;
 const { Title, Text } = Typography;
 
 const PIE_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
-const REVENUE_COLORS = ["#007AFF", "#34C759", "#FF9500"];
+
 const STATUS_COLORS = {
   confirmed: "#007AFF",
   checked_in: "#34C759",
@@ -98,14 +90,6 @@ const Dashboard = () => {
         <Spin size="large" tip="Đang tải dữ liệu..." />
       </div>
     );
-
-  const revenueBreakdownData = stats?.revenueBreakdown
-    ? [
-        { name: "Phòng", value: stats.revenueBreakdown.room },
-        { name: "Dịch vụ", value: stats.revenueBreakdown.service },
-        { name: "Phụ phí", value: stats.revenueBreakdown.incident },
-      ].filter((d) => d.value > 0)
-    : [];
 
   const topRoomsData =
     stats?.topRoomTypes?.map((r) => ({

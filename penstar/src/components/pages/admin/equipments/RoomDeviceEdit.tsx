@@ -10,7 +10,7 @@ const RoomDeviceEdit = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [form] = Form.useForm();
-  const [minMax, setMinMax] = useState<{
+  const [minMax] = useState<{
     min_quantity: number;
     max_quantity: number;
   } | null>(null);

@@ -1,5 +1,5 @@
 import { PlusOutlined, EditOutlined } from "@ant-design/icons";
-import { Button, Card, Input, Table, message, Popconfirm, Space } from "antd";
+import { Button, Card, Input, Table, message, Space } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -24,19 +24,6 @@ const FloorList = () => {
     return String(f.name ?? "")
       .toLowerCase()
       .includes(q);
-  });
-  const deleteMut = useMutation({
-    mutationFn: (id: number | string) => deleteFloor(id),
-    onSuccess: () => {
-      message.success("Xoá tầng thành công");
-      queryClient.invalidateQueries({ queryKey: ["floors"] });
-    },
-    onError: (err: unknown) => {
-      const serverMsg = (err as { response?: { data?: { message?: string } } })
-        ?.response?.data?.message;
-      const msg = serverMsg || "Xoá tầng thất bại";
-      message.error(msg);
-    },
   });
   const columns: ColumnsType<Floors> = [
     {

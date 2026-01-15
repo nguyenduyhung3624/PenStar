@@ -76,6 +76,7 @@ const BookingDetail = () => {
       deviceId: number | null;
       quantity: number;
       status: string;
+      note?: string;
     }>
   >([{ roomId: null, deviceId: null, quantity: 1, status: "broken" }]);
   const [serviceModalVisible, setServiceModalVisible] = useState(false);
@@ -289,7 +290,7 @@ const BookingDetail = () => {
         );
       }
       const uniqueRoomIds = [...new Set(roomIds)];
-      const res = await Promise.all(uniqueRoomIds.map(getRoomID));
+      await Promise.all(uniqueRoomIds.map(getRoomID));
       // Map back to original order or just return unique?
       // The original code mapped index-to-index in the render: `rooms[index]`.
       // The original code pushed roomIds in order of items: `booking.items.forEach(...) roomIds.push(...)`.
@@ -416,19 +417,6 @@ const BookingDetail = () => {
       }
     }
   }
-  const handleMarkRefunded = async () => {
-    if (!booking || !booking.id) return;
-    Modal.confirm({
-      title: "Xác nhận hoàn tiền",
-      content:
-        "Bạn có chắc chắn muốn đánh dấu booking này đã hoàn tiền cho khách?",
-      okText: "Đánh dấu đã hoàn tiền",
-      cancelText: "Hủy",
-      onOk: () => {
-        refundMutation.mutate(booking.id!);
-      },
-    });
-  };
   const handleNoShow = async () => {
     if (!booking || !booking.id) return;
     Modal.confirm({
