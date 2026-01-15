@@ -302,14 +302,6 @@ const Rooms = () => {
               <Descriptions.Item label="Loại phòng">
                 {selectedRoom.type_name || "N/A"}
               </Descriptions.Item>
-              <Descriptions.Item label="Giá phòng">
-                {new Intl.NumberFormat("vi-VN", {
-                  style: "currency",
-                  currency: "VND",
-                }).format(
-                  selectedRoom.price || selectedRoom.room_type_price || 0
-                )}
-              </Descriptions.Item>
               <Descriptions.Item label="Tầng">
                 {selectedRoom.floor_name || "N/A"}
               </Descriptions.Item>

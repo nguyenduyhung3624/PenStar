@@ -468,11 +468,6 @@ const BookingSuccess: React.FC = () => {
               Check-in: 14:00 • Check-out: 14:00
             </div>
             <div className="flex gap-3">
-              {canCancel && (
-                <Button danger onClick={handleCancel} loading={updating}>
-                  Hủy booking
-                </Button>
-              )}
               <Button
                 type="primary"
                 onClick={() => navigate("/")}

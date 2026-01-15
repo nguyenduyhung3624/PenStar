@@ -169,7 +169,7 @@ const HomePage = () => {
                     {roomType.name}
                   </h3>
                   <p className="text-gray-500 text-sm mb-4 line-clamp-2 flex-1">
-                    {roomType.description}
+                    {roomType.description?.replace(/<[^>]+>/g, "")}
                   </p>
                   <div className="flex items-end justify-between mt-auto">
                     <div>

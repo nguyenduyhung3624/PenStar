@@ -15,7 +15,7 @@ import type { BookingDetails } from "@/types/bookings";
 import type { Room } from "@/types/room";
 import type { Services } from "@/types/services";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
@@ -722,19 +722,42 @@ const BookingDetail = () => {
   }
   const totalExtraAdultFees =
     booking?.items?.reduce(
-      (sum, item: any) => sum + (Number(item.extra_adult_fees) || 0),
+      (sum, item: any) =>
+        item.status === "cancelled"
+          ? sum
+          : sum + (Number(item.extra_adult_fees) || 0),
       0
     ) || 0;
   const totalExtraChildFees =
     booking?.items?.reduce(
-      (sum, item: any) => sum + (Number(item.extra_child_fees) || 0),
+      (sum, item: any) =>
+        item.status === "cancelled"
+          ? sum
+          : sum + (Number(item.extra_child_fees) || 0),
       0
     ) || 0;
   const totalOtherExtraFees =
     booking?.items?.reduce(
-      (sum, item: any) => sum + (Number(item.extra_fees) || 0),
+      (sum, item: any) =>
+        item.status === "cancelled"
+          ? sum
+          : sum + (Number(item.extra_fees) || 0),
       0
     ) || 0;
+
+  // Calculate actual active room price (base + fees) for non-cancelled rooms
+  // Used to override booking.total_room_price which is static
+  const activeRoomPrice =
+    booking?.items?.reduce((sum, item: any) => {
+      if (item.status === "cancelled") return sum;
+      return (
+        sum +
+        (Number(item.room_type_price) || 0) +
+        (Number(item.extra_adult_fees) || 0) +
+        (Number(item.extra_child_fees) || 0) +
+        (Number(item.extra_fees) || 0)
+      );
+    }, 0) || 0;
   return (
     <div style={{ padding: "24px", background: "#f5f5f5", minHeight: "100vh" }}>
       <div style={{ maxWidth: 1000, margin: "0 auto" }}>
@@ -1546,7 +1569,7 @@ const BookingDetail = () => {
               <Text>Tiền phòng (Giá gốc)</Text>
               <Text strong>
                 {formatPrice(
-                  (booking.total_room_price || 0) -
+                  activeRoomPrice -
                     (totalExtraAdultFees +
                       totalExtraChildFees +
                       totalOtherExtraFees)
@@ -1656,7 +1679,6 @@ const BookingDetail = () => {
               </>
             )}
             <Divider style={{ margin: "12px 0" }} />
-            <Divider style={{ margin: "12px 0" }} />
             {booking.discount_amount && booking.discount_amount > 0 && (
               <>
                 <Row justify="space-between" style={{ marginBottom: 12 }}>
@@ -1677,50 +1699,26 @@ const BookingDetail = () => {
               </Title>
               <div style={{ textAlign: "right" }}>
                 {(() => {
-                  const originalTotal =
-                    booking.total_price != null
-                      ? booking.total_price
-                      : (booking.total_room_price || 0) +
-                        (booking.total_service_price || 0);
+                  let calculatedTotal =
+                    activeRoomPrice + (booking.total_service_price || 0);
 
-                  // Calculate total refund from items that are ACTUALLY refunded (is_refunded = true)
-                  const totalRefunded =
-                    booking.items?.reduce((sum: number, item: any) => {
-                      if (
-                        item.status === "cancelled" &&
-                        item.refund_amount &&
-                        item.is_refunded === true
-                      ) {
-                        return sum + Number(item.refund_amount);
-                      }
-                      return sum;
-                    }, 0) || 0;
-
-                  const finalTotal = originalTotal - totalRefunded;
-
-                  if (totalRefunded > 0) {
-                    return (
-                      <>
-                        <Text
-                          delete
-                          type="secondary"
-                          style={{ display: "block" }}
-                        >
-                          {formatPrice(originalTotal)}
-                        </Text>
-                        <Title level={4} type="danger" style={{ margin: 0 }}>
-                          {formatPrice(finalTotal)}
-                        </Title>
-                        <Text type="success" style={{ fontSize: "12px" }}>
-                          (Đã trừ hoàn tiền: {formatPrice(totalRefunded)})
-                        </Text>
-                      </>
+                  // Apply discount
+                  if (booking.discount_amount) {
+                    // If calculatedTotal is 0 (all cancelled), discount is effectively 0 for the purpose of "Total Due"
+                    // But if refund is pending, we might have issues.
+                    // Assuming standard behavior:
+                    calculatedTotal = Math.max(
+                      0,
+                      calculatedTotal - booking.discount_amount
                     );
                   }
 
+                  // If all rooms cancelled, force total 0 (overriding any service/discount weirdness for now, unless services remain)
+                  // Actually services might remain valid.
+
                   return (
                     <Title level={4} type="danger" style={{ margin: 0 }}>
-                      {formatPrice(originalTotal)}
+                      {formatPrice(calculatedTotal)}
                     </Title>
                   );
                 })()}

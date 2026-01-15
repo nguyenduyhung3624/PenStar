@@ -402,7 +402,7 @@ const BookingConfirm = () => {
             </Card>
           </Col>
           {}
-          <Col xs={24} lg={10}>
+          <Col xs={20} lg={10}>
             <Card title="Yêu cầu đặt phòng của bạn" className="sticky top-4">
               <div className="space-y-4">
                 {}
