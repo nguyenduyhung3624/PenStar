@@ -7,8 +7,6 @@ import {
   Card,
   message,
   Checkbox,
-  Row,
-  Col,
   Divider,
   Modal,
   Badge,
@@ -287,7 +285,7 @@ const BookingConfirm = () => {
       payment_status: "unpaid",
       payment_method: paymentMethod,
       booking_method: "online",
-      stay_status_id: 1, // 1: Chờ xác nhận (Pending)
+      stay_status_id: 1,
       items: itemsWithFees,
     };
     console.log("📤 Payload gửi backend:", payload);
@@ -307,7 +305,6 @@ const BookingConfirm = () => {
   }
   return (
     <div className="min-h-screen bg-gray-50">
-      {}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <Button
@@ -322,12 +319,11 @@ const BookingConfirm = () => {
           </h1>
         </div>
       </div>
-      {}
       <div className="max-w-7xl mx-auto px-4 py-6">
-        <Row gutter={24}>
-          {}
-          <Col xs={24} lg={14}>
-            <Card title="Thông tin người đặt phòng">
+        <div className="flex flex-row gap-6 items-start">
+          {/* Cột trái: Thông tin người đặt phòng + thanh toán */}
+          <div className="flex flex-col flex-1 min-w-0 gap-4">
+            <Card title="Thông tin người đặt phòng" className="h-fit">
               <Form form={form} layout="vertical">
                 <Form.Item label="Tên" required>
                   <Input
@@ -379,8 +375,7 @@ const BookingConfirm = () => {
                 </Form.Item>
               </Form>
             </Card>
-            <br />
-            <Card title="Phương thức thanh toán" className="mt-4">
+            <Card title="Phương thức thanh toán" className="mt-4 flex-1">
               <Badge.Ribbon text="Khuyên dùng" color="green">
                 <div className="p-4 border rounded-lg bg-yellow-50 border-yellow-200 flex items-center justify-between cursor-pointer">
                   <div className="flex items-center gap-3">
@@ -400,12 +395,11 @@ const BookingConfirm = () => {
                 </div>
               </Badge.Ribbon>
             </Card>
-          </Col>
-          {}
-          <Col xs={20} lg={10}>
-            <Card title="Yêu cầu đặt phòng của bạn" className="sticky top-4">
+          </div>
+          {/* Cột phải: Yêu cầu đặt phòng */}
+          <div className="flex flex-col flex-[0.8] min-w-0">
+            <Card title="Yêu cầu đặt phòng của bạn" className="h-fit">
               <div className="space-y-4">
-                {}
                 <div>
                   <h3 className="font-bold text-lg">PenStar Luxury Hotel</h3>
                   <p className="text-sm text-gray-600">
@@ -419,7 +413,6 @@ const BookingConfirm = () => {
                   </p>
                 </div>
                 <Divider />
-                {}
                 <div className="space-y-3">
                   <h4 className="font-semibold">Thông tin phòng:</h4>
                   {items.map((item: any, idx: number) => {
@@ -441,13 +434,11 @@ const BookingConfirm = () => {
                           Phòng {idx + 1}:{" "}
                           {item.room_type_name || "Phòng Deluxe"}
                         </p>
-                        {}
                         <p className="text-sm text-gray-600 mt-1">
                           Dành cho {item.num_adults} Người lớn -{" "}
                           {item.num_children} Trẻ em
                           {item.num_babies > 0 && ` - ${item.num_babies} Em bé`}
                         </p>
-                        {}
                         {refund && (
                           <div className="mt-2 p-2 rounded bg-yellow-50 border border-yellow-200">
                             <div className="font-semibold text-yellow-700 mb-1">
@@ -488,7 +479,6 @@ const BookingConfirm = () => {
                             )}
                           </div>
                         )}
-                        {}
                         {(extraAdultFees > 0 || extraChildFees > 0) && (
                           <div className="mt-2 space-y-1">
                             {extraAdultFees > 0 && (
@@ -505,11 +495,9 @@ const BookingConfirm = () => {
                             )}
                           </div>
                         )}
-                        {}
                         <p className="text-sm text-gray-700 mt-2">
                           Giá phòng: {formatPrice(basePrice)}
                         </p>
-                        {}
                         <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-300">
                           <span className="font-semibold text-base">Tổng:</span>
                           <span className="font-bold text-lg">
@@ -521,7 +509,6 @@ const BookingConfirm = () => {
                   })}
                 </div>
                 <Divider />
-                {}
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span>Giá phòng:</span>
@@ -529,7 +516,6 @@ const BookingConfirm = () => {
                       {formatPrice(totalRoomPrice)}
                     </span>
                   </div>
-                  {}
                   <div className="flex items-center gap-2 mb-2">
                     <Button
                       type="default"
@@ -554,7 +540,6 @@ const BookingConfirm = () => {
                         Xóa mã
                       </Button>
                     )}
-                    {}
                   </div>
                   {discountInfo && (
                     <div className="flex justify-between text-green-600">
@@ -567,7 +552,6 @@ const BookingConfirm = () => {
                   )}
                 </div>
                 <Divider />
-                {}
                 <div className="flex justify-between items-center">
                   <span className="text-xl font-bold">Tổng giá:</span>
                   <span className="text-2xl font-bold text-orange-500">
@@ -579,7 +563,6 @@ const BookingConfirm = () => {
                   theo giá VND.
                 </p>
                 <Divider />
-                {}
                 <Checkbox
                   checked={agreePolicy}
                   onChange={(e) => setAgreePolicy(e.target.checked)}
@@ -596,7 +579,6 @@ const BookingConfirm = () => {
                   </span>{" "}
                   của khách sạn.
                 </Checkbox>
-                {}
                 <Button
                   type="primary"
                   size="large"
@@ -617,10 +599,9 @@ const BookingConfirm = () => {
                 </Button>
               </div>
             </Card>
-          </Col>
-        </Row>
+          </div>
+        </div>
       </div>
-      {}
       <Modal
         title="Điều khoản đặt phòng"
         open={termsModalOpen}
@@ -671,12 +652,14 @@ const BookingConfirm = () => {
             <h3 className="font-bold text-lg text-gray-800 mb-2">
               3. Chính sách hủy phòng & hoàn tiền
             </h3>
-            <li>Chỉ hoàn tiền khi đơn chưa được xác nhận bởi admin.</li>
-            <li>
-              Số tiền hoàn lại bằng 80% tổng giá trị đơn đặt phòng (phí dịch vụ
-              20%).
-            </li>
-            <li>Yêu cầu hoàn tiền sẽ được xử lý trong 3-5 ngày làm việc.</li>
+            <ul className="list-disc pl-5 space-y-1 text-gray-600">
+              <li>Chỉ hoàn tiền khi đơn chưa được xác nhận bởi admin.</li>
+              <li>
+                Số tiền hoàn lại bằng 80% tổng giá trị đơn đặt phòng (phí dịch
+                vụ 20%).
+              </li>
+              <li>Yêu cầu hoàn tiền sẽ được xử lý trong 3-5 ngày làm việc.</li>
+            </ul>
           </section>
           <section>
             <h3 className="font-bold text-lg text-gray-800 mb-2">
