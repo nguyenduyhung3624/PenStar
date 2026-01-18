@@ -72,35 +72,6 @@ const BookingSuccess: React.FC = () => {
       setTimeout(() => {
         fetchBooking();
       }, 100);
-    } else {
-      fetchBooking();
-    }
-  }, [id]);
-  const handleCancel = async () => {
-    if (!booking?.id) return;
-    const bookingId = booking.id;
-    Modal.confirm({
-      title: "Xác nhận hủy booking",
-      content:
-        "Bạn có chắc muốn hủy booking này? Nếu hủy trước hạn theo chính sách, bạn sẽ được hoàn tiền theo quy định.",
-      okText: "Hủy booking",
-      cancelText: "Không",
-      okType: "danger",
-      onOk: async () => {
-        try {
-          const res = await cancelBooking(bookingId);
-          const refund = res?.refund_amount || 0;
-          message.success(
-            refund > 0
-              ? `Đã hủy booking thành công! Số tiền hoàn lại: ${refund.toLocaleString("vi-VN")} VND.`
-              : "Đã hủy booking thành công! Không đủ điều kiện hoàn tiền."
-          );
-          fetchBooking();
-        } catch (error) {
-          console.error("Cancel booking error:", error);
-          const err = error as { response?: { data?: { message?: string } } };
-          message.error(err.response?.data?.message || "Lỗi hủy booking");
-        } finally {
         }
       },
     });

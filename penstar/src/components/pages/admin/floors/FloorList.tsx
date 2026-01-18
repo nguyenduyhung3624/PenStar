@@ -7,7 +7,6 @@ import { getFloors } from "@/services/floorsApi";
 import { useNavigate } from "react-router-dom";
 import type { Floors } from "@/types/floors";
 const FloorList = () => {
-  const queryClient = useQueryClient(); // Nếu không dùng, xoá dòng này
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 5;
