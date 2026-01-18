@@ -1,2 +1,0 @@
-ALTER TABLE services
-ADD COLUMN unit VARCHAR(50) DEFAULT 'Cái';
