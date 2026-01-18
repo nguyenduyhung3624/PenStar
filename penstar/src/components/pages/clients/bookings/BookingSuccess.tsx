@@ -41,8 +41,8 @@ const BookingSuccess: React.FC = () => {
           new Set(
             bookingData.services
               .map((s: { service_id?: number }) => s.service_id)
-              .filter((id): id is number => id != null)
-          )
+              .filter((id): id is number => id != null),
+          ),
         );
         Promise.all(serviceIds.map((sid: number) => getServiceById(sid)))
           .then((serviceResults) => {
@@ -72,10 +72,8 @@ const BookingSuccess: React.FC = () => {
       setTimeout(() => {
         fetchBooking();
       }, 100);
-        }
-      },
-    });
-  };
+    }
+  }, [id, initial, fetchBooking]);
   const getStatusTag = (statusId?: number) => {
     const id = statusId || 0;
     const statusMap: Record<number, { color: string; text: string }> = {
