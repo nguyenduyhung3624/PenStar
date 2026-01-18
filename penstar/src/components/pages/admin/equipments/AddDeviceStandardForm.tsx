@@ -22,8 +22,7 @@ const AddDeviceStandardForm: React.FC<AddDeviceStandardFormProps> = ({
   const mutation = useMutation({
     mutationFn: async (values: any) => {
       // Lấy dữ liệu từ form
-      const { room_type_id, master_equipment_id, min_quantity, max_quantity } =
-        values;
+      const { room_type_id, master_equipment_id, min_quantity } = values;
       // Tạo dữ liệu equipments theo yêu cầu API
       const equipments = [
         {
