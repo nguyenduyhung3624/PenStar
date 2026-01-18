@@ -1,7 +1,7 @@
 import React from "react";
 import { useLocation, useParams, useNavigate } from "react-router-dom";
-import { Button, Spin, Tag, message, Modal, Table } from "antd";
-import { cancelBooking, getBookingById } from "@/services/bookingsApi";
+import { Button, Spin, Tag, Table } from "antd";
+import { getBookingById } from "@/services/bookingsApi";
 import { getBookingIncidents } from "@/services/bookingIncidentsApi";
 import type { Booking, BookingService } from "@/types/bookings";
 import { getServiceById } from "@/services/servicesApi";

@@ -2,7 +2,7 @@ import { PlusOutlined, EditOutlined } from "@ant-design/icons";
 import { Button, Card, Input, Table, Space } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { getFloors } from "@/services/floorsApi";
 import { useNavigate } from "react-router-dom";
 import type { Floors } from "@/types/floors";
