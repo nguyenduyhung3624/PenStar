@@ -20,7 +20,20 @@ const AddDeviceStandardForm: React.FC<AddDeviceStandardFormProps> = ({
     queryFn: getEquipments,
   });
   const mutation = useMutation({
-    mutationFn: updateDeviceStandards,
+    mutationFn: async (values: any) => {
+      // Lấy dữ liệu từ form
+      const { room_type_id, master_equipment_id, min_quantity, max_quantity } =
+        values;
+      // Tạo dữ liệu equipments theo yêu cầu API
+      const equipments = [
+        {
+          name: master_equipment_id, // Nếu cần lấy tên, cần map lại từ danh sách equipments
+          quantity: min_quantity,
+          price: 0, // Nếu có trường giá, lấy từ form hoặc để mặc định
+        },
+      ];
+      return updateDeviceStandards(room_type_id, equipments);
+    },
     onSuccess: () => {
       message.success("Cập nhật tiêu chuẩn thành công!");
       queryClient.invalidateQueries({ queryKey: ["device-standards"] });

@@ -1,9 +1,9 @@
-import { EditOutlined, PlusOutlined, DeleteOutlined } from "@ant-design/icons";
+import { EditOutlined, PlusOutlined } from "@ant-design/icons";
 import {
   Button,
   Card,
   Input,
-  Popconfirm,
+  // Popconfirm,
   Table,
   message,
   Space,
@@ -41,17 +41,7 @@ const ServiceList = () => {
       .toLowerCase()
       .includes(q);
   });
-  const deleteMut = useMutation({
-    mutationFn: (id: number | string) => deleteService(id),
-    onSuccess: () => {
-      message.success("Xóa dịch vụ thành công");
-      queryClient.invalidateQueries({ queryKey: ["services"] });
-    },
-    onError: (error: any) => {
-      console.error("Delete error:", error);
-      message.error(error?.response?.data?.message || "Xóa dịch vụ thất bại");
-    },
-  });
+  // const deleteMut = useMutation({ ... }); // Nếu không dùng, xoá dòng này
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat("vi-VN", {
       style: "currency",
