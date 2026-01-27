@@ -4,14 +4,14 @@ import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// Khởi tạo kết nối database (Supabase/PostgreSQL)
-import "./db.js";
-
-// Load environment variables FIRST
+// Load env TRƯỚC TẤT CẢ
 dotenv.config();
 
-// Set timezone for Node.js process - MUST be before any date operations
+// Set timezone
 process.env.TZ = "Asia/Ho_Chi_Minh";
+
+// Khởi tạo kết nối database (Supabase/PostgreSQL)
+import "./db.js";
 
 // Middleware
 import { responseHandler } from "./middlewares/responeseHandler.js";
@@ -39,6 +39,7 @@ import stayStatusRouter from "./routers/stay_status.js";
 import usersRouter from "./routers/users.js";
 import voucherRouter from "./routers/voucher.js";
 import refundRequestsRouter from "./routers/refund_requests.js";
+import checkNoShow from "./cron/checkNoShow.js";
 
 // Constants
 import { ERROR_MESSAGES } from "./utils/constants.js";
@@ -52,7 +53,7 @@ const app = express();
 const PORT = process.env.PORT || 5001;
 
 // ============================================================================
-// MIDDLEWARE
+// MIDDLEWARE (THỨ TỰ RẤT QUAN TRỌNG)
 // ============================================================================
 
 // CORS
@@ -62,13 +63,13 @@ app.use(cors(corsOptions));
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// Response handler (res.success, res.error)
+// ❗ PHẢI ĐẶT TRƯỚC ROUTER
 app.use(responseHandler);
 
-// Static files for uploads
+// Static files
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Request logging (development)
+// Log request (dev only)
 if (process.env.NODE_ENV !== "production") {
   app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
@@ -77,51 +78,40 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 // ============================================================================
-// API ROUTES
+// ROUTES
 // ============================================================================
 
-// Auth & Users
 app.use("/api/users", usersRouter);
 
-// Bookings
 app.use("/api/bookings", bookingsRouter);
 app.use("/api/booking-bill-logs", bookingBillLogsRouter);
 app.use("/api/booking-incidents", bookingIncidentsRouter);
 app.use("/api/booking-items", bookingItemsRouter);
 app.use("/api/booking-services", bookingServicesRouter);
 
-// Rooms & Room Types
 app.use("/api/rooms", roomsRouter);
 app.use("/api/roomtypes", roomTypesRouter);
 app.use("/api/room-type-images", roomTypeImagesRouter);
 app.use("/api/room-type-equipments", roomTypeEquipmentsRouter);
 
-// Floors
 app.use("/api/floors", floorsRouter);
 
-// Services
 app.use("/api/services", servicesRouter);
 
-// Equipments & Devices
 app.use("/api/master-equipments", masterEquipmentsRouter);
 app.use("/api/room-devices", roomDevicesRouter);
 app.use("/api/equipment-stock-logs", equipmentStockLogsRouter);
 
-// Discount Codes & Vouchers
 app.use("/api/discount-codes", discountCodesRouter);
 app.use("/api/voucher", voucherRouter);
 
-// Payment
 app.use("/api/payment", paymentRouter);
 
-// Roles & Stay Status
 app.use("/api/roles", rolesRouter);
 app.use("/api/stay-status", stayStatusRouter);
 
-// Statistics
 app.use("/api/statistics", statisticsRouter);
 
-// Refund Requests
 app.use("/api/refund-requests", refundRequestsRouter);
 
 // ============================================================================
@@ -132,24 +122,6 @@ app.get("/api/health", (req, res) => {
   res.success(
     { status: "ok", timestamp: new Date().toISOString() },
     "Server is running",
-  );
-});
-
-// API debug timezone - để kiểm tra thời gian server
-app.get("/api/server-time", (req, res) => {
-  const now = new Date();
-  res.success(
-    {
-      isoString: now.toISOString(),
-      localString: now.toLocaleString("vi-VN", {
-        timeZone: "Asia/Ho_Chi_Minh",
-      }),
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      tzEnv: process.env.TZ || "not set",
-      timestamp: now.getTime(),
-      utcOffset: now.getTimezoneOffset(),
-    },
-    "Server time info",
   );
 });
 
@@ -175,23 +147,16 @@ app.use((err, req, res, next) => {
 });
 
 // ============================================================================
-// START SERVER
+// CRON + SERVER
 // ============================================================================
 
-// Start Cron Jobs
-import checkNoShow from "./cron/checkNoShow.js";
 checkNoShow();
 
-app.listen(PORT, () => {
-  console.log(`
-╔════════════════════════════════════════════════════════════╗
-║                    🏨 PENSTAR HOTEL API                    ║
-╠════════════════════════════════════════════════════════════╣
-║  Server running on: http://localhost:${PORT}                  ║
-║  Environment: ${(process.env.NODE_ENV || "development").padEnd(42)}║
-║  Started at: ${new Date().toLocaleString().padEnd(43)}║
-╚════════════════════════════════════════════════════════════╝
-  `);
-});
+// ❗ VERCEL KHÔNG CẦN listen
+if (process.env.NODE_ENV !== "production") {
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
 
 export default app;
