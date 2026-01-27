@@ -2,7 +2,7 @@ import type { RoomSearchParams } from "@/types/room";
 import RoomSearchBar from "@/components/common/RoomSearchBar";
 import bannerImage from "@/assets/images/banner-tin-tuc-uu-dai_1686539225_1686815922.jpg";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRoomTypes } from "@/services/roomTypeApi";
 import { getServices } from "@/services/servicesApi";
 import { getAvailableVouchers } from "@/services/discountApi";
@@ -13,6 +13,7 @@ import { useState } from "react";
 import type { RoomType } from "@/types/roomtypes";
 
 const HomePage = () => {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [selectedRoom, setSelectedRoom] = useState<RoomType | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -71,6 +72,9 @@ const HomePage = () => {
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code);
     message.success(`Đã sao chép mã: ${code}`);
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ["discountCodes"] });
+    }, 500);
   };
 
   const showRoomDetail = (room: RoomType) => {

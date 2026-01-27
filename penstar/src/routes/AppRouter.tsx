@@ -21,7 +21,6 @@ import HomePage from "@/components/pages/clients/HomePage";
 import RoomSearchResults from "@/components/pages/clients/rooms/RoomSearchResults";
 import BookingConfirm from "@/components/pages/clients/bookings/BookingConfirm";
 import BookingsList from "@/components/pages/admin/bookings/BookingsList";
-import BookingSuccess from "@/components/pages/clients/bookings/BookingSuccess";
 import MyBookings from "@/components/pages/clients/bookings/MyBookings";
 import MyVouchers from "@/components/pages/clients/vouchers/MyVouchers";
 import BookingDetailClient from "@/components/pages/clients/bookings/BookingDetailClient";
@@ -90,8 +89,6 @@ const AppRouter = () => {
               </RequireCustomerOnly>
             }
           />
-          {}
-          <Route path="bookings/success/:id" element={<BookingSuccess />} />
           {}
           <Route path="payment-result" element={<PaymentResult />} />
           {}

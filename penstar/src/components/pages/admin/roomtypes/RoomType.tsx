@@ -3,11 +3,12 @@ import { Button, Card, Input, Space, Table, Image } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getRoomTypes } from "@/services/roomTypeApi";
 import type { RoomType } from "@/types/roomtypes";
 type RoomTypeItem = RoomType;
 const RoomTypesPage = () => {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 5;
@@ -100,7 +101,12 @@ const RoomTypesPage = () => {
           <Button
             type="primary"
             icon={<EditOutlined />}
-            onClick={() => navigate(`/admin/roomtypes/${record.id}/edit`)}
+            onClick={() => {
+              navigate(`/admin/roomtypes/${record.id}/edit`);
+              setTimeout(() => {
+                queryClient.invalidateQueries({ queryKey: ["room_types"] });
+              }, 500);
+            }}
           >
             Sửa
           </Button>
@@ -125,7 +131,12 @@ const RoomTypesPage = () => {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => navigate("/admin/roomtypes/new")}
+            onClick={() => {
+              navigate("/admin/roomtypes/new");
+              setTimeout(() => {
+                queryClient.invalidateQueries({ queryKey: ["room_types"] });
+              }, 500);
+            }}
           >
             Thêm loại phòng
           </Button>

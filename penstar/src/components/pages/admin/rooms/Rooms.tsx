@@ -1,5 +1,5 @@
 import { EditOutlined, PlusOutlined, EyeOutlined } from "@ant-design/icons";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Button,
   Table,
@@ -18,10 +18,11 @@ import { getRoomTypes } from "@/services/roomTypeApi";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 const Rooms = () => {
+  const queryClient = useQueryClient();
   const [currentPage, setCurrentPage] = useState<number>(1);
   const pageSize = 5;
   const [filterTypeId, setFilterTypeId] = useState<number | string | null>(
-    null
+    null,
   );
   const [filterFloorName, setFilterFloorName] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState<string>("");
@@ -58,7 +59,7 @@ const Rooms = () => {
         .toLowerCase();
       if (q) {
         const name = String(
-          (r as unknown as Record<string, unknown>).name ?? ""
+          (r as unknown as Record<string, unknown>).name ?? "",
         ).toLowerCase();
         if (!name.includes(q)) return false;
       }
@@ -157,7 +158,12 @@ const Rooms = () => {
           <Button
             type="primary"
             icon={<EditOutlined />}
-            onClick={() => navigate(`/admin/rooms/${(room as Room).id}/edit`)}
+            onClick={() => {
+              navigate(`/admin/rooms/${(room as Room).id}/edit`);
+              setTimeout(() => {
+                queryClient.invalidateQueries({ queryKey: ["rooms"] });
+              }, 500);
+            }}
           >
             Sửa
           </Button>
@@ -212,7 +218,7 @@ const Rooms = () => {
                   <Select.Option key={name} value={name}>
                     {name}
                   </Select.Option>
-                )
+                ),
               )}
           </Select>
           <Button
@@ -227,7 +233,12 @@ const Rooms = () => {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => navigate("/admin/rooms/add")}
+            onClick={() => {
+              navigate("/admin/rooms/add");
+              setTimeout(() => {
+                queryClient.invalidateQueries({ queryKey: ["rooms"] });
+              }, 500);
+            }}
           >
             Thêm mới
           </Button>

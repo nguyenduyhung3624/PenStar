@@ -6,19 +6,20 @@ import { getRoomTypes } from "@/services/roomTypeApi";
 import type { Room, RoomSearchParams } from "@/types/room";
 import type { RoomType } from "@/types/roomtypes";
 import type { RoomBookingConfig } from "@/types/roomBooking";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarOutlined } from "@ant-design/icons";
 import RoomSearchBar from "@/components/common/RoomSearchBar";
 import BookingSidebar from "@/components/common/BookingSidebar";
 import RoomTypeCard from "./RoomTypeCard";
 import dayjs from "@/utils/dayjs";
 const RoomSearchResults = () => {
+  const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchParams, setSearchParams] = useState<RoomSearchParams | null>(
-    location.state?.searchParams || null
+    location.state?.searchParams || null,
   );
   const { data: roomTypes = [] } = useQuery<RoomType[]>({
     queryKey: ["roomtypes"],
@@ -48,11 +49,14 @@ const RoomSearchResults = () => {
     ) {
       setSelectedRoomIds(location.state.autoSelectedRoomIds);
       message.success(
-        `Đã tự động chọn ${location.state.autoSelectedRoomIds.length} phòng từ catalog`
+        `Đã tự động chọn ${location.state.autoSelectedRoomIds.length} phòng từ catalog`,
       );
     }
   }, []);
   const handleSearch = async (params: RoomSearchParams) => {
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ["roomtypes"] });
+    }, 500);
     setLoading(true);
     setSelectedRoomIds([]);
     try {
@@ -65,10 +69,10 @@ const RoomSearchResults = () => {
         setNumRooms(params.num_rooms);
       }
       const available = response.data.filter(
-        (r: Room) => r.is_available
+        (r: Room) => r.is_available,
       ).length;
       message.success(
-        `Tìm thấy ${response.data.length} phòng (${available} trống)`
+        `Tìm thấy ${response.data.length} phòng (${available} trống)`,
       );
     } catch (error) {
       console.error("Error searching rooms:", error);
@@ -88,9 +92,9 @@ const RoomSearchResults = () => {
           acc[room.type_id].push(room);
           return acc;
         },
-        {} as Record<number, Room[]>
+        {} as Record<number, Room[]>,
       ),
-    [rooms]
+    [rooms],
   );
 
   return (
@@ -183,10 +187,10 @@ const RoomSearchResults = () => {
               <div className="space-y-6">
                 {Object.entries(roomsByType).map(([typeId, roomsInType]) => {
                   const roomType = roomTypes.find(
-                    (rt) => rt.id === Number(typeId)
+                    (rt) => rt.id === Number(typeId),
                   );
                   const currentBooking = confirmedBookings.find(
-                    (b) => b.roomTypeId === Number(typeId)
+                    (b) => b.roomTypeId === Number(typeId),
                   );
                   const currentRoomsConfig = currentBooking?.roomsConfig || [];
 
@@ -203,7 +207,7 @@ const RoomSearchResults = () => {
                         setSelectedRoomIds(selectedRooms.map((r) => r.id));
                         setConfirmedBookings((prev) => {
                           const idx = prev.findIndex(
-                            (b) => b.roomTypeId === (roomType?.id || 0)
+                            (b) => b.roomTypeId === (roomType?.id || 0),
                           );
                           const newBooking = {
                             roomTypeId: roomType?.id || 0,
@@ -254,7 +258,7 @@ const RoomSearchResults = () => {
                           extra_children_count:
                             config.extra_children_count || 0,
                         };
-                      })
+                      }),
                     )}
                     onRemoveRoom={(index) => {
                       let currentIndex = 0;
@@ -266,7 +270,7 @@ const RoomSearchResults = () => {
                           updatedRoomsConfig.splice(roomIndexInBooking, 1);
                           if (updatedRoomsConfig.length === 0) {
                             setConfirmedBookings((prev) =>
-                              prev.filter((_, idx) => idx !== i)
+                              prev.filter((_, idx) => idx !== i),
                             );
                           } else {
                             setConfirmedBookings((prev) => {
@@ -291,13 +295,13 @@ const RoomSearchResults = () => {
                             room_type_id: booking.roomTypeId,
                             room_type_name: booking.roomTypeName,
                             room_type_price: Number(
-                              cfg.price || booking.roomPrice || 0
+                              cfg.price || booking.roomPrice || 0,
                             ),
-                          }))
+                          })),
                       );
                       const nights = dayjs(searchParams.check_out).diff(
                         dayjs(searchParams.check_in),
-                        "day"
+                        "day",
                       );
                       const totalPrice = allRoomsConfig.reduce(
                         (sum, cfg) =>
@@ -305,7 +309,7 @@ const RoomSearchResults = () => {
                           (Number(cfg.base_price || cfg.price) +
                             Number(cfg.extra_fees || 0)) *
                             nights,
-                        0
+                        0,
                       );
                       const items = allRoomsConfig.map((cfg) => ({
                         room_id: cfg.room_id,

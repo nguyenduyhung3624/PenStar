@@ -4,6 +4,9 @@ import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 
+// Khởi tạo kết nối database (Supabase/PostgreSQL)
+import "./db.js";
+
 // Load environment variables FIRST
 dotenv.config();
 
@@ -128,7 +131,7 @@ app.use("/api/refund-requests", refundRequestsRouter);
 app.get("/api/health", (req, res) => {
   res.success(
     { status: "ok", timestamp: new Date().toISOString() },
-    "Server is running"
+    "Server is running",
   );
 });
 
@@ -146,7 +149,7 @@ app.get("/api/server-time", (req, res) => {
       timestamp: now.getTime(),
       utcOffset: now.getTimezoneOffset(),
     },
-    "Server time info"
+    "Server time info",
   );
 });
 
@@ -167,7 +170,7 @@ app.use((err, req, res, next) => {
   res.error(
     err.message || ERROR_MESSAGES.INTERNAL_ERROR,
     process.env.NODE_ENV !== "production" ? err.stack : null,
-    err.statusCode || 500
+    err.statusCode || 500,
   );
 });
 

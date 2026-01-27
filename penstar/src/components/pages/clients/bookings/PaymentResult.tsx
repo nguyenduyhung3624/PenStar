@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, Button, Spin, Row, Col, Typography } from "antd";
@@ -8,7 +9,7 @@ const PaymentResult: React.FC = () => {
   const queryParams = new URLSearchParams(window.location.search);
   let bookingId: string | null = queryParams.get("bookingId");
   if (!bookingId) {
-    bookingId = localStorage.getItem("bookingId"); 
+    bookingId = localStorage.getItem("bookingId");
   }
   React.useEffect(() => {
     const paymentMethod = queryParams.get("paymentMethod");
@@ -24,7 +25,7 @@ const PaymentResult: React.FC = () => {
       orderId: null,
     };
     if (isMoMo) {
-      const momoStatus = queryParams.get("status"); 
+      const momoStatus = queryParams.get("status");
       const orderId = queryParams.get("orderId");
       const amount = queryParams.get("amount");
       const transId = queryParams.get("transId");
@@ -56,7 +57,7 @@ const PaymentResult: React.FC = () => {
       status = {
         responseCode,
         transactionNo,
-        amount: amount ? Number(amount) / 100 : 0, 
+        amount: amount ? Number(amount) / 100 : 0,
         orderId,
         success: responseCode === "00",
         paymentMethod: "vnpay",
@@ -76,7 +77,7 @@ const PaymentResult: React.FC = () => {
     }
   }, []);
   const [updating, setUpdating] = React.useState(false);
-  const handleGoToBookingSuccess = async () => {
+  const handleGoToBookingDetail = async () => {
     if (!bookingId) {
       alert("Không tìm thấy bookingId");
       return;
@@ -85,7 +86,7 @@ const PaymentResult: React.FC = () => {
     try {
       const { updateMyBooking } = await import("@/services/bookingsApi");
       await updateMyBooking(Number(bookingId), { payment_status: "paid" });
-      navigate(`/bookings/success/${bookingId}`, {
+      navigate(`/my-bookings/${bookingId}`, {
         replace: true,
       });
     } catch (err) {
@@ -180,7 +181,7 @@ const PaymentResult: React.FC = () => {
                           borderRadius: 10,
                           fontWeight: 600,
                         }}
-                        onClick={handleGoToBookingSuccess}
+                        onClick={handleGoToBookingDetail}
                         loading={updating}
                       >
                         {updating
@@ -226,7 +227,7 @@ const PaymentResult: React.FC = () => {
                                 "@/services/bookingsApi"
                               );
                               const bookingInfo = await getBookingById(
-                                Number(bookingId)
+                                Number(bookingId),
                               );
                               navigate("/bookings/payment-method", {
                                 state: {

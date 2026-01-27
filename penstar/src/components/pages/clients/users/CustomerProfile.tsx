@@ -41,6 +41,9 @@ const CustomerProfile: React.FC = () => {
     onSuccess: (data) => {
       message.success("Cập nhật thông tin thành công!");
       queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      setTimeout(() => {
+        queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      }, 500);
       setIsEditing(false);
       if (data?.user) {
         const updatedUser = data.user;
@@ -53,7 +56,7 @@ const CustomerProfile: React.FC = () => {
     },
     onError: (error: any) => {
       message.error(
-        error?.response?.data?.message || "Cập nhật thông tin thất bại"
+        error?.response?.data?.message || "Cập nhật thông tin thất bại",
       );
     },
   });

@@ -4,11 +4,12 @@ import { EyeOutlined, CheckCircleOutlined } from "@ant-design/icons";
 import { getMyBookings } from "@/services/bookingsApi";
 import useAuth from "@/hooks/useAuth";
 import dayjs from "dayjs";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import type { BookingShort } from "@/types/bookings";
 const { Title } = Typography;
 const MyBookings: React.FC = () => {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const auth = useAuth() as unknown as { user?: { id?: number } };
   const { data: bookings = [], isLoading } = useQuery<BookingShort[]>({
@@ -95,7 +96,12 @@ const MyBookings: React.FC = () => {
         <Button
           type="primary"
           icon={<EyeOutlined />}
-          onClick={() => navigate(`/my-bookings/${record.id}`)}
+          onClick={() => {
+            navigate(`/my-bookings/${record.id}`);
+            setTimeout(() => {
+              queryClient.invalidateQueries({ queryKey: ["my-bookings"] });
+            }, 500);
+          }}
         >
           Chi tiết
         </Button>

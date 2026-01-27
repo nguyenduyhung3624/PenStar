@@ -3,7 +3,7 @@ import { Button, Card, Input, Table, Space, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@/types/users";
 import { getUsers } from "@/services/usersApi";
 
@@ -11,6 +11,7 @@ import { getRoles } from "@/services/rolesApi";
 import type { Role } from "@/types/roles";
 import useAuth from "@/hooks/useAuth";
 const Userlist = () => {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const auth = useAuth();
   const currentUserId = auth?.user?.id;
@@ -107,7 +108,12 @@ const Userlist = () => {
             <Button
               type="primary"
               icon={<EditOutlined />}
-              onClick={() => navigate(`/admin/users/${record.id}/edit`)}
+              onClick={() => {
+                navigate(`/admin/users/${record.id}/edit`);
+                setTimeout(() => {
+                  queryClient.invalidateQueries({ queryKey: ["users"] });
+                }, 500);
+              }}
               disabled={isCurrentUser || isAdminBlock}
             >
               Sửa
