@@ -65,11 +65,6 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
       const currentRoomTypeCount = roomsConfig.filter(
         (config) => config.room_type_id === roomType?.id,
       ).length;
-      console.log("🔄 Sync:", roomType?.name, {
-        current: currentRoomTypeCount,
-        prev: prevRoomsConfigLength.current,
-        selected: selectedRoomsCount,
-      });
       if (currentRoomTypeCount < prevRoomsConfigLength.current) {
         console.log("✅ Reset to:", currentRoomTypeCount);
         setSelectedRoomsCount(currentRoomTypeCount);
