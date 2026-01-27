@@ -57,13 +57,13 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
       }
     }, [roomType?.id]);
     const maxSelectableRooms = roomsInType.filter(
-      (room) => room.is_available !== false && room.status === "available"
+      (room) => room.is_available !== false && room.status === "available",
     ).length;
     const [selectedRoomsCount, setSelectedRoomsCount] = useState(0);
     const prevRoomsConfigLength = React.useRef(0);
     React.useEffect(() => {
       const currentRoomTypeCount = roomsConfig.filter(
-        (config) => config.room_type_id === roomType?.id
+        (config) => config.room_type_id === roomType?.id,
       ).length;
       console.log("🔄 Sync:", roomType?.name, {
         current: currentRoomTypeCount,
@@ -74,7 +74,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
         console.log("✅ Reset to:", currentRoomTypeCount);
         setSelectedRoomsCount(currentRoomTypeCount);
         const currentConfigs = roomsConfig.filter(
-          (config) => config.room_type_id === roomType?.id
+          (config) => config.room_type_id === roomType?.id,
         );
         setNumAdultsList(currentConfigs.map((c) => c.num_adults || 1));
         setNumChildrenList(currentConfigs.map((c) => c.num_children || 0));
@@ -106,7 +106,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
         const arr = [...prev];
         if (selectedRoomsCount > arr.length) {
           return arr.concat(
-            Array.from({ length: selectedRoomsCount - arr.length }, () => [])
+            Array.from({ length: selectedRoomsCount - arr.length }, () => []),
           );
         } else {
           return arr.slice(0, selectedRoomsCount);
@@ -115,40 +115,50 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
     }, [selectedRoomsCount]);
     const suitableRooms = useMemo(() => {
       return roomsInType.filter(
-        (room) => room.is_available !== false && room.status === "available"
+        (room) => room.is_available !== false && room.status === "available",
       );
     }, [roomsInType]);
-    const calculateRoomExtraFees = (roomIndex: number) => {
-      const numAdults = numAdultsList[roomIndex] || 0;
-      const numChildren = numChildrenList[roomIndex] || 0;
-      const baseAdults = roomType?.base_adults || 0;
-      const baseChildren = roomType?.base_children || 0;
-      const extraAdultFee = Number(roomType?.extra_adult_fee) || 0;
-      const extraChildFee = Number(roomType?.extra_child_fee) || 0;
-      const extraAdults = Math.max(0, numAdults - baseAdults);
-      const extraChildren = Math.max(0, numChildren - baseChildren);
-      const adultFees = extraAdults * extraAdultFee;
-      const childFees = extraChildren * extraChildFee;
-      console.log(`💰 Phòng ${roomIndex + 1}:`, {
-        numAdults,
-        numChildren,
-        baseAdults,
-        baseChildren,
-        extraAdults,
-        extraChildren,
-        extraAdultFee,
-        extraChildFee,
-        adultFees,
-        childFees,
-      });
-      return {
-        extraAdults,
-        extraChildren,
-        adultFees,
-        childFees,
-        totalExtraFees: adultFees + childFees,
-      };
-    };
+    const calculateRoomExtraFees = React.useCallback(
+      (roomIndex: number) => {
+        const numAdults = numAdultsList[roomIndex] || 0;
+        const numChildren = numChildrenList[roomIndex] || 0;
+        const baseAdults = roomType?.base_adults || 0;
+        const baseChildren = roomType?.base_children || 0;
+        const extraAdultFee = Number(roomType?.extra_adult_fee) || 0;
+        const extraChildFee = Number(roomType?.extra_child_fee) || 0;
+        const extraAdults = Math.max(0, numAdults - baseAdults);
+        const extraChildren = Math.max(0, numChildren - baseChildren);
+        const adultFees = extraAdults * extraAdultFee;
+        const childFees = extraChildren * extraChildFee;
+        console.log(`💰 Phòng ${roomIndex + 1}:`, {
+          numAdults,
+          numChildren,
+          baseAdults,
+          baseChildren,
+          extraAdults,
+          extraChildren,
+          extraAdultFee,
+          extraChildFee,
+          adultFees,
+          childFees,
+        });
+        return {
+          extraAdults,
+          extraChildren,
+          adultFees,
+          childFees,
+          totalExtraFees: adultFees + childFees,
+        };
+      },
+      [
+        numAdultsList,
+        numChildrenList,
+        roomType?.base_adults,
+        roomType?.base_children,
+        roomType?.extra_adult_fee,
+        roomType?.extra_child_fee,
+      ],
+    );
     React.useEffect(() => {
       if (selectedRoomsCount > 0) {
         const newRoomsConfig = Array.from({
@@ -176,7 +186,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
         });
         onSelectRoomType(
           suitableRooms.slice(0, selectedRoomsCount),
-          newRoomsConfig
+          newRoomsConfig,
         );
       } else {
         onSelectRoomType([], []);
@@ -193,6 +203,8 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
       roomType?.base_children,
       roomType?.extra_adult_fee,
       roomType?.extra_child_fee,
+      calculateRoomExtraFees,
+      onSelectRoomType,
     ]);
     const isDisabled = selectedRoomsCount > maxSelectableRooms;
     const showNotEnoughRoomsWarning = selectedRoomsCount > maxSelectableRooms;
@@ -235,7 +247,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                               setCurrentImageIndex((prev) =>
                                 prev === 0
                                   ? roomType?.images!.length - 1
-                                  : prev - 1
+                                  : prev - 1,
                               );
                             }}
                             style={{
@@ -276,7 +288,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                 const apiUrl =
                                   import.meta.env.VITE_BASE_URL ||
                                   import.meta.env.VITE_API_URL ||
-                                  "http://localhost:5001";
+                                  "https://penstar-backend.vercel.app";
                                 const baseUrl = apiUrl
                                   .replace(/\/api\/?$/, "")
                                   .replace(/\/$/, "");
@@ -310,7 +322,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                 const apiUrl =
                                   import.meta.env.VITE_BASE_URL ||
                                   import.meta.env.VITE_API_URL ||
-                                  "http://localhost:5001";
+                                  "https://penstar-backend.vercel.app";
                                 const baseUrl = apiUrl
                                   .replace(/\/api\/?$/, "")
                                   .replace(/\/$/, "");
@@ -361,7 +373,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                               setCurrentImageIndex((prev) =>
                                 prev === roomType?.images!.length - 1
                                   ? 0
-                                  : prev + 1
+                                  : prev + 1,
                               );
                             }}
                             style={{
@@ -547,7 +559,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                 }}
                               >
                                 {new Intl.NumberFormat("vi-VN").format(
-                                  Number(roomType?.price) || 0
+                                  Number(roomType?.price) || 0,
                                 )}{" "}
                                 VND
                               </span>
@@ -666,13 +678,13 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                         <option value={0}>Không chọn</option>
                         {Array.from(
                           { length: Math.min(maxSelectableRooms, 5) },
-                          (_, i) => i + 1
+                          (_, i) => i + 1,
                         ).map((num) => {
                           const roomNames = suitableRooms
                             .slice(0, num)
                             .map(
                               (r) =>
-                                `${r.name}${r.floor_name ? ` (${r.floor_name})` : ""}`
+                                `${r.name}${r.floor_name ? ` (${r.floor_name})` : ""}`,
                             )
                             .join(", ");
                           return (
@@ -748,11 +760,11 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                         const maxOccupancy = roomType?.capacity || 4;
                         const maxAdultsOptions = Math.min(
                           3,
-                          maxOccupancy - currentChildren
+                          maxOccupancy - currentChildren,
                         );
                         const maxChildrenOptions = Math.min(
                           3,
-                          maxOccupancy - currentAdults
+                          maxOccupancy - currentAdults,
                         );
                         const maxBabies = 3;
                         const fees = calculateRoomExtraFees(roomIndex);
@@ -808,7 +820,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                       const excess = total - maxOccupancy;
                                       const newChildren = Math.max(
                                         0,
-                                        currentChildren - excess
+                                        currentChildren - excess,
                                       );
                                       const newChildrenList = [
                                         ...numChildrenList,
@@ -822,7 +834,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                     (_, i) => ({
                                       label: String(i + 1),
                                       value: i + 1,
-                                    })
+                                    }),
                                   )}
                                 />
                               </Col>
@@ -851,7 +863,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                     (_, i) => ({
                                       label: String(i),
                                       value: i,
-                                    })
+                                    }),
                                   )}
                                 />
                               </Col>
@@ -881,7 +893,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                     (_, i) => ({
                                       label: String(i),
                                       value: i,
-                                    })
+                                    }),
                                   )}
                                 />
                               </Col>
@@ -908,7 +920,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                 >
                                   💰 Phụ phí:{" "}
                                   {new Intl.NumberFormat("vi-VN").format(
-                                    fees.totalExtraFees
+                                    fees.totalExtraFees,
                                   )}{" "}
                                   đ
                                 </div>
@@ -919,11 +931,11 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                     <div style={{ marginBottom: "4px" }}>
                                       • {fees.extraAdults} Người lớn thêm ×{" "}
                                       {new Intl.NumberFormat("vi-VN").format(
-                                        Number(roomType?.extra_adult_fee)
+                                        Number(roomType?.extra_adult_fee),
                                       )}{" "}
                                       đ ={" "}
                                       {new Intl.NumberFormat("vi-VN").format(
-                                        fees.adultFees
+                                        fees.adultFees,
                                       )}{" "}
                                       đ
                                     </div>
@@ -932,11 +944,11 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                     <div>
                                       • {fees.extraChildren} Trẻ em thêm ×{" "}
                                       {new Intl.NumberFormat("vi-VN").format(
-                                        Number(roomType?.extra_child_fee)
+                                        Number(roomType?.extra_child_fee),
                                       )}{" "}
                                       đ ={" "}
                                       {new Intl.NumberFormat("vi-VN").format(
-                                        fees.childFees
+                                        fees.childFees,
                                       )}{" "}
                                       đ
                                     </div>
@@ -946,7 +958,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                             )}
                           </div>
                         );
-                      }
+                      },
                     )}
                 </div>
               </div>
@@ -1127,7 +1139,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                               }}
                             >
                               {new Intl.NumberFormat("vi-VN").format(
-                                Number(roomType?.price) || 0
+                                Number(roomType?.price) || 0,
                               )}{" "}
                               VND
                             </div>
@@ -1198,7 +1210,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                                       }}
                                     >
                                       {FIXED_AMENITIES.find(
-                                        (a) => a.value === amenity
+                                        (a) => a.value === amenity,
                                       )?.icon || (
                                         <HomeOutlined
                                           style={{
@@ -1400,7 +1412,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
                     {roomType?.policies.other_policies.map(
                       (policy: string, idx: number) => (
                         <div key={idx}>{policy}</div>
-                      )
+                      ),
                     )}
                   </div>
                 </div>
@@ -1409,6 +1421,6 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
         </Modal>
       </>
     );
-  }
+  },
 );
 export default RoomTypeCard;
