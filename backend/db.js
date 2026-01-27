@@ -7,9 +7,7 @@ const { Pool } = pkg;
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  },
+  // Nếu đã có sslmode=require trong DATABASE_URL thì không cần truyền ssl ở đây
 });
 
 pool

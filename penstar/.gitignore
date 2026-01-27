@@ -24,3 +24,16 @@ dist-ssr
 *.sw?
 *.DS_Store
 .DS_Store
+
+# Environment variables files
+.env
+.env.*.local
+.env.*.production
+.env.*.development
+.env.*.test
+# Deployment environment variables files
+.env.deploy
+.env.deploy.*.local
+.env.deploy.*.production
+.env.deploy.*.development
+.env.deploy.*.test

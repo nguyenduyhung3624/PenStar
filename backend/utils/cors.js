@@ -1,14 +1,12 @@
 const allowedOrigins = ["http://localhost:5173", process.env.CORS_ORIGIN];
+
 export const corsOptions = {
-  origin: true, 
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
-  optionsSuccessStatus: 200,
-  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-  allowedHeaders: [
-    "Content-Type",
-    "Authorization",
-    "X-Requested-With",
-    "Accept",
-    "Origin",
-  ],
 };

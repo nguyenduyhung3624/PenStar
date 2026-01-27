@@ -7,11 +7,7 @@ dotenv.config();
 
 const { Pool } = pg;
 const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+  connectionString: process.env.DATABASE_URL,
 });
 
 const execPromise = util.promisify(exec);
@@ -28,7 +24,7 @@ async function reset() {
     // Run migrations
     console.log("🚀 Running migrations...");
     const { stdout: migrateOut, stderr: migrateErr } = await execPromise(
-      "node scripts/migrate.js"
+      "node scripts/migrate.js",
     );
     console.log(migrateOut);
     if (migrateErr) console.error(migrateErr);
@@ -36,7 +32,7 @@ async function reset() {
     // Seed data
     console.log("🌱 Seeding data...");
     const { stdout: seedOut, stderr: seedErr } = await execPromise(
-      "node scripts/seed-data.js"
+      "node scripts/seed-data.js",
     );
     console.log(seedOut);
     if (seedErr) console.error(seedErr);

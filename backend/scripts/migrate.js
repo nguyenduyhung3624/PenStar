@@ -11,14 +11,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, "../.env") });
 const { Pool } = pg;
 const pool = new Pool({
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  user: process.env.DB_USER,
-  password: String(process.env.DB_PASSWORD || ""),
-  database: process.env.DB_NAME,
-  ssl: process.env.DB_HOST?.includes("prisma.io")
-    ? { rejectUnauthorized: false }
-    : false,
+  connectionString: process.env.DATABASE_URL,
 });
 async function migrate() {
   const client = await pool.connect();
@@ -32,10 +25,10 @@ async function migrate() {
       );
     `);
     const { rows: executedMigrations } = await client.query(
-      "SELECT name FROM migrations"
+      "SELECT name FROM migrations",
     );
     const executedMigrationNames = new Set(
-      executedMigrations.map((row) => row.name)
+      executedMigrations.map((row) => row.name),
     );
     const migrationsDir = path.join(__dirname, "../migrations");
     const files = fs
