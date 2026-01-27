@@ -1,4 +1,9 @@
-const allowedOrigins = ["http://localhost:5173", process.env.CORS_ORIGIN];
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://penstar.vercel.app",
+  process.env.CORS_ORIGIN,
+  process.env.FRONTEND_URL,
+];
 
 export const corsOptions = {
   origin(origin, callback) {

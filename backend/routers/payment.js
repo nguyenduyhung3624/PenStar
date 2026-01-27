@@ -20,9 +20,11 @@ paymentRouter.get("/create_payment", (req, res) => {
       error: "Số tiền không hợp lệ. Số tiền phải từ 5,000 đến dưới 1 tỷ VNĐ.",
     });
   }
-  const tmnCode = "1QN514ZX"; 
-  const secretKey = "OC9XPP932WGHC29PZEX46NXITSHZKLX9"; 
-  let returnUrl = req.query.returnUrl || "http://localhost:5173/payment-result";
+  const tmnCode = "1QN514ZX";
+  const secretKey = "OC9XPP932WGHC29PZEX46NXITSHZKLX9";
+  let returnUrl =
+    req.query.returnUrl ||
+    `${process.env.FRONTEND_URL || "http://localhost:5173"}/payment-result`;
   if (req.query.bookingId) {
     const urlObj = new URL(returnUrl);
     urlObj.searchParams.set("bookingId", req.query.bookingId);
@@ -45,7 +47,7 @@ paymentRouter.get("/create_payment", (req, res) => {
     vnp_TxnRef: orderId,
     vnp_OrderInfo: orderInfo,
     vnp_OrderType: "billpayment",
-    vnp_Amount: amountNum * 100, 
+    vnp_Amount: amountNum * 100,
     vnp_ReturnUrl: returnUrl,
     vnp_IpAddr: ipAddr,
     vnp_CreateDate: createDate,
@@ -72,7 +74,7 @@ paymentRouter.get("/check_payment", async (req, res) => {
   console.log("[VNPay] Check payment query:", query);
   if (vnp_SecureHash === checkSum) {
     if (query.vnp_ResponseCode === "00") {
-      const orderId = query.vnp_TxnRef; 
+      const orderId = query.vnp_TxnRef;
       let bookingId = null;
       if (orderId) {
         if (!isNaN(parseInt(orderId))) {
@@ -81,30 +83,28 @@ paymentRouter.get("/check_payment", async (req, res) => {
       }
       if (bookingId) {
         try {
-          const { modelGetBookingById } = await import(
-            "../models/bookingsmodel.js"
-          );
+          const { modelGetBookingById } =
+            await import("../models/bookingsmodel.js");
           const booking = await modelGetBookingById(bookingId);
           if (booking && booking.notes) {
             const discountMatch = booking.notes.match(
-              /\[Discount: ({[^}]+})\]/
+              /\[Discount: ({[^}]+})\]/,
             );
             if (discountMatch) {
               const discountInfo = JSON.parse(discountMatch[1]);
               if (discountInfo.promo_code) {
-                const { incrementUsageCount } = await import(
-                  "../models/discountcodesmodel.js"
-                );
+                const { incrementUsageCount } =
+                  await import("../models/discountcodesmodel.js");
                 const updatedDiscount = await incrementUsageCount(
-                  discountInfo.promo_code
+                  discountInfo.promo_code,
                 );
                 console.log(
-                  `[VNPay] Incremented usage count for discount code: ${discountInfo.promo_code}`
+                  `[VNPay] Incremented usage count for discount code: ${discountInfo.promo_code}`,
                 );
                 console.log(
                   `[VNPay] New usage count: ${
                     updatedDiscount?.used_count || "N/A"
-                  }`
+                  }`,
                 );
               }
             }
@@ -129,7 +129,7 @@ paymentRouter.get("/create_momo_payment", async (req, res) => {
       error: "Số tiền không hợp lệ. Số tiền phải từ 1,000 đến 100 triệu VNĐ.",
     });
   }
-  const momoEnv = process.env.MOMO_ENV || "test"; 
+  const momoEnv = process.env.MOMO_ENV || "test";
   const isTestMode = momoEnv === "test" || momoEnv === "mock";
   const isProduction = momoEnv === "production";
   const returnUrl =
@@ -141,7 +141,7 @@ paymentRouter.get("/create_momo_payment", async (req, res) => {
   const orderIdFinal =
     orderId || `BOOKING_${moment().format("YYYYMMDDHHmmss")}`;
   const requestId = moment().format("YYYYMMDDHHmmss");
-  const orderInfoFinal = orderInfo || "Thanh_toan_don_hang"; 
+  const orderInfoFinal = orderInfo || "Thanh_toan_don_hang";
   if (isTestMode) {
     console.log("[MoMo] Running in TEST/MOCK mode - creating mock payment URL");
     let frontendBaseUrl = process.env.FRONTEND_URL || "http://localhost:5173";
@@ -151,13 +151,13 @@ paymentRouter.get("/create_momo_payment", async (req, res) => {
     } catch (e) {
       console.warn(
         "[MoMo] Could not parse returnUrl, using default frontend URL:",
-        frontendBaseUrl
+        frontendBaseUrl,
       );
     }
     const mockPaymentUrl = `${frontendBaseUrl}/momo-mock-payment?orderId=${encodeURIComponent(
-      orderIdFinal
+      orderIdFinal,
     )}&amount=${amountNum}&orderInfo=${encodeURIComponent(
-      orderInfoFinal
+      orderInfoFinal,
     )}&returnUrl=${encodeURIComponent(returnUrl)}`;
     return res.json({
       paymentUrl: mockPaymentUrl,
@@ -185,7 +185,7 @@ paymentRouter.get("/create_momo_payment", async (req, res) => {
     !process.env.MOMO_SECRET_KEY
   ) {
     console.warn(
-      "[MoMo] Missing credentials in .env - falling back to test mode"
+      "[MoMo] Missing credentials in .env - falling back to test mode",
     );
     let frontendBaseUrl = process.env.FRONTEND_URL || "http://localhost:5173";
     try {
@@ -194,13 +194,13 @@ paymentRouter.get("/create_momo_payment", async (req, res) => {
     } catch (e) {
       console.warn(
         "[MoMo] Could not parse returnUrl, using default frontend URL:",
-        frontendBaseUrl
+        frontendBaseUrl,
       );
     }
     const mockPaymentUrl = `${frontendBaseUrl}/momo-mock-payment?orderId=${encodeURIComponent(
-      orderIdFinal
+      orderIdFinal,
     )}&amount=${amountNum}&orderInfo=${encodeURIComponent(
-      orderInfoFinal
+      orderInfoFinal,
     )}&returnUrl=${encodeURIComponent(returnUrl)}`;
     return res.json({
       paymentUrl: mockPaymentUrl,
@@ -223,22 +223,22 @@ paymentRouter.get("/create_momo_payment", async (req, res) => {
     partnerCode,
     accessKey,
     requestId,
-    amount: amountNum.toString(), 
+    amount: amountNum.toString(),
     orderId: orderIdFinal,
     orderInfo: orderInfoFinal,
     returnUrl,
     notifyUrl,
     extraData,
-    requestType: requestType, 
+    requestType: requestType,
     signature,
-    lang: "vi", 
+    lang: "vi",
   };
   try {
     console.log("[MoMo] Calling API:", momoApiUrl);
     console.log("[MoMo] Request body:", JSON.stringify(requestBody, null, 2));
     const response = await axios.post(momoApiUrl, requestBody, {
       headers: { "Content-Type": "application/json" },
-      timeout: 30000, 
+      timeout: 30000,
     });
     console.log("[MoMo] API Response:", response.data);
     if (response.data && response.data.payUrl) {
@@ -313,7 +313,7 @@ paymentRouter.post("/momo-callback", async (req, res) => {
         "[MoMo Callback] Invalid signature. Expected:",
         checkSignature,
         "Received:",
-        signature
+        signature,
       );
       return res.status(400).json({
         resultCode: 1001,
@@ -334,44 +334,41 @@ paymentRouter.post("/momo-callback", async (req, res) => {
         "[MoMo Callback] Payment successful. OrderId:",
         orderId,
         "BookingId:",
-        bookingId
+        bookingId,
       );
       if (bookingId) {
         try {
           const pool = (await import("../db.js")).default;
-          const { setBookingStatus: modelSetBookingStatus } = await import(
-            "../models/bookingsmodel.js"
-          );
+          const { setBookingStatus: modelSetBookingStatus } =
+            await import("../models/bookingsmodel.js");
           await modelSetBookingStatus(bookingId, {
             payment_status: "paid",
             payment_method: "momo",
           });
           console.log(`[MoMo Callback] Updated booking #${bookingId} to paid`);
           try {
-            const { modelGetBookingById } = await import(
-              "../models/bookingsmodel.js"
-            );
+            const { modelGetBookingById } =
+              await import("../models/bookingsmodel.js");
             const booking = await modelGetBookingById(bookingId);
             if (booking && booking.notes) {
               const discountMatch = booking.notes.match(
-                /\[Discount: ({[^}]+})\]/
+                /\[Discount: ({[^}]+})\]/,
               );
               if (discountMatch) {
                 const discountInfo = JSON.parse(discountMatch[1]);
                 if (discountInfo.promo_code) {
-                  const { incrementUsageCount } = await import(
-                    "../models/discountcodesmodel.js"
-                  );
+                  const { incrementUsageCount } =
+                    await import("../models/discountcodesmodel.js");
                   const updatedDiscount = await incrementUsageCount(
-                    discountInfo.promo_code
+                    discountInfo.promo_code,
                   );
                   console.log(
-                    `[MoMo Callback] Incremented usage count for discount code: ${discountInfo.promo_code}`
+                    `[MoMo Callback] Incremented usage count for discount code: ${discountInfo.promo_code}`,
                   );
                   console.log(
                     `[MoMo Callback] New usage count: ${
                       updatedDiscount?.used_count || "N/A"
-                    }`
+                    }`,
                   );
                 }
               }
@@ -379,21 +376,19 @@ paymentRouter.post("/momo-callback", async (req, res) => {
           } catch (discountErr) {
             console.error(
               "[MoMo Callback] Error incrementing usage count:",
-              discountErr
+              discountErr,
             );
           }
           try {
-            const { modelGetBookingById } = await import(
-              "../models/bookingsmodel.js"
-            );
+            const { modelGetBookingById } =
+              await import("../models/bookingsmodel.js");
             const booking = await modelGetBookingById(bookingId);
             if (booking && booking.email) {
-              const { sendBookingConfirmationEmail } = await import(
-                "../utils/mailer.js"
-              );
+              const { sendBookingConfirmationEmail } =
+                await import("../utils/mailer.js");
               await sendBookingConfirmationEmail(booking.email, bookingId);
               console.log(
-                `[MoMo Callback] Sent confirmation email to ${booking.email}`
+                `[MoMo Callback] Sent confirmation email to ${booking.email}`,
               );
             }
           } catch (emailErr) {
@@ -413,7 +408,7 @@ paymentRouter.post("/momo-callback", async (req, res) => {
         "[MoMo Callback] Payment failed. ResultCode:",
         resultCode,
         "Message:",
-        momoMessage
+        momoMessage,
       );
       res.json({
         resultCode: resultCode || 1000,
