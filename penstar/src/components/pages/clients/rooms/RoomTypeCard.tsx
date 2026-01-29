@@ -9,7 +9,6 @@ import {
   Select,
   Tabs,
   Card,
-  Tag,
   Typography,
   Divider,
 } from "antd";
@@ -17,8 +16,6 @@ import {
   LeftOutlined,
   RightOutlined,
   UserOutlined,
-  CoffeeOutlined,
-  ToolOutlined,
   HomeOutlined,
 } from "@ant-design/icons";
 import { FIXED_AMENITIES } from "@/utils/amenities";
@@ -66,7 +63,6 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
         (config) => config.room_type_id === roomType?.id,
       ).length;
       if (currentRoomTypeCount < prevRoomsConfigLength.current) {
-        console.log("✅ Reset to:", currentRoomTypeCount);
         setSelectedRoomsCount(currentRoomTypeCount);
         const currentConfigs = roomsConfig.filter(
           (config) => config.room_type_id === roomType?.id,
@@ -76,36 +72,45 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
         setChildrenAgesList(currentConfigs.map(() => []));
       }
       prevRoomsConfigLength.current = currentRoomTypeCount;
-    }, [roomsConfig, roomType?.id, roomType?.name, selectedRoomsCount]);
+    }, [roomsConfig, roomType?.id, roomType?.name]);
     const [numAdultsList, setNumAdultsList] = useState<number[]>([]);
     const [numChildrenList, setNumChildrenList] = useState<number[]>([]);
     const [childrenAgesList, setChildrenAgesList] = useState<number[][]>([]);
     React.useEffect(() => {
       setNumAdultsList((prev) => {
         const arr = [...prev];
+        let next;
         if (selectedRoomsCount > arr.length) {
-          return arr.concat(Array(selectedRoomsCount - arr.length).fill(1));
+          next = arr.concat(Array(selectedRoomsCount - arr.length).fill(1));
         } else {
-          return arr.slice(0, selectedRoomsCount);
+          next = arr.slice(0, selectedRoomsCount);
         }
+        if (JSON.stringify(next) !== JSON.stringify(prev)) return next;
+        return prev;
       });
       setNumChildrenList((prev) => {
         const arr = [...prev];
+        let next;
         if (selectedRoomsCount > arr.length) {
-          return arr.concat(Array(selectedRoomsCount - arr.length).fill(0));
+          next = arr.concat(Array(selectedRoomsCount - arr.length).fill(0));
         } else {
-          return arr.slice(0, selectedRoomsCount);
+          next = arr.slice(0, selectedRoomsCount);
         }
+        if (JSON.stringify(next) !== JSON.stringify(prev)) return next;
+        return prev;
       });
       setChildrenAgesList((prev) => {
         const arr = [...prev];
+        let next;
         if (selectedRoomsCount > arr.length) {
-          return arr.concat(
+          next = arr.concat(
             Array.from({ length: selectedRoomsCount - arr.length }, () => []),
           );
         } else {
-          return arr.slice(0, selectedRoomsCount);
+          next = arr.slice(0, selectedRoomsCount);
         }
+        if (JSON.stringify(next) !== JSON.stringify(prev)) return next;
+        return prev;
       });
     }, [selectedRoomsCount]);
     const suitableRooms = useMemo(() => {
@@ -125,18 +130,7 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
         const extraChildren = Math.max(0, numChildren - baseChildren);
         const adultFees = extraAdults * extraAdultFee;
         const childFees = extraChildren * extraChildFee;
-        console.log(`💰 Phòng ${roomIndex + 1}:`, {
-          numAdults,
-          numChildren,
-          baseAdults,
-          baseChildren,
-          extraAdults,
-          extraChildren,
-          extraAdultFee,
-          extraChildFee,
-          adultFees,
-          childFees,
-        });
+        // Removed console.log to avoid spam and performance issues
         return {
           extraAdults,
           extraChildren,
@@ -154,37 +148,61 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
         roomType?.extra_child_fee,
       ],
     );
+    const prevConfigRef = React.useRef<{ rooms: any[]; config: any[] }>({
+      rooms: [],
+      config: [],
+    });
     React.useEffect(() => {
-      if (selectedRoomsCount > 0) {
-        const newRoomsConfig = Array.from({
-          length: selectedRoomsCount,
-        }).map((_, idx) => {
-          const fees = calculateRoomExtraFees(idx);
-          const basePrice = roomType?.price || 0;
-          const totalPrice = basePrice + fees.totalExtraFees;
-          return {
-            room_id: suitableRooms[idx]?.id || 0,
-            room_type_id: roomType?.id || 0,
-            num_adults: numAdultsList[idx] || 1,
-            num_children: numChildrenList[idx] || 0,
-            num_babies:
-              childrenAgesList[idx]?.filter((age) => age <= 5).length || 0,
-            price: totalPrice,
-            base_price: basePrice,
-            extra_fees: fees.totalExtraFees,
-            extra_adult_fees: fees.adultFees,
-            extra_child_fees: fees.childFees,
-            extra_adults_count: fees.extraAdults,
-            extra_children_count: fees.extraChildren,
-            quantity: 1,
-          };
-        });
-        onSelectRoomType(
-          suitableRooms.slice(0, selectedRoomsCount),
-          newRoomsConfig,
-        );
-      } else {
-        onSelectRoomType([], []);
+      // Prevent effect if nothing changed
+      if (
+        selectedRoomsCount === 0 ||
+        suitableRooms.length === 0 ||
+        numAdultsList.length < selectedRoomsCount ||
+        numChildrenList.length < selectedRoomsCount ||
+        childrenAgesList.length < selectedRoomsCount
+      ) {
+        if (
+          prevConfigRef.current.rooms.length !== 0 ||
+          prevConfigRef.current.config.length !== 0
+        ) {
+          prevConfigRef.current = { rooms: [], config: [] };
+          onSelectRoomType([], []);
+        }
+        return;
+      }
+      const newRoomsConfig = Array.from({
+        length: selectedRoomsCount,
+      }).map((_, idx) => {
+        const fees = calculateRoomExtraFees(idx);
+        const basePrice = roomType?.price || 0;
+        const totalPrice = basePrice + fees.totalExtraFees;
+        return {
+          room_id: suitableRooms[idx]?.id || 0,
+          room_type_id: roomType?.id || 0,
+          num_adults: numAdultsList[idx] || 1,
+          num_children: numChildrenList[idx] || 0,
+          num_babies:
+            childrenAgesList[idx]?.filter((age) => age <= 5).length || 0,
+          price: totalPrice,
+          base_price: basePrice,
+          extra_fees: fees.totalExtraFees,
+          extra_adult_fees: fees.adultFees,
+          extra_child_fees: fees.childFees,
+          extra_adults_count: fees.extraAdults,
+          extra_children_count: fees.extraChildren,
+          quantity: 1,
+        };
+      });
+      const newRooms = suitableRooms.slice(0, selectedRoomsCount);
+      // Only call onSelectRoomType if data actually changed
+      if (
+        JSON.stringify(prevConfigRef.current.rooms) !==
+          JSON.stringify(newRooms) ||
+        JSON.stringify(prevConfigRef.current.config) !==
+          JSON.stringify(newRoomsConfig)
+      ) {
+        prevConfigRef.current = { rooms: newRooms, config: newRoomsConfig };
+        onSelectRoomType(newRooms, newRoomsConfig);
       }
     }, [
       selectedRoomsCount,
@@ -977,184 +995,6 @@ const RoomTypeCard: React.FC<RoomTypeCardProps> = React.memo(
           <Tabs
             defaultActiveKey="1"
             items={[
-              {
-                key: "1",
-                label: "Tổng quan",
-                children: (
-                  <div className="py-4">
-                    <Row gutter={[24, 24]}>
-                      <Col span={24} md={10}>
-                        <div
-                          style={{
-                            width: "100%",
-                            height: "300px",
-                            borderRadius: "12px",
-                            overflow: "hidden",
-                            border: "1px solid #f0f0f0",
-                            position: "relative",
-                          }}
-                        >
-                          <img
-                            src={
-                              roomType?.images && roomType?.images.length > 0
-                                ? roomType?.images[0].startsWith("http")
-                                  ? roomType?.images[0]
-                                  : `http://localhost:5001${roomType?.images[0]}`
-                                : roomType?.thumbnail?.startsWith("http")
-                                  ? roomType?.thumbnail
-                                  : `http://localhost:5001${roomType?.thumbnail}`
-                            }
-                            alt={roomType?.name}
-                            style={{
-                              width: "100%",
-                              height: "100%",
-                              objectFit: "cover",
-                            }}
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src =
-                                "https://via.placeholder.com/600x400?text=No+Image";
-                            }}
-                          />
-                          <div
-                            style={{
-                              position: "absolute",
-                              bottom: 12,
-                              right: 12,
-                              background: "rgba(0,0,0,0.6)",
-                              color: "#fff",
-                              padding: "4px 12px",
-                              borderRadius: "20px",
-                              fontSize: "12px",
-                            }}
-                          >
-                            {roomType?.images?.length || 0} ảnh
-                          </div>
-                        </div>
-                      </Col>
-                      <Col span={24} md={14}>
-                        <Title level={4} style={{ marginTop: 0 }}>
-                          Thông tin phòng
-                        </Title>
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "16px",
-                            flexWrap: "wrap",
-                            marginBottom: "24px",
-                          }}
-                        >
-                          {roomType?.bed_type && (
-                            <Tag
-                              icon={<UserOutlined />}
-                              color="yellow"
-                              style={{
-                                padding: "6px 12px",
-                                fontSize: "14px",
-                                display: "flex",
-                                alignItems: "center",
-                              }}
-                            >
-                              {roomType?.bed_type}
-                            </Tag>
-                          )}
-                          {roomType?.room_size && (
-                            <Tag
-                              icon={<ToolOutlined />}
-                              color="cyan"
-                              style={{
-                                padding: "6px 12px",
-                                fontSize: "14px",
-                                display: "flex",
-                                alignItems: "center",
-                              }}
-                            >
-                              {roomType?.room_size} m²
-                            </Tag>
-                          )}
-                          {roomType?.view_direction && (
-                            <Tag
-                              icon={<CoffeeOutlined />}
-                              color="green"
-                              style={{
-                                padding: "6px 12px",
-                                fontSize: "14px",
-                                display: "flex",
-                                alignItems: "center",
-                              }}
-                            >
-                              {roomType?.view_direction}
-                            </Tag>
-                          )}
-                        </div>
-
-                        <div style={{ marginBottom: "24px" }}>
-                          <Title level={5}>Mô tả</Title>
-                          {roomType?.description ? (
-                            <div
-                              style={{
-                                color: "#555",
-                                fontSize: "15px",
-                                lineHeight: 1.6,
-                                maxHeight: "200px",
-                                overflowY: "auto",
-                                padding: "16px",
-                                background: "#f9f9f9",
-                                borderRadius: "8px",
-                              }}
-                              dangerouslySetInnerHTML={{
-                                __html: roomType?.description,
-                              }}
-                            />
-                          ) : (
-                            <Text type="secondary">
-                              Chưa có mô tả chi tiết.
-                            </Text>
-                          )}
-                        </div>
-
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            background: "#fff7e6",
-                            padding: "16px",
-                            borderRadius: "8px",
-                            border: "1px solid #ffe58f",
-                          }}
-                        >
-                          <div>
-                            <Text type="secondary">Giá phòng / đêm</Text>
-                            <div
-                              style={{
-                                fontSize: "24px",
-                                fontWeight: "bold",
-                                color: "#fa8c16",
-                              }}
-                            >
-                              {new Intl.NumberFormat("vi-VN").format(
-                                Number(roomType?.price) || 0,
-                              )}{" "}
-                              VND
-                            </div>
-                          </div>
-                          <Button
-                            type="primary"
-                            size="large"
-                            onClick={() => {
-                              setAmenitiesModalOpen(false);
-                              if (!isExpanded) setIsExpanded(true);
-                            }}
-                          >
-                            Đặt ngay
-                          </Button>
-                        </div>
-                      </Col>
-                    </Row>
-                  </div>
-                ),
-              },
               {
                 key: "2",
                 label: "Tiện nghi & Thiết bị",

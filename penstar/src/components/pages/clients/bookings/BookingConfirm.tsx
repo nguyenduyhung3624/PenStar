@@ -101,7 +101,7 @@ const BookingConfirm = () => {
       const booking = res?.data || res;
       if (paymentMethod === "cash") {
         message.success(
-          "Đặt phòng thành công! Vui lòng thanh toán khi nhận phòng."
+          "Đặt phòng thành công! Vui lòng thanh toán khi nhận phòng.",
         );
         navigate(`/bookings/success/${bookingId}`, {
           state: { booking },
@@ -165,7 +165,7 @@ const BookingConfirm = () => {
         const diffHours = diffMs / (1000 * 60 * 60);
         if (diffHours < refund.refund_deadline_hours) {
           messages.push(
-            `Phòng ${idx + 1}: Không đủ điều kiện hoàn tiền (chỉ hoàn nếu hủy trước ${refund.refund_deadline_hours}h).`
+            `Phòng ${idx + 1}: Không đủ điều kiện hoàn tiền (chỉ hoàn nếu hủy trước ${refund.refund_deadline_hours}h).`,
           );
           allEligible = false;
         }
@@ -198,13 +198,13 @@ const BookingConfirm = () => {
           </ul>
           <div className="mt-1">Bạn vẫn muốn tiếp tục đặt phòng?</div>
         </div>,
-        6
+        6,
       );
     }
     if (promoCode.trim()) {
       if (!discountInfo) {
         return message.error(
-          "Vui lòng kiểm tra và áp dụng mã giảm giá trước khi đặt phòng."
+          "Vui lòng kiểm tra và áp dụng mã giảm giá trước khi đặt phòng.",
         );
       }
       try {
@@ -212,13 +212,13 @@ const BookingConfirm = () => {
         if (!res.ok) {
           setDiscountInfo(null);
           return message.error(
-            res.error || "Mã giảm giá không hợp lệ hoặc đã hết hạn."
+            res.error || "Mã giảm giá không hợp lệ hoặc đã hết hạn.",
           );
         }
       } catch {
         setDiscountInfo(null);
         return message.error(
-          "Không thể xác thực mã giảm giá. Vui lòng thử lại."
+          "Không thể xác thực mã giảm giá. Vui lòng thử lại.",
         );
       }
     }
@@ -417,13 +417,13 @@ const BookingConfirm = () => {
                   <h4 className="font-semibold">Thông tin phòng:</h4>
                   {items.map((item: any, idx: number) => {
                     const basePrice = Math.round(
-                      Number(item.base_price || item.room_type_price) * nights
+                      Number(item.base_price || item.room_type_price) * nights,
                     );
                     const extraAdultFees = Math.round(
-                      Number(item.extra_adult_fees || 0) * nights
+                      Number(item.extra_adult_fees || 0) * nights,
                     );
                     const extraChildFees = Math.round(
-                      Number(item.extra_child_fees || 0) * nights
+                      Number(item.extra_child_fees || 0) * nights,
                     );
                     const totalExtraFees = extraAdultFees + extraChildFees;
                     const totalPerRoom = basePrice + totalExtraFees;
@@ -708,7 +708,7 @@ const BookingConfirm = () => {
                 discountAmount: res.discountAmount,
               });
               message.success(
-                `Áp dụng mã thành công! Giảm ${formatPrice(res.discountAmount)}`
+                `Áp dụng mã thành công! Giảm ${formatPrice(res.discountAmount)}`,
               );
             } else {
               message.error(res.error || "Mã không hợp lệ");
