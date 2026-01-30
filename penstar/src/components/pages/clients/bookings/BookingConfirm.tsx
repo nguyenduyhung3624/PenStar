@@ -26,6 +26,20 @@ import { checkDiscountCode } from "@/services/discountApi";
 import VoucherSelectionModal from "./VoucherSelectionModal";
 const { TextArea } = Input;
 const BookingConfirm = () => {
+  useEffect(() => {
+    const isProcessing = sessionStorage.getItem("is_processing_payment");
+    if (isProcessing) {
+      Modal.warning({
+        title: "Đơn hàng đang được xử lý",
+        content:
+          "Bạn đã bắt đầu quá trình thanh toán. Nếu muốn thay đổi thông tin, vui lòng làm mới trang hoặc kiểm tra lịch sử đặt phòng.",
+        onOk: () => {
+          // Có thể xóa cờ sau khi người dùng xác nhận đã hiểu
+          sessionStorage.removeItem("is_processing_payment");
+        },
+      });
+    }
+  }, []);
   const location = useLocation();
   const navigate = useNavigate();
   const [form] = Form.useForm();
@@ -131,6 +145,15 @@ const BookingConfirm = () => {
           window.location.href = paymentUrl;
         } else {
           throw new Error("Không nhận được URL thanh toán");
+        }
+        if (paymentUrl) {
+          message.success("Đang chuyển đến trang thanh toán...");
+
+          // ĐÁNH DẤU ĐANG XỬ LÝ TRƯỚC KHI ĐI
+          sessionStorage.setItem("is_processing_payment", "true");
+
+          localStorage.setItem("bookingId", bookingId.toString());
+          window.location.href = paymentUrl;
         }
       } catch (paymentError: any) {
         console.error("Payment error:", paymentError);
