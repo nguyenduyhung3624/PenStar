@@ -125,7 +125,7 @@ const BookingDetail = () => {
     mutationFn: confirmCheckin,
     onSuccess: () => {
       message.success(
-        "Đã check-in thành công - Phòng chuyển sang trạng thái Đã nhận"
+        "Đã check-in thành công - Phòng chuyển sang trạng thái Đã nhận",
       );
       queryClient.invalidateQueries({ queryKey: ["booking", id] });
     },
@@ -141,8 +141,8 @@ const BookingDetail = () => {
       if (res && res.lateFee > 0) {
         message.info(
           `Phát hiện checkout muộn! Đã thêm phụ phí: ${formatPrice(
-            res.lateFee
-          )} (${res.hours} giờ)`
+            res.lateFee,
+          )} (${res.hours} giờ)`,
         );
         queryClient.invalidateQueries({ queryKey: ["booking", id] });
       }
@@ -188,7 +188,7 @@ const BookingDetail = () => {
     }) => cancelBooking(bookingId, reason),
     onSuccess: () => {
       message.success(
-        "Đã hủy booking - Phòng chuyển sang trạng thái Available."
+        "Đã hủy booking - Phòng chuyển sang trạng thái Available.",
       );
       queryClient.invalidateQueries({ queryKey: ["booking", id] });
     },
@@ -286,7 +286,7 @@ const BookingDetail = () => {
       if (Array.isArray(booking?.items)) {
         booking.items.forEach(
           (it: { room_id?: number }) =>
-            it.room_id && roomIds.push(String(it.room_id))
+            it.room_id && roomIds.push(String(it.room_id)),
         );
       }
       const uniqueRoomIds = [...new Set(roomIds)];
@@ -305,12 +305,12 @@ const BookingDetail = () => {
 
       const orderedRoomIds =
         booking?.items?.map((it: any) =>
-          it.room_id ? String(it.room_id) : null
+          it.room_id ? String(it.room_id) : null,
         ) || [];
       const roomData = await Promise.all(
         orderedRoomIds.map((rid) =>
-          rid ? getRoomID(rid) : Promise.resolve(null)
-        )
+          rid ? getRoomID(rid) : Promise.resolve(null),
+        ),
       );
       return roomData.filter(Boolean) as Room[];
       // Wait, if I filter Boolean, the indices might shift if one fails?
@@ -331,7 +331,7 @@ const BookingDetail = () => {
       if (Array.isArray(booking?.services)) {
         booking.services.forEach(
           (s: { service_id?: number }) =>
-            s.service_id && serviceIds.push(String(s.service_id))
+            s.service_id && serviceIds.push(String(s.service_id)),
         );
       }
       const uniqueServiceIds = Array.from(new Set(serviceIds));
@@ -350,7 +350,7 @@ const BookingDetail = () => {
         .filter((id: any) => id);
       const uniqueIds = [...new Set(roomIds)];
       const results = await Promise.all(
-        uniqueIds.map((id) => getRoomDevices({ room_id: Number(id) }))
+        uniqueIds.map((id) => getRoomDevices({ room_id: Number(id) })),
       );
       const map: Record<number, any[]> = {};
       uniqueIds.forEach((id, idx) => {
@@ -369,7 +369,11 @@ const BookingDetail = () => {
 
   // Calculate late checkout fee automatically
   const lateCheckoutInfo = useMemo(() => {
-    if (!booking || booking.stay_status_id !== 2) {
+    // Tính phí muộn khi ở trạng thái RESERVED (2) hoặc CHECKED_IN (3)
+    if (
+      !booking ||
+      (booking.stay_status_id !== 2 && booking.stay_status_id !== 3)
+    ) {
       return { hours: 0, fee: 0, isLate: false };
     }
 
@@ -384,7 +388,7 @@ const BookingDetail = () => {
 
     const checkoutDate = checkoutDates[0];
     const standardCheckoutTime = new Date(checkoutDate);
-    standardCheckoutTime.setHours(15, 0, 0, 0);
+    standardCheckoutTime.setHours(15, 0, 0, 0); // Checkout chuẩn = 15:00
 
     const now = new Date();
 
@@ -394,7 +398,7 @@ const BookingDetail = () => {
 
     const diffMs = now.getTime() - standardCheckoutTime.getTime();
     const hours = Math.ceil(diffMs / (1000 * 60 * 60));
-    const fee = hours * 100000;
+    const fee = hours * 100000; // 100,000₫ mỗi giờ
 
     return { hours, fee, isLate: true };
   }, [booking]);
@@ -402,21 +406,44 @@ const BookingDetail = () => {
   const timeZone = "Asia/Ho_Chi_Minh";
   const invalidStatusForNoShow = new Set([2, 3, 4, 5]);
   let canMarkNoShow = false;
-  if (
-    booking &&
-    !invalidStatusForNoShow.has(booking.stay_status_id) &&
-    booking.check_in
-  ) {
+  let isExpiredCheckIn = false; // Check-in quá hạn (>14:00 ngày check-in)
+  let isExpiredCheckOut = false; // Checkout quá hạn (>15:00 ngày checkout)
+
+  if (booking) {
     const now = toZonedTime(new Date(), timeZone);
-    const d = new Date(booking.check_in);
-    if (!isNaN(d.getTime())) {
-      const checkInDate = toZonedTime(d, timeZone);
-      checkInDate.setHours(14, 0, 0, 0);
-      if (now >= checkInDate) {
-        canMarkNoShow = true;
+
+    // Check if check-in is expired
+    if (booking.check_in) {
+      const d = new Date(booking.check_in);
+      if (!isNaN(d.getTime())) {
+        const checkInDate = toZonedTime(d, timeZone);
+        checkInDate.setHours(14, 0, 0, 0);
+        if (now >= checkInDate) {
+          isExpiredCheckIn = true;
+          if (!invalidStatusForNoShow.has(booking.stay_status_id)) {
+            canMarkNoShow = true;
+          }
+        }
+      }
+    }
+
+    // Check if check-out is expired
+    if (booking.items && booking.items.length > 0) {
+      const checkoutDates = booking.items
+        .filter((item: any) => item.status !== "cancelled")
+        .map((item: any) => new Date(item.check_out))
+        .sort((a: Date, b: Date) => b.getTime() - a.getTime());
+
+      if (checkoutDates.length > 0) {
+        const checkoutDate = toZonedTime(checkoutDates[0], timeZone);
+        checkoutDate.setHours(15, 0, 0, 0);
+        if (now >= checkoutDate) {
+          isExpiredCheckOut = true;
+        }
       }
     }
   }
+
   const handleNoShow = async () => {
     if (!booking || !booking.id) return;
     Modal.confirm({
@@ -487,18 +514,13 @@ const BookingDetail = () => {
   };
   const handleCheckOut = async () => {
     if (!booking || !booking.check_out || !booking.id) return;
-    const now = new Date();
-    const checkOutDate = new Date(booking.check_out);
-    checkOutDate.setHours(14, 0, 0, 0);
-    console.log("[CheckOut] Now:", now.toLocaleString("vi-VN"));
-    console.log(
-      "[CheckOut] CheckOut limit:",
-      checkOutDate.toLocaleString("vi-VN")
-    );
 
-    // Trigger late fee calculation
-    await calculateLateFeeMutation.mutateAsync(booking.id);
+    // Mở modal báo cáo thiết bị hỏng ngay (không chờ API)
     setBrokenModalVisible(true);
+
+    // Trigger late fee calculation async (background)
+    // Không cần await - để nó chạy ở background
+    calculateLateFeeMutation.mutate(booking.id);
   };
   const handleSelectRoom = (roomId: number | null, idx: number) => {
     const arr = [...brokenReports];
@@ -513,7 +535,7 @@ const BookingDetail = () => {
         (!r.roomId || !r.deviceId || !r.status || !r.quantity || r.quantity < 1)
       ) {
         message.warning(
-          "Vui lòng nhập đầy đủ thông tin cho tất cả các dòng báo cáo thiết bị!"
+          "Vui lòng nhập đầy đủ thông tin cho tất cả các dòng báo cáo thiết bị!",
         );
         return;
       }
@@ -523,14 +545,14 @@ const BookingDetail = () => {
         ).find((d: any) => String(d.id) === String(r.deviceId));
         if (device && r.quantity > device.quantity) {
           message.warning(
-            `Số lượng báo hỏng của thiết bị '${device.device_name}' trong phòng vượt quá số lượng thực tế!`
+            `Số lượng báo hỏng của thiết bị '${device.device_name}' trong phòng vượt quá số lượng thực tế!`,
           );
           return;
         }
       }
     }
     const validReports = brokenReports.filter(
-      (r) => r.roomId && r.deviceId && r.status && r.quantity && r.quantity > 0
+      (r) => r.roomId && r.deviceId && r.status && r.quantity && r.quantity > 0,
     );
     if (validReports.length > 0) {
       try {
@@ -551,7 +573,7 @@ const BookingDetail = () => {
               compensation_price: device.compensation_price || 0,
               status: "pending",
             });
-          })
+          }),
         );
         const failed = results.filter((r) => r.status === "rejected");
         if (failed.length > 0) {
@@ -578,7 +600,7 @@ const BookingDetail = () => {
     const totalServicePrice = Number(booking.total_service_price || 0);
     const totalIncidentPrice = incidents.reduce(
       (sum: number, i: { amount: any }) => sum + Number(i.amount || 0),
-      0
+      0,
     );
     const finalTotal = totalRoomPrice + totalServicePrice + totalIncidentPrice;
 
@@ -628,11 +650,11 @@ const BookingDetail = () => {
   const initiateAddService = (
     bookingItemId: number,
     serviceId: number,
-    quantity: number = 1
+    quantity: number = 1,
   ) => {
     if (!booking || !booking.id || !canModifyService) {
       message.warning(
-        "Chỉ có thể thêm dịch vụ khi booking ở trạng thái Đã xác nhận hoặc Đang ở!"
+        "Chỉ có thể thêm dịch vụ khi booking ở trạng thái Đã xác nhận hoặc Đang ở!",
       );
       return;
     }
@@ -676,12 +698,12 @@ const BookingDetail = () => {
       services,
       incidents,
       formatDate,
-      formatPrice
+      formatPrice,
     );
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
       message.error(
-        "Không thể mở cửa sổ in. Vui lòng kiểm tra cài đặt trình duyệt."
+        "Không thể mở cửa sổ in. Vui lòng kiểm tra cài đặt trình duyệt.",
       );
       return;
     }
@@ -721,7 +743,7 @@ const BookingDetail = () => {
         item.status === "cancelled"
           ? sum
           : sum + (Number(item.extra_adult_fees) || 0),
-      0
+      0,
     ) || 0;
   const totalExtraChildFees =
     booking?.items?.reduce(
@@ -729,7 +751,7 @@ const BookingDetail = () => {
         item.status === "cancelled"
           ? sum
           : sum + (Number(item.extra_child_fees) || 0),
-      0
+      0,
     ) || 0;
   const totalOtherExtraFees =
     booking?.items?.reduce(
@@ -737,7 +759,7 @@ const BookingDetail = () => {
         item.status === "cancelled"
           ? sum
           : sum + (Number(item.extra_fees) || 0),
-      0
+      0,
     ) || 0;
 
   // Calculate actual active room price (base + fees) for non-cancelled rooms
@@ -958,7 +980,7 @@ const BookingDetail = () => {
                 const numBabies = item.num_babies || 0;
                 const roomServices =
                   booking.services?.filter(
-                    (s: any) => s.booking_item_id === item.id
+                    (s: any) => s.booking_item_id === item.id,
                   ) || [];
                 const isCancelled = item.status === "cancelled";
 
@@ -1050,7 +1072,7 @@ const BookingDetail = () => {
                               <div style={{ marginBottom: "4px" }}>
                                 <Text strong className="text-yellow-600">
                                   {formatPrice(
-                                    Number(item.room_type_price || 0)
+                                    Number(item.room_type_price || 0),
                                   )}
                                 </Text>
                               </div>
@@ -1194,8 +1216,8 @@ const BookingDetail = () => {
                                     .filter(
                                       (s) =>
                                         !roomServices.some(
-                                          (rs: any) => rs.service_id === s.id
-                                        )
+                                          (rs: any) => rs.service_id === s.id,
+                                        ),
                                     )
                                     .map((s) => (
                                       <Select.Option key={s.id} value={s.id}>
@@ -1224,7 +1246,7 @@ const BookingDetail = () => {
                                     (bookingService: any, sIndex: number) => {
                                       const service = services.find(
                                         (s) =>
-                                          s.id === bookingService.service_id
+                                          s.id === bookingService.service_id,
                                       );
                                       return (
                                         <div key={sIndex}>
@@ -1242,7 +1264,7 @@ const BookingDetail = () => {
                                             <div className="font-medium text-gray-700">
                                               {formatPrice(
                                                 bookingService.total_service_price ||
-                                                  0
+                                                  0,
                                               )}
                                             </div>
                                           </div>
@@ -1260,7 +1282,7 @@ const BookingDetail = () => {
                                           )}
                                         </div>
                                       );
-                                    }
+                                    },
                                   )}
                                 </div>
                               ) : (
@@ -1313,7 +1335,7 @@ const BookingDetail = () => {
                     .filter((s: any) => !s.booking_item_id)
                     .reduce((acc: any[], curr: any) => {
                       const existing = acc.find(
-                        (item) => item.service_id === curr.service_id
+                        (item) => item.service_id === curr.service_id,
                       );
                       if (existing) {
                         existing.quantity =
@@ -1335,7 +1357,7 @@ const BookingDetail = () => {
                 })()}
                 renderItem={(bookingService: any, index: number) => {
                   const service = services.find(
-                    (s) => s.id === bookingService.service_id
+                    (s) => s.id === bookingService.service_id,
                   );
                   return (
                     <List.Item key={index}>
@@ -1488,7 +1510,7 @@ const BookingDetail = () => {
                             ? Math.round(
                                 (Number(booking.refund_amount) /
                                   Number(booking.total_room_price)) *
-                                  100
+                                  100,
                               )
                             : 0}
                           % tiền phòng)
@@ -1530,7 +1552,7 @@ const BookingDetail = () => {
                 <Col span={24}>
                   {(() => {
                     const vv = String(
-                      booking.payment_status || ""
+                      booking.payment_status || "",
                     ).toLowerCase();
                     const color =
                       vv === "paid"
@@ -1567,7 +1589,7 @@ const BookingDetail = () => {
                   activeRoomPrice -
                     (totalExtraAdultFees +
                       totalExtraChildFees +
-                      totalOtherExtraFees)
+                      totalOtherExtraFees),
                 )}
               </Text>
             </Row>
@@ -1671,10 +1693,10 @@ const BookingDetail = () => {
                         | undefined;
                       amount: any;
                     },
-                    idx: Key | null | undefined
+                    idx: Key | null | undefined,
                   ) => {
                     const roomObj = rooms.find(
-                      (r) => r.id === incident.room_id
+                      (r) => r.id === incident.room_id,
                     );
                     const roomName = roomObj ? roomObj.name : incident.room_id;
                     return (
@@ -1696,7 +1718,7 @@ const BookingDetail = () => {
                         </Col>
                       </Row>
                     );
-                  }
+                  },
                 )}
                 <Row justify="space-between" style={{ marginTop: 4 }}>
                   <Text>Tổng đền bù</Text>
@@ -1705,8 +1727,8 @@ const BookingDetail = () => {
                       incidents.reduce(
                         (sum: number, i: { amount: any }) =>
                           sum + (Number(i.amount) || 0),
-                        0
-                      )
+                        0,
+                      ),
                     )}
                   </Text>
                 </Row>
@@ -1769,7 +1791,7 @@ const BookingDetail = () => {
                     // Assuming standard behavior:
                     calculatedTotal = Math.max(
                       0,
-                      calculatedTotal - booking.discount_amount
+                      calculatedTotal - booking.discount_amount,
                     );
                   }
 
@@ -1826,11 +1848,17 @@ const BookingDetail = () => {
                     type="primary"
                     onClick={handleCheckIn}
                     loading={updating}
-                    disabled={updating || booking.payment_status !== "paid"}
+                    disabled={
+                      updating ||
+                      booking.payment_status !== "paid" ||
+                      isExpiredCheckIn
+                    }
                     title={
-                      booking.payment_status !== "paid"
-                        ? "Khách cần thanh toán trước khi Check-in"
-                        : ""
+                      isExpiredCheckIn
+                        ? "Booking đã quá hạn check-in! Không thể check-in"
+                        : booking.payment_status !== "paid"
+                          ? "Khách cần thanh toán trước khi Check-in"
+                          : ""
                     }
                   >
                     Check In
@@ -1841,11 +1869,17 @@ const BookingDetail = () => {
                     type="primary"
                     onClick={handleApprove}
                     loading={updating}
-                    disabled={updating || booking.payment_status !== "paid"}
+                    disabled={
+                      updating ||
+                      booking.payment_status !== "paid" ||
+                      isExpiredCheckIn
+                    }
                     title={
-                      booking.payment_status !== "paid"
-                        ? "Khách cần thanh toán trước khi Duyệt"
-                        : ""
+                      isExpiredCheckIn
+                        ? "Booking đã quá hạn check-in! Không thể duyệt"
+                        : booking.payment_status !== "paid"
+                          ? "Khách cần thanh toán trước khi Duyệt"
+                          : ""
                     }
                   >
                     Duyệt
@@ -1880,6 +1914,11 @@ const BookingDetail = () => {
                     loading={updating}
                     disabled={updating}
                     onClick={handleCheckOut}
+                    title={
+                      isExpiredCheckOut
+                        ? "Booking đã quá hạn checkout! Vẫn có thể thực hiện nhưng cần tính phí muộn"
+                        : ""
+                    }
                   >
                     Trả phòng (Checkout)
                   </Button>
@@ -1941,11 +1980,11 @@ const BookingDetail = () => {
                           ?.filter(
                             (item: any) =>
                               item.status !== "cancelled" &&
-                              item.status !== "checked_out" // Optional: avoid double checkout if handled elsewhere
+                              item.status !== "checked_out", // Optional: avoid double checkout if handled elsewhere
                           )
                           .map((item: any) => {
                             const room = rooms.find(
-                              (r) => r.id === item.room_id
+                              (r) => r.id === item.room_id,
                             );
                             if (!room) return null;
                             return (
@@ -1973,7 +2012,7 @@ const BookingDetail = () => {
                               (report, reportIndex) =>
                                 reportIndex !== idx &&
                                 report.roomId === r.roomId &&
-                                String(report.deviceId) === String(d.id)
+                                String(report.deviceId) === String(d.id),
                             );
                             const isWorking = d.status === "working";
                             return !isSelectedInOtherRow && isWorking;
@@ -2026,7 +2065,7 @@ const BookingDetail = () => {
                                     quantity: 1,
                                     status: "broken",
                                   },
-                                ]
+                                ],
                           );
                         }}
                       >
@@ -2075,15 +2114,15 @@ const BookingDetail = () => {
                     >
                       {(() => {
                         const totalRoomPrice = Number(
-                          booking.total_room_price || 0
+                          booking.total_room_price || 0,
                         );
                         const totalServicePrice = Number(
-                          booking.total_service_price || 0
+                          booking.total_service_price || 0,
                         );
                         const totalIncidentPrice = incidents.reduce(
                           (sum: number, i: { amount: any }) =>
                             sum + Number(i.amount || 0),
-                          0
+                          0,
                         );
                         const finalTotal =
                           totalRoomPrice +
@@ -2274,7 +2313,7 @@ const BookingDetail = () => {
                                     | undefined;
                                   amount: string | number;
                                 },
-                                idx: any
+                                idx: any,
                               ) => (
                                 <tr key={`inc-${idx}`}>
                                   <td
@@ -2296,7 +2335,7 @@ const BookingDetail = () => {
                                     {formatPrice(inc.amount)}
                                   </td>
                                 </tr>
-                              )
+                              ),
                             )}
                             <tr>
                               <td
@@ -2319,8 +2358,8 @@ const BookingDetail = () => {
                                   incidents.reduce(
                                     (sum: number, i: { amount: any }) =>
                                       sum + Number(i.amount || 0),
-                                    0
-                                  )
+                                    0,
+                                  ),
                                 )}
                               </td>
                             </tr>
@@ -2351,8 +2390,8 @@ const BookingDetail = () => {
                                 incidents.reduce(
                                   (sum: number, i: { amount: any }) =>
                                     sum + Number(i.amount || 0),
-                                  0
-                                )
+                                  0,
+                                ),
                             )}
                           </td>
                         </tr>
@@ -2378,7 +2417,7 @@ const BookingDetail = () => {
                                   paid = Number(booking.total_room_price || 0);
                                 }
                                 return paid;
-                              })()
+                              })(),
                             )}
                           </td>
                         </tr>
@@ -2387,15 +2426,15 @@ const BookingDetail = () => {
 
                     {(() => {
                       const totalRoomPrice = Number(
-                        booking.total_room_price || 0
+                        booking.total_room_price || 0,
                       );
                       const totalServicePrice = Number(
-                        booking.total_service_price || 0
+                        booking.total_service_price || 0,
                       );
                       const totalIncidentPrice = incidents.reduce(
                         (sum: number, i: { amount: any }) =>
                           sum + Number(i.amount || 0),
-                        0
+                        0,
                       );
                       const finalTotal =
                         totalRoomPrice + totalServicePrice + totalIncidentPrice;
@@ -2521,7 +2560,7 @@ const BookingDetail = () => {
                   Thành tiền:{" "}
                   {formatPrice(
                     (pendingService.servicePrice || 0) *
-                      (pendingService.quantity || 1)
+                      (pendingService.quantity || 1),
                   )}
                 </Text>
               </div>
