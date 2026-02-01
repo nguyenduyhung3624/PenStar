@@ -172,9 +172,12 @@ const HomePage = () => {
                   >
                     {roomType.name}
                   </h3>
-                  <p className="text-gray-500 text-sm mb-4 line-clamp-2 flex-1">
-                    {roomType.description?.replace(/<[^>]+>/g, "")}
-                  </p>
+                  <div
+                    className="text-gray-500 text-sm mb-4 line-clamp-2 flex-1"
+                    dangerouslySetInnerHTML={{
+                      __html: roomType.description || "",
+                    }}
+                  />
                   <div className="flex items-end justify-between mt-auto">
                     <div>
                       <div className="text-xs text-gray-400">Giá chỉ từ</div>
@@ -236,9 +239,10 @@ const HomePage = () => {
                 <h4 className="font-bold text-gray-800 mb-1 group-hover:text-yellow-600 transition-colors">
                   {service.name}
                 </h4>
-                <p className="text-xs text-gray-500 line-clamp-2 mb-2">
-                  {service.description}
-                </p>
+                <div
+                  className="text-xs text-gray-500 line-clamp-2 mb-2"
+                  dangerouslySetInnerHTML={{ __html: service.description }}
+                />
                 <div className="text-yellow-600 font-semibold text-sm">
                   {formatPrice(service.price)}
                   {service.unit && (
@@ -399,9 +403,12 @@ const HomePage = () => {
               </Descriptions>
               <div className="mt-4">
                 <h4 className="font-bold text-gray-800 mb-2">Mô tả:</h4>
-                <p className="text-gray-600 text-sm leading-relaxed">
-                  {selectedRoom.description}
-                </p>
+                <div
+                  className="text-gray-600 text-sm leading-relaxed"
+                  dangerouslySetInnerHTML={{
+                    __html: selectedRoom.description || "",
+                  }}
+                />
               </div>
             </div>
           </div>
